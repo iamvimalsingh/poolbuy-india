@@ -1,5 +1,8 @@
 // Comprehensive Staging E2E Verification & Persistence Test
 import { execSync } from 'node:child_process';
+import dns from 'node:dns';
+
+dns.setDefaultResultOrder('ipv4first');
 
 const BASE = 'https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev';
 
