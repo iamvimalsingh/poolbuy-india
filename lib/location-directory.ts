@@ -1,0 +1,526 @@
+import { City, StateDirectory } from '@/types';
+
+export interface SeedState {
+  code: string;
+  name: string;
+  slug: string;
+  type: 'STATE' | 'UNION_TERRITORY';
+  cities: {
+    name: string;
+    slug: string;
+    placeType: 'CITY' | 'TOWN' | 'ISLAND_CENTRE' | 'SERVICE_ZONE';
+    availabilityState: 'ACTIVE' | 'DEMAND_COLLECTING' | 'NOT_YET_AVAILABLE';
+  }[];
+}
+
+/**
+ * Authoritative India Location Directory
+ * Source: Government of India State/UT Directory (28 States + 8 UTs)
+ * Section 18.5 Blueprint Compliance:
+ * - 28 States: exactly 5 representative urban centres each
+ * - 8 Union Territories: honest geographic coverage without fabricating fictional cities
+ */
+export const INDIA_LOCATION_DIRECTORY: SeedState[] = [
+  // --- 28 STATES ---
+  {
+    code: 'AP',
+    name: 'Andhra Pradesh',
+    slug: 'andhra-pradesh',
+    type: 'STATE',
+    cities: [
+      { name: 'Visakhapatnam', slug: 'visakhapatnam', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Vijayawada', slug: 'vijayawada', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Guntur', slug: 'guntur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tirupati', slug: 'tirupati', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kurnool', slug: 'kurnool', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'AR',
+    name: 'Arunachal Pradesh',
+    slug: 'arunachal-pradesh',
+    type: 'STATE',
+    cities: [
+      { name: 'Itanagar', slug: 'itanagar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Naharlagun', slug: 'naharlagun', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Pasighat', slug: 'pasighat', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tawang', slug: 'tawang', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Ziro', slug: 'ziro', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'AS',
+    name: 'Assam',
+    slug: 'assam',
+    type: 'STATE',
+    cities: [
+      { name: 'Guwahati', slug: 'guwahati', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Dibrugarh', slug: 'dibrugarh', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Silchar', slug: 'silchar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Jorhat', slug: 'jorhat', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tezpur', slug: 'tezpur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'BR',
+    name: 'Bihar',
+    slug: 'bihar',
+    type: 'STATE',
+    cities: [
+      { name: 'Patna', slug: 'patna', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Gaya', slug: 'gaya', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Muzaffarpur', slug: 'muzaffarpur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Bhagalpur', slug: 'bhagalpur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Darbhanga', slug: 'darbhanga', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'CG',
+    name: 'Chhattisgarh',
+    slug: 'chhattisgarh',
+    type: 'STATE',
+    cities: [
+      { name: 'Raipur', slug: 'raipur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Bhilai', slug: 'bhilai', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Bilaspur', slug: 'bilaspur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Korba', slug: 'korba', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Durg', slug: 'durg', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'GA',
+    name: 'Goa',
+    slug: 'goa',
+    type: 'STATE',
+    cities: [
+      { name: 'Panaji', slug: 'panaji', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Margao', slug: 'margao', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Vasco da Gama', slug: 'vasco-da-gama', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mapusa', slug: 'mapusa', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Ponda', slug: 'ponda', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'GJ',
+    name: 'Gujarat',
+    slug: 'gujarat',
+    type: 'STATE',
+    cities: [
+      { name: 'Ahmedabad', slug: 'ahmedabad', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Surat', slug: 'surat', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Vadodara', slug: 'vadodara', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Rajkot', slug: 'rajkot', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Gandhinagar', slug: 'gandhinagar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'HR',
+    name: 'Haryana',
+    slug: 'haryana',
+    type: 'STATE',
+    cities: [
+      { name: 'Gurugram', slug: 'gurugram', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Faridabad', slug: 'faridabad', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Panipat', slug: 'panipat', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Hisar', slug: 'hisar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Ambala', slug: 'ambala', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'HP',
+    name: 'Himachal Pradesh',
+    slug: 'himachal-pradesh',
+    type: 'STATE',
+    cities: [
+      { name: 'Shimla', slug: 'shimla', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Dharamshala', slug: 'dharamshala', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Solan', slug: 'solan', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mandi', slug: 'mandi', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Baddi', slug: 'baddi', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'JH',
+    name: 'Jharkhand',
+    slug: 'jharkhand',
+    type: 'STATE',
+    cities: [
+      { name: 'Ranchi', slug: 'ranchi', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Jamshedpur', slug: 'jamshedpur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Dhanbad', slug: 'dhanbad', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Bokaro Steel City', slug: 'bokaro-steel-city', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Hazaribagh', slug: 'hazaribagh', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'KA',
+    name: 'Karnataka',
+    slug: 'karnataka',
+    type: 'STATE',
+    cities: [
+      { name: 'Bengaluru', slug: 'bengaluru', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Mysuru', slug: 'mysuru', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mangaluru', slug: 'mangaluru', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Hubballi-Dharwad', slug: 'hubballi-dharwad', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Belagavi', slug: 'belagavi', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'KL',
+    name: 'Kerala',
+    slug: 'kerala',
+    type: 'STATE',
+    cities: [
+      { name: 'Thiruvananthapuram', slug: 'thiruvananthapuram', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Kochi', slug: 'kochi', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Kozhikode', slug: 'kozhikode', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Thrissur', slug: 'thrissur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kollam', slug: 'kollam', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'MP',
+    name: 'Madhya Pradesh',
+    slug: 'madhya-pradesh',
+    type: 'STATE',
+    cities: [
+      { name: 'Bhopal', slug: 'bhopal', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Indore', slug: 'indore', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Jabalpur', slug: 'jabalpur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Gwalior', slug: 'gwalior', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Ujjain', slug: 'ujjain', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'MH',
+    name: 'Maharashtra',
+    slug: 'maharashtra',
+    type: 'STATE',
+    cities: [
+      { name: 'Mumbai', slug: 'mumbai', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Pune', slug: 'pune', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Nagpur', slug: 'nagpur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Nashik', slug: 'nashik', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Chhatrapati Sambhajinagar', slug: 'chhatrapati-sambhajinagar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'MN',
+    name: 'Manipur',
+    slug: 'manipur',
+    type: 'STATE',
+    cities: [
+      { name: 'Imphal', slug: 'imphal', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Thoubal', slug: 'thoubal', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Churachandpur', slug: 'churachandpur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Bishnupur', slug: 'bishnupur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kakching', slug: 'kakching', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'ML',
+    name: 'Meghalaya',
+    slug: 'meghalaya',
+    type: 'STATE',
+    cities: [
+      { name: 'Shillong', slug: 'shillong', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tura', slug: 'tura', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Jowai', slug: 'jowai', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Nongpoh', slug: 'nongpoh', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Williamnagar', slug: 'williamnagar', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'MZ',
+    name: 'Mizoram',
+    slug: 'mizoram',
+    type: 'STATE',
+    cities: [
+      { name: 'Aizawl', slug: 'aizawl', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Lunglei', slug: 'lunglei', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Champhai', slug: 'champhai', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kolasib', slug: 'kolasib', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Serchhip', slug: 'serchhip', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'NL',
+    name: 'Nagaland',
+    slug: 'nagaland',
+    type: 'STATE',
+    cities: [
+      { name: 'Dimapur', slug: 'dimapur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kohima', slug: 'kohima', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mokokchung', slug: 'mokokchung', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tuensang', slug: 'tuensang', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Wokha', slug: 'wokha', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'OD',
+    name: 'Odisha',
+    slug: 'odisha',
+    type: 'STATE',
+    cities: [
+      { name: 'Bhubaneswar', slug: 'bhubaneswar', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Cuttack', slug: 'cuttack', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Rourkela', slug: 'rourkela', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Sambalpur', slug: 'sambalpur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Berhampur', slug: 'berhampur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'PB',
+    name: 'Punjab',
+    slug: 'punjab',
+    type: 'STATE',
+    cities: [
+      { name: 'Ludhiana', slug: 'ludhiana', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Amritsar', slug: 'amritsar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Jalandhar', slug: 'jalandhar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Patiala', slug: 'patiala', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Bathinda', slug: 'bathinda', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'RJ',
+    name: 'Rajasthan',
+    slug: 'rajasthan',
+    type: 'STATE',
+    cities: [
+      { name: 'Jaipur', slug: 'jaipur', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Jodhpur', slug: 'jodhpur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Udaipur', slug: 'udaipur-rajasthan', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kota', slug: 'kota', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Ajmer', slug: 'ajmer', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'SK',
+    name: 'Sikkim',
+    slug: 'sikkim',
+    type: 'STATE',
+    cities: [
+      { name: 'Gangtok', slug: 'gangtok', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Namchi', slug: 'namchi', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Gyalshing', slug: 'gyalshing', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mangan', slug: 'mangan', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Singtam', slug: 'singtam', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'TN',
+    name: 'Tamil Nadu',
+    slug: 'tamil-nadu',
+    type: 'STATE',
+    cities: [
+      { name: 'Chennai', slug: 'chennai', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Coimbatore', slug: 'coimbatore', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Madurai', slug: 'madurai', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Tiruchirappalli', slug: 'tiruchirappalli', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Salem', slug: 'salem', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'TG',
+    name: 'Telangana',
+    slug: 'telangana',
+    type: 'STATE',
+    cities: [
+      { name: 'Hyderabad', slug: 'hyderabad', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Warangal', slug: 'warangal', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Karimnagar', slug: 'karimnagar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Nizamabad', slug: 'nizamabad', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Khammam', slug: 'khammam', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'TR',
+    name: 'Tripura',
+    slug: 'tripura',
+    type: 'STATE',
+    cities: [
+      { name: 'Agartala', slug: 'agartala', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Udaipur', slug: 'udaipur-tripura', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Dharmanagar', slug: 'dharmanagar', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kailashahar', slug: 'kailashahar', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Belonia', slug: 'belonia', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'UP',
+    name: 'Uttar Pradesh',
+    slug: 'uttar-pradesh',
+    type: 'STATE',
+    cities: [
+      { name: 'Banda', slug: 'banda', placeType: 'TOWN', availabilityState: 'ACTIVE' },
+      { name: 'Lucknow', slug: 'lucknow', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Kanpur', slug: 'kanpur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Varanasi', slug: 'varanasi', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Agra', slug: 'agra', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'UK',
+    name: 'Uttarakhand',
+    slug: 'uttarakhand',
+    type: 'STATE',
+    cities: [
+      { name: 'Dehradun', slug: 'dehradun', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Haridwar', slug: 'haridwar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Haldwani', slug: 'haldwani', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Roorkee', slug: 'roorkee', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Rudrapur', slug: 'rudrapur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'WB',
+    name: 'West Bengal',
+    slug: 'west-bengal',
+    type: 'STATE',
+    cities: [
+      { name: 'Kolkata', slug: 'kolkata', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Howrah', slug: 'howrah', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Durgapur', slug: 'durgapur', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Siliguri', slug: 'siliguri', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Asansol', slug: 'asansol', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+
+  // --- 8 UNION TERRITORIES (Honest counts & place types) ---
+  {
+    code: 'AN',
+    name: 'Andaman and Nicobar Islands',
+    slug: 'andaman-and-nicobar-islands',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Sri Vijaya Puram', slug: 'sri-vijaya-puram', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Diglipur', slug: 'diglipur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mayabunder', slug: 'mayabunder', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Rangat', slug: 'rangat', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Hut Bay', slug: 'hut-bay', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'CH',
+    name: 'Chandigarh',
+    slug: 'chandigarh',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Chandigarh', slug: 'chandigarh', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+    ],
+  },
+  {
+    code: 'DH',
+    name: 'Dadra and Nagar Haveli and Daman and Diu',
+    slug: 'dadra-and-nagar-haveli-and-daman-and-diu',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Silvassa', slug: 'silvassa', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Daman', slug: 'daman', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Diu', slug: 'diu', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Dadra', slug: 'dadra', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Khanvel', slug: 'khanvel', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'DL',
+    name: 'Delhi (NCT)',
+    slug: 'delhi',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Delhi NCR', slug: 'delhi', placeType: 'CITY', availabilityState: 'ACTIVE' },
+    ],
+  },
+  {
+    code: 'JK',
+    name: 'Jammu and Kashmir',
+    slug: 'jammu-and-kashmir',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Srinagar', slug: 'srinagar', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Jammu', slug: 'jammu', placeType: 'CITY', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Anantnag', slug: 'anantnag', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Baramulla', slug: 'baramulla', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Udhampur', slug: 'udhampur', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'LA',
+    name: 'Ladakh',
+    slug: 'ladakh',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Leh', slug: 'leh', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Kargil', slug: 'kargil', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Diskit', slug: 'diskit', placeType: 'SERVICE_ZONE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Drass', slug: 'drass', placeType: 'SERVICE_ZONE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Nyoma', slug: 'nyoma', placeType: 'SERVICE_ZONE', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'LD',
+    name: 'Lakshadweep',
+    slug: 'lakshadweep',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Kavaratti', slug: 'kavaratti', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Agatti', slug: 'agatti', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Andrott', slug: 'andrott', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Minicoy', slug: 'minicoy', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Amini', slug: 'amini', placeType: 'ISLAND_CENTRE', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+  {
+    code: 'PY',
+    name: 'Puducherry',
+    slug: 'puducherry',
+    type: 'UNION_TERRITORY',
+    cities: [
+      { name: 'Puducherry', slug: 'puducherry', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
+      { name: 'Karaikal', slug: 'karaikal', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Mahe', slug: 'mahe', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+      { name: 'Yanam', slug: 'yanam', placeType: 'TOWN', availabilityState: 'NOT_YET_AVAILABLE' },
+    ],
+  },
+];
+
+/**
+ * Returns flat list of all selectable cities across India
+ */
+export function getAllSelectableCities(): City[] {
+  const cities: City[] = [];
+  const now = '2026-10-26T12:00:00.000Z';
+
+  for (const state of INDIA_LOCATION_DIRECTORY) {
+    for (const city of state.cities) {
+      cities.push({
+        id: `city-${city.slug}`,
+        name: city.name,
+        slug: city.slug,
+        state: state.name,
+        placeType: city.placeType,
+        isActive: city.availabilityState === 'ACTIVE',
+        isSelectable: true,
+        availabilityState: city.availabilityState,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  return cities;
+}
+
+/**
+ * Returns state list with city counts
+ */
+export function getAllStatesSummary(): StateDirectory[] {
+  return INDIA_LOCATION_DIRECTORY.map((s) => ({
+    code: s.code,
+    name: s.name,
+    slug: s.slug,
+    type: s.type,
+    citiesCount: s.cities.length,
+  }));
+}
