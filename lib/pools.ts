@@ -26,6 +26,13 @@ interface SupabasePoolRow {
   price_verified_at: string | null;
   created_at: string;
   updated_at: string;
+  is_published?: boolean;
+  market_price_type?: string;
+  group_price_type?: string;
+  target_reached_at?: string | null;
+  connection_status?: string;
+  savings_display_approved?: boolean;
+  source_request_id?: string | null;
 }
 
 function mapRowToPublicPool(row: SupabasePoolRow): PublicPool {
@@ -51,6 +58,13 @@ function mapRowToPublicPool(row: SupabasePoolRow): PublicPool {
     priceVerifiedAt: row.price_verified_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isPublished: row.is_published !== false,
+    marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as PublicPool['marketPriceType'],
+    groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as PublicPool['groupPriceType'],
+    targetReachedAt: row.target_reached_at || null,
+    connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as PublicPool['connectionStatus'],
+    savingsDisplayApproved: Boolean(row.savings_display_approved),
+    sourceRequestId: row.source_request_id || null,
   };
 }
 
@@ -87,7 +101,7 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
   if (isDemoMode()) {
     const now = getNowMs();
     let result = MOCK_POOLS.filter((p) => {
-      if (p.deletedAt || p.isArchived) return false;
+      if (p.deletedAt || p.isArchived || p.isPublished === false) return false;
       // Authoritative eligibility rule: CLOSED pools never appear in active public opportunities
       if (p.status === 'CLOSED') return false;
       // Past-deadline ACTIVE pools are immediately excluded from active listings
@@ -187,7 +201,12 @@ export async function getPublicPoolBySlug(
 ): Promise<PublicPool | null> {
   if (isDemoMode()) {
     const found = MOCK_POOLS.find(
-      (p) => p.citySlug === citySlug && p.slug === poolSlug && !p.deletedAt && !p.isArchived
+      (p) =>
+        p.citySlug === citySlug &&
+        p.slug === poolSlug &&
+        !p.deletedAt &&
+        !p.isArchived &&
+        p.isPublished !== false
     );
     return found || null;
   }
@@ -216,7 +235,9 @@ export async function getPublicPoolBySlug(
  */
 export async function getPublicPoolById(id: string): Promise<PublicPool | null> {
   if (isDemoMode()) {
-    const found = MOCK_POOLS.find((p) => p.id === id && !p.deletedAt && !p.isArchived);
+    const found = MOCK_POOLS.find(
+      (p) => p.id === id && !p.deletedAt && !p.isArchived && p.isPublished !== false
+    );
     return found || null;
   }
 

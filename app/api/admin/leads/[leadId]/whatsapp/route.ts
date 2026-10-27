@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/data-mode';
+import { DEMO_LEADS, MOCK_ADMIN_POOLS } from '@/lib/mock-data';
 import {
   buildWhatsAppDirectUrl,
   buildUnlockedPoolMessage,
   buildLeadFallbackMessage,
   buildQuoteFollowupMessage,
+  buildTargetReachedMessage,
 } from '@/lib/whatsapp';
 import { AdminPool } from '@/types';
 import { z } from 'zod';
@@ -15,9 +17,18 @@ type RouteContext = {
   params: Promise<{ leadId: string }>;
 };
 
-const whatsappRequestSchema = z.object({
-  templateType: z.enum(['UNLOCKED_TOKEN', 'LEAD_FALLBACK', 'QUOTE_FOLLOWUP']),
-});
+const whatsappRequestSchema = z
+  .object({
+    templateType: z
+      .enum(['UNLOCKED_TOKEN', 'LEAD_FALLBACK', 'QUOTE_FOLLOWUP', 'TARGET_REACHED_INVITATION'])
+      .optional(),
+    template: z
+      .enum(['UNLOCKED_TOKEN', 'LEAD_FALLBACK', 'QUOTE_FOLLOWUP', 'TARGET_REACHED_INVITATION'])
+      .optional(),
+  })
+  .refine((data) => data.templateType || data.template, {
+    message: 'Template selection is required.',
+  });
 
 export async function POST(
   request: NextRequest,
@@ -37,14 +48,15 @@ export async function POST(
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: 'Invalid template selection. Choose UNLOCKED_TOKEN, LEAD_FALLBACK, or QUOTE_FOLLOWUP.',
+            message:
+              'Invalid template selection. Choose UNLOCKED_TOKEN, LEAD_FALLBACK, QUOTE_FOLLOWUP, or TARGET_REACHED_INVITATION.',
           },
         },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    const { templateType } = parsed.data;
+    const templateType = (parsed.data.templateType || parsed.data.template)!;
 
     let buyerName = 'Valued Buyer';
     let buyerPhone = '9876543210';
@@ -52,7 +64,34 @@ export async function POST(
     let cityName = 'Bhopal';
     let pool: AdminPool | null = null;
 
-    if (!isDemoMode()) {
+    if (isDemoMode()) {
+      const demoLead = DEMO_LEADS.find((l) => l.id === leadId);
+      if (!demoLead) {
+        return NextResponse.json(
+          { success: false, error: { code: 'LEAD_NOT_FOUND', message: 'Lead not found in demo records.' } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (demoLead.doNotContact || demoLead.status === 'DO_NOT_CONTACT') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CONTACT_OPTED_OUT',
+              message: 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
+            },
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      buyerName = demoLead.fullName;
+      buyerPhone = demoLead.whatsappNumber;
+      cityName = demoLead.city;
+      poolName = demoLead.poolName;
+      pool = MOCK_ADMIN_POOLS.find((p) => p.id === demoLead.poolId) || null;
+    } else {
       const supabase = getAdminSupabase();
 
       // Fetch lead and associated pool
@@ -64,6 +103,8 @@ export async function POST(
           whatsapp_number,
           city,
           pool_id,
+          status,
+          do_not_contact,
           pools (*)
         `)
         .eq('id', leadId)
@@ -73,6 +114,19 @@ export async function POST(
         return NextResponse.json(
           { success: false, error: { code: 'LEAD_NOT_FOUND', message: 'Lead not found.' } },
           { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (leadData.do_not_contact || leadData.status === 'DO_NOT_CONTACT') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CONTACT_OPTED_OUT',
+              message: 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
+            },
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } }
         );
       }
 
@@ -143,6 +197,8 @@ export async function POST(
       }
     } else if (templateType === 'LEAD_FALLBACK') {
       messageText = buildLeadFallbackMessage(buyerName, poolName, cityName, pool?.dealerName || undefined);
+    } else if (templateType === 'TARGET_REACHED_INVITATION') {
+      messageText = buildTargetReachedMessage(buyerName, poolName, cityName, pool?.targetBuyers || 10);
     } else {
       // QUOTE_FOLLOWUP
       messageText = buildQuoteFollowupMessage(buyerName, poolName, cityName);
@@ -156,6 +212,9 @@ export async function POST(
         data: {
           whatsappUrl,
           messageText,
+          recipientPhone: buyerPhone,
+          clickToChatNotice:
+            'Click-to-chat opens WhatsApp on your device. Review the message and press Send manually. Antigravity/GroupBuying never sends automated background messages.',
         },
       },
       { headers: { 'Cache-Control': 'no-store' } }

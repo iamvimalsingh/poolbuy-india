@@ -148,16 +148,16 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
               {!pool.priceIsVerified ? (
                 <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60 font-medium inline-flex items-center gap-1">
                   <Info className="w-2.5 h-2.5 text-amber-600 shrink-0" aria-hidden="true" />
-                  <span>Demo data — not a live dealer offer</span>
+                  <span>Indicative estimate — final price may differ</span>
                 </span>
               ) : (
                 <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold inline-flex items-center gap-1">
                   <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" aria-hidden="true" />
-                  <span>Verified Dealer Quote</span>
+                  <span>Verified Vendor Quotation</span>
                 </span>
               )}
 
-              {hasSavings && (
+              {Boolean(pool.priceIsVerified && pool.savingsDisplayApproved && hasSavings) && (
                 <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-100 shrink-0">
                   Save ~{formatINR(savingsAmount)}
                 </span>

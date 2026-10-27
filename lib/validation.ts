@@ -42,6 +42,40 @@ export const poolRequestStatusEnum = z.enum([
   'REVIEWING',
   'APPROVED',
   'REJECTED',
+  'NEEDS_INFO',
+]);
+
+export const marketPriceTypeEnum = z.enum([
+  'UNKNOWN',
+  'INDICATIVE_ESTIMATE',
+  'SOURCED_REFERENCE',
+  'VERIFIED_COMPARABLE',
+]);
+
+export const groupPriceTypeEnum = z.enum([
+  'UNKNOWN',
+  'INDICATIVE_ESTIMATE',
+  'VENDOR_QUOTED',
+  'VENDOR_VERIFIED',
+  'EXPIRED_WITHDRAWN',
+]);
+
+export const connectionStatusEnum = z.enum([
+  'NOT_ELIGIBLE',
+  'ADMIN_REVIEW_PENDING',
+  'TERMS_PENDING',
+  'PAYMENT_LINK_CONFIGURED',
+  'PAYMENT_PENDING',
+  'READY_TO_CONNECT',
+  'COMPLETED',
+  'CANCELLED',
+]);
+
+export const paymentConfigStateEnum = z.enum([
+  'DISABLED',
+  'MANUAL_NO_CHARGE',
+  'EXTERNAL_LINK_CONFIGURED',
+  'RECONCILED',
 ]);
 
 /**
@@ -64,8 +98,9 @@ export const joinPoolSchema = z
       .string()
       .trim()
       .min(2, { message: 'City must be at least 2 characters.' })
-      .max(80, { message: 'City must not exceed 80 characters.' }),
-    buyingTimeline: buyingTimelineEnum,
+      .max(80, { message: 'City must not exceed 80 characters.' })
+      .optional(),
+    buyingTimeline: buyingTimelineEnum.optional().default('THIS_MONTH'),
     hasExistingQuote: z.boolean().default(false),
     existingQuoteAmount: z
       .number()
@@ -78,6 +113,10 @@ export const joinPoolSchema = z
       .max(1000, { message: 'Note must not exceed 1,000 characters.' })
       .default(''),
     selectedKitOfferId: z.string().trim().max(100).optional(),
+    connectionOptIn: z.boolean().default(false),
+    vendorShareConsent: z.boolean().default(false),
+    locality: z.string().trim().max(100).optional(),
+    pinCode: z.string().trim().max(10).optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.hasExistingQuote && data.existingQuoteAmount !== null && data.existingQuoteAmount !== undefined) {
@@ -92,7 +131,7 @@ export const joinPoolSchema = z
 export type JoinPoolSchemaInput = z.infer<typeof joinPoolSchema>;
 
 /**
- * Validation schema for Demand Discovery pool requests
+ * Validation schema for Demand Discovery pool requests & group proposals
  */
 export const poolRequestSchema = z.object({
   productName: z
@@ -109,6 +148,14 @@ export const poolRequestSchema = z.object({
     .trim()
     .min(2, { message: 'City must be at least 2 characters.' })
     .max(80, { message: 'City must not exceed 80 characters.' }),
+  state: z.string().trim().max(80).optional(),
+  locality: z.string().trim().max(100).optional(),
+  pinCode: z.string().trim().max(10).optional(),
+  requirementsSummary: z.string().trim().max(1000).optional(),
+  targetBuyersRequested: z.number().int().min(2).max(10000).optional(),
+  requestedDeadline: z.string().optional(),
+  contactConsent: z.boolean().default(true),
+  requestType: z.enum(['GROUP_PROPOSAL', 'PRODUCT_SUGGESTION']).default('GROUP_PROPOSAL'),
   fullName: z
     .string()
     .trim()

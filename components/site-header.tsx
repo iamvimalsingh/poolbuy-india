@@ -11,8 +11,8 @@ export function SiteHeader() {
           {/* Logo & Brand */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-gray-900 group transition-transform active:scale-95"
-            aria-label="GroupBuying.store Home"
+            className="flex items-center gap-2.5 text-gray-900 group transition-transform active:scale-98"
+            aria-label="GroupBuying Home"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all">
               <Users2 className="w-5 h-5" aria-hidden="true" />
@@ -20,14 +20,14 @@ export function SiteHeader() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-lg tracking-tight text-gray-950 font-sans">
-                  GroupBuying<span className="text-emerald-600">.store</span>
+                  GroupBuying<span className="text-gray-400 font-normal text-xs ml-0.5">.store</span>
                 </span>
                 <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.5 rounded-full tracking-wider hidden sm:inline-block">
                   PoolBuy India
                 </span>
               </div>
               <p className="text-[11px] text-gray-500 hidden sm:block -mt-0.5">
-                Solar, Power &amp; Home Group Buying
+                Community-Led Local Group Buying
               </p>
             </div>
           </Link>
@@ -38,7 +38,7 @@ export function SiteHeader() {
               href="/#pools"
               className="hover:text-emerald-600 transition-colors py-1"
             >
-              Active Group Deals
+              Explore Groups
             </Link>
             <Link
               href="/#how-it-works"
@@ -54,10 +54,10 @@ export function SiteHeader() {
             </Link>
             <Link
               href="/#request-pool"
-              className="hover:text-emerald-600 transition-colors py-1 flex items-center gap-1 text-gray-800"
+              className="hover:text-emerald-600 transition-colors py-1 flex items-center gap-1 text-gray-900 font-semibold"
             >
               <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-              Request a Product
+              Start a Group Buy
             </Link>
           </nav>
 

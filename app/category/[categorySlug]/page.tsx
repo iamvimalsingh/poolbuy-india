@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { CATEGORIES, CATEGORY_SLUG_MAP, CITIES } from '@/lib/constants';
 import { getPublicPools } from '@/lib/pools';
 import { getOperationalCategories, getCategoryBySlug } from '@/lib/categories';
@@ -54,6 +55,7 @@ async function resolveCategoryInfo(slug: string) {
 }
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
+  await connection();
   const { categorySlug } = await params;
   const info = await resolveCategoryInfo(categorySlug);
   if (!info) {
@@ -102,6 +104,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
+  await connection();
   const { categorySlug } = await params;
   const info = await resolveCategoryInfo(categorySlug);
 

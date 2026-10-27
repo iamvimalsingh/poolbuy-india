@@ -846,17 +846,43 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
       targetBuyers: pool.targetBuyers,
       remainingBuyers: Math.max(0, pool.targetBuyers - pool.currentBuyers),
       alreadyJoined: true,
+      isDuplicate: true,
       poolStatus: pool.status,
     };
+  }
+
+  // Check if target is already reached to prevent over-joining
+  if (pool.currentBuyers >= pool.targetBuyers) {
+    if (!pool.targetReachedAt) {
+      pool.targetReachedAt = new Date().toISOString();
+      pool.connectionStatus = 'ADMIN_REVIEW_PENDING';
+      if (adminPool) {
+        adminPool.targetReachedAt = pool.targetReachedAt;
+        adminPool.connectionStatus = 'ADMIN_REVIEW_PENDING';
+      }
+    }
+    throw new Error('TARGET_REACHED');
   }
 
   // Increment counter on both public and admin in-memory representations
   const nextCount = pool.currentBuyers + 1;
   pool.currentBuyers = nextCount;
   pool.updatedAt = new Date().toISOString();
+  const isTargetNowReached = nextCount >= pool.targetBuyers;
+  if (isTargetNowReached && !pool.targetReachedAt) {
+    pool.targetReachedAt = new Date().toISOString();
+    pool.connectionStatus = 'ADMIN_REVIEW_PENDING';
+    pool.status = 'UNLOCKED';
+  }
+
   if (adminPool) {
     adminPool.currentBuyers = nextCount;
     adminPool.updatedAt = pool.updatedAt;
+    if (isTargetNowReached && !adminPool.targetReachedAt) {
+      adminPool.targetReachedAt = pool.targetReachedAt;
+      adminPool.connectionStatus = 'ADMIN_REVIEW_PENDING';
+      adminPool.status = 'UNLOCKED';
+    }
   }
 
   // Kit-specific demand tracking
@@ -887,9 +913,9 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     buyerNumber: nextCount,
     fullName: input.fullName.trim(),
     whatsappNumber: input.whatsappNumber.trim(),
-    city: input.city.trim(),
-    buyingTimeline: input.buyingTimeline,
-    hasExistingQuote: input.hasExistingQuote,
+    city: input.city ? input.city.trim() : pool.city,
+    buyingTimeline: input.buyingTimeline || 'THIS_MONTH',
+    hasExistingQuote: Boolean(input.hasExistingQuote),
     existingQuoteAmount: input.existingQuoteAmount ?? null,
     extraMessage: input.extraMessage || '',
     selectedKitOfferId: input.selectedKitOfferId || null,
@@ -898,6 +924,13 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     consentAt: new Date().toISOString(),
     privacyNoticeVersion: '2026-10-26-v1',
     createdAt: new Date().toISOString(),
+    connectionOptIn: Boolean(input.connectionOptIn),
+    vendorShareConsent: Boolean(input.vendorShareConsent),
+    locality: input.locality || null,
+    pinCode: input.pinCode || null,
+    adminNotes: '',
+    doNotContact: false,
+    contactPreference: 'WHATSAPP',
   };
 
   DEMO_LEADS.unshift(newLead);
@@ -909,9 +942,12 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     targetBuyers: pool.targetBuyers,
     remainingBuyers: Math.max(0, pool.targetBuyers - nextCount),
     alreadyJoined: false,
+    isDuplicate: false,
     poolStatus: pool.status,
     selectedKitCurrentBuyers,
     selectedKitTargetBuyers,
+    targetReached: isTargetNowReached,
+    isDemo: true,
   };
 }
 
@@ -958,6 +994,13 @@ export function addDemoPool(adminPool: AdminPool): void {
     priceTiers: adminPool.priceTiers,
     createdAt: adminPool.createdAt,
     updatedAt: adminPool.updatedAt,
+    isPublished: adminPool.isPublished !== false,
+    marketPriceType: adminPool.marketPriceType || 'INDICATIVE_ESTIMATE',
+    groupPriceType: adminPool.groupPriceType || 'INDICATIVE_ESTIMATE',
+    targetReachedAt: adminPool.targetReachedAt || null,
+    connectionStatus: adminPool.connectionStatus || 'NOT_ELIGIBLE',
+    savingsDisplayApproved: Boolean(adminPool.savingsDisplayApproved),
+    sourceRequestId: adminPool.sourceRequestId || null,
   };
 
   MOCK_POOLS.unshift(publicPool);
@@ -1007,6 +1050,13 @@ export function updateDemoPool(poolId: string, updates: Partial<AdminPool>): Adm
       ...(updates.priceVerifiedAt !== undefined && { priceVerifiedAt: updates.priceVerifiedAt }),
       ...(updates.kitOffers !== undefined && { kitOffers: updates.kitOffers }),
       ...(updates.priceTiers !== undefined && { priceTiers: updates.priceTiers }),
+      ...(updates.isPublished !== undefined && { isPublished: updates.isPublished }),
+      ...(updates.marketPriceType !== undefined && { marketPriceType: updates.marketPriceType }),
+      ...(updates.groupPriceType !== undefined && { groupPriceType: updates.groupPriceType }),
+      ...(updates.targetReachedAt !== undefined && { targetReachedAt: updates.targetReachedAt }),
+      ...(updates.connectionStatus !== undefined && { connectionStatus: updates.connectionStatus }),
+      ...(updates.savingsDisplayApproved !== undefined && { savingsDisplayApproved: updates.savingsDisplayApproved }),
+      ...(updates.sourceRequestId !== undefined && { sourceRequestId: updates.sourceRequestId }),
       updatedAt: updatedAdmin.updatedAt,
     };
   }
@@ -1029,11 +1079,12 @@ export function deleteDemoPool(
   }
 
   const leads = DEMO_LEADS.filter((l) => l.poolId === poolId);
+  const requests = (g.__poolbuy_requests || []).filter((r) => r.resultingPoolId === poolId);
 
   if (options?.hardDelete) {
-    if (leads.length > 0) {
+    if (leads.length > 0 || requests.length > 0) {
       throw new Error(
-        `CANNOT_HARD_DELETE_POOL_WITH_LEADS: Pool has ${leads.length} recorded leads. Use soft-delete / archive instead.`
+        `CANNOT_HARD_DELETE_POOL_WITH_DEPENDENCIES: Pool has ${leads.length} recorded leads and ${requests.length} linked proposal requests. Use soft-delete / archive instead.`
       );
     }
     // Hard delete: remove from both arrays
@@ -1054,6 +1105,7 @@ export function deleteDemoPool(
     closureReason: 'MANUAL_CLOSE',
     closedAt: current.closedAt || now,
     deletedAt: now,
+    isPublished: false,
     updatedAt: now,
   };
   MOCK_ADMIN_POOLS[adminIndex] = updatedAdmin;

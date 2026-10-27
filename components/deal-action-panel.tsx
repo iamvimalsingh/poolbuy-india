@@ -55,7 +55,7 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
               </span>
             ) : (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                ⚠ Indicative Estimate — Subject to Final Confirmation
+                ⚠ Indicative estimate — final price may differ
               </span>
             )}
           </div>

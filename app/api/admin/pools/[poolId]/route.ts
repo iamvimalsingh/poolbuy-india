@@ -6,8 +6,17 @@ import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, updateDemoPool, deleteDemoPool } from '@/lib/mock-data';
 import { AdminPool, PoolClosureReason } from '@/types';
 import { z } from 'zod';
-import { poolCategoryEnum, poolStatusEnum, isValidHttpsUrl } from '@/lib/validation';
+import {
+  poolCategoryEnum,
+  poolStatusEnum,
+  isValidHttpsUrl,
+  marketPriceTypeEnum,
+  groupPriceTypeEnum,
+  connectionStatusEnum,
+  paymentConfigStateEnum,
+} from '@/lib/validation';
 import { slugify } from '@/lib/format';
+import { recordAdminAudit } from '@/lib/audit';
 
 type RouteContext = {
   params: Promise<{ poolId: string }>;
@@ -48,6 +57,19 @@ const updatePoolSchema = z.object({
   tokenPaymentUrl: z.string().nullable().optional(),
   dealerOfferUrl: z.string().nullable().optional(),
   dealerTerms: z.string().trim().max(5000).nullable().optional(),
+  isPublished: z.boolean().optional(),
+  marketPriceType: marketPriceTypeEnum.optional(),
+  groupPriceType: groupPriceTypeEnum.optional(),
+  savingsDisplayApproved: z.boolean().optional(),
+  quoteSource: z.string().trim().max(180).nullable().optional(),
+  quoteDate: z.string().nullable().optional(),
+  quoteValidUntil: z.string().nullable().optional(),
+  quoteScope: z.string().trim().max(1000).nullable().optional(),
+  quotePrivateNotes: z.string().trim().max(5000).nullable().optional(),
+  connectionStatus: connectionStatusEnum.optional(),
+  paymentConfigState: paymentConfigStateEnum.optional(),
+  connectionNotes: z.string().trim().max(5000).nullable().optional(),
+  targetReachedAcknowledgedAt: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -264,6 +286,19 @@ export async function PATCH(
     if (updates.tokenPaymentUrl !== undefined) dbPayload.token_payment_url = updates.tokenPaymentUrl;
     if (updates.dealerOfferUrl !== undefined) dbPayload.dealer_offer_url = updates.dealerOfferUrl;
     if (updates.dealerTerms !== undefined) dbPayload.dealer_terms = updates.dealerTerms;
+    if (updates.isPublished !== undefined) dbPayload.is_published = updates.isPublished;
+    if (updates.marketPriceType !== undefined) dbPayload.market_price_type = updates.marketPriceType;
+    if (updates.groupPriceType !== undefined) dbPayload.group_price_type = updates.groupPriceType;
+    if (updates.savingsDisplayApproved !== undefined) dbPayload.savings_display_approved = updates.savingsDisplayApproved;
+    if (updates.quoteSource !== undefined) dbPayload.quote_source = updates.quoteSource;
+    if (updates.quoteDate !== undefined) dbPayload.quote_date = updates.quoteDate;
+    if (updates.quoteValidUntil !== undefined) dbPayload.quote_valid_until = updates.quoteValidUntil;
+    if (updates.quoteScope !== undefined) dbPayload.quote_scope = updates.quoteScope;
+    if (updates.quotePrivateNotes !== undefined) dbPayload.quote_private_notes = updates.quotePrivateNotes;
+    if (updates.connectionStatus !== undefined) dbPayload.connection_status = updates.connectionStatus;
+    if (updates.paymentConfigState !== undefined) dbPayload.payment_config_state = updates.paymentConfigState;
+    if (updates.connectionNotes !== undefined) dbPayload.connection_notes = updates.connectionNotes;
+    if (updates.targetReachedAcknowledgedAt !== undefined) dbPayload.target_reached_acknowledged_at = updates.targetReachedAcknowledgedAt;
 
     const { data: updated, error: updateError } = await supabase
       .from('pools')
@@ -311,7 +346,28 @@ export async function PATCH(
       tokenPaymentUrl: updated.token_payment_url,
       dealerOfferUrl: updated.dealer_offer_url,
       dealerTerms: updated.dealer_terms,
+      isPublished: updated.is_published !== false,
+      marketPriceType: (updated.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
+      groupPriceType: (updated.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
+      savingsDisplayApproved: Boolean(updated.savings_display_approved),
+      quoteSource: updated.quote_source || null,
+      quoteDate: updated.quote_date || null,
+      quoteValidUntil: updated.quote_valid_until || null,
+      quoteScope: updated.quote_scope || null,
+      quotePrivateNotes: updated.quote_private_notes || null,
+      connectionStatus: (updated.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
+      paymentConfigState: (updated.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
+      connectionNotes: updated.connection_notes || null,
+      targetReachedAcknowledgedAt: updated.target_reached_acknowledged_at || null,
     };
+
+    await recordAdminAudit({
+      action: 'POOL_UPDATED',
+      targetType: 'POOL',
+      targetId: poolId,
+      changesSummary: `Updated pool "${resultPool.name}".`,
+      details: updates,
+    });
 
     try {
       revalidatePath('/');
@@ -350,6 +406,14 @@ export async function DELETE(
     if (isDemoMode()) {
       try {
         const result = deleteDemoPool(poolId, { hardDelete });
+        await recordAdminAudit({
+          action: hardDelete ? 'POOL_HARD_DELETED' : 'POOL_SOFT_DELETED',
+          targetType: 'POOL',
+          targetId: poolId,
+          changesSummary: hardDelete
+            ? `Hard-deleted pool ${poolId} (no lead or request dependencies).`
+            : `Soft-deleted / closed pool ${poolId}.`,
+        });
         return NextResponse.json(
           { success: true, data: result },
           { headers: { 'Cache-Control': 'no-store' } }
@@ -374,7 +438,7 @@ export async function DELETE(
 
     // Verify leads count
     const { count: leadCount, error: countErr } = await supabase
-      .from('leads')
+      .from('pool_leads')
       .select('*', { count: 'exact', head: true })
       .eq('pool_id', poolId);
 
@@ -385,14 +449,27 @@ export async function DELETE(
       );
     }
 
+    // Check price history dependencies
+    const { count: priceCount } = await supabase
+      .from('price_history')
+      .select('*', { count: 'exact', head: true })
+      .eq('pool_id', poolId);
+
+    // Check request dependencies
+    const { count: requestCount } = await supabase
+      .from('pool_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('resulting_pool_id', poolId);
+
     if (hardDelete) {
-      if ((leadCount ?? 0) > 0) {
+      const hasDependencies = (leadCount ?? 0) > 0 || (priceCount ?? 0) > 0 || (requestCount ?? 0) > 0;
+      if (hasDependencies) {
         return NextResponse.json(
           {
             success: false,
             error: {
               code: 'CANNOT_HARD_DELETE',
-              message: `Cannot hard delete pool with ${leadCount} recorded leads. Soft-delete instead.`,
+              message: `Cannot hard delete pool with dependencies (${leadCount ?? 0} leads, ${priceCount ?? 0} price entries, ${requestCount ?? 0} proposal requests). Soft-delete / archive instead.`,
             },
           },
           { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -407,6 +484,13 @@ export async function DELETE(
         );
       }
 
+      await recordAdminAudit({
+        action: 'POOL_HARD_DELETED',
+        targetType: 'POOL',
+        targetId: poolId,
+        changesSummary: `Hard-deleted pool ${poolId}.`,
+      });
+
       return NextResponse.json(
         { success: true, data: { action: 'hard_deleted' } },
         { headers: { 'Cache-Control': 'no-store' } }
@@ -419,6 +503,7 @@ export async function DELETE(
       .from('pools')
       .update({
         deleted_at: now,
+        is_published: false,
         status: 'CLOSED',
         closure_reason: 'MANUAL_CLOSE',
         closed_at: now,
@@ -434,6 +519,13 @@ export async function DELETE(
         { status: 500, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    await recordAdminAudit({
+      action: 'POOL_SOFT_DELETED',
+      targetType: 'POOL',
+      targetId: poolId,
+      changesSummary: `Soft-deleted / closed pool ${poolId}.`,
+    });
 
     return NextResponse.json(
       { success: true, data: { action: 'soft_deleted', pool: updated } },

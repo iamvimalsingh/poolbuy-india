@@ -67,10 +67,6 @@ export function buildLeadFallbackMessage(
   );
 }
 
-/**
- * Message Template 3: Quotation Follow-up
- * Asks buyer if they wish to voluntarily share an existing showroom quote to negotiate matching.
- */
 export function buildQuoteFollowupMessage(
   buyerName: string,
   productName: string,
@@ -78,8 +74,27 @@ export function buildQuoteFollowupMessage(
 ): string {
   return (
     `Namaste ${buyerName.trim()},\n\n` +
-    `Thank you for joining the PoolBuy group for *${productName}* in ${cityName}.\n\n` +
+    `Thank you for joining the GroupBuying group for *${productName}* in ${cityName}.\n\n` +
     `You mentioned you already have an existing quotation. If you'd like to voluntarily share your current quoted price, ` +
     `our team will verify if our bulk dealership terms can beat or match it.`
+  );
+}
+
+/**
+ * Message Template 4: Target Reached / Connection Stage Invitation
+ * Sent by admin click-to-chat to invite buyer to review verified group quotation.
+ */
+export function buildTargetReachedMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  targetBuyers: number
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `Great news! The group buy for *${productName}* in ${cityName} has reached its buyer target of ${targetBuyers} members on GroupBuying.\n\n` +
+    `Our team is currently reviewing vendor quotations to verify pricing and delivery terms. ` +
+    `We will share the verified options for your confirmation shortly before connecting you with the supplier.\n\n` +
+    `There is no payment or commitment required at this stage.`
   );
 }

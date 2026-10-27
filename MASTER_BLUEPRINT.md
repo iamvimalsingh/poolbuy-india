@@ -1,14 +1,16 @@
 # PoolBuy India — Master Specification & Implementation Blueprint
 
 **Document ID:** PBI-MASTER-001  
-**Version:** 1.0  
-**Last updated:** 26 October 2026  
-**Status:** Authoritative implementation contract  
+**Version:** 3.1 (V1/V2/V3 baseline + owner-approved GroupBuying MVP amendment)  
+**Last updated:** 27 October 2026  
+**Status:** Authoritative implementation contract; Section 19 V3.1 supersedes conflicting earlier requirements for the current MVP  
 **Target IDE:** Antigravity IDE (AI coding agent)  
 **Project root:** `C:\Users\iamvi\OneDrive\Documents\poolbuy-india`  
 **Application:** Next.js 16.4+ App Router, TypeScript, Tailwind CSS v4 (`app-tw` starter), Supabase PostgreSQL, serverless Route Handlers  
 
 > **Single source of truth:** This file is the product and implementation specification. `AGENTS.md` must instruct the coding agent to read this file before changing code and must not duplicate or contradict its requirements. If the repository's current code differs from this blueprint, inspect it, preserve working setup, and reconcile deliberately; do not blindly overwrite working configuration.
+
+> **Current execution directive (V3.1):** The original Phase 1–6 and updated Phases A–C are reported complete in local/demo mode; Phase 4 brand/SEO work and local preflight are reported complete, but no Supabase account/project exists and remote database execution has NOT been verified. Do not reinitialize the app. Section 19 is the latest owner-approved MVP amendment and supersedes any conflicts in Sections 1–18. The owner-selected future hosting direction is Netlify + Supabase, but nothing is deployed. No production deployment, DNS change, real payment collection, or destructive database reset is authorized.
 
 ---
 
@@ -55,23 +57,28 @@ Two monetization paths exist:
 
 The product is not a marketplace checkout, escrow provider, lender, dealer, or manufacturer. Do not imply that PoolBuy is an authorized seller or guarantees a price. Price values in the seeded data are illustrative until manually verified by the operator.
 
-### 1.2 Buyers: no account and no password
+### 1.2 Buyers: no account and no password — current V2 rules
 
-The buyer's primary identity key for duplicate prevention is the exact 10-digit Indian mobile/WhatsApp number, unique within one pool:
+The buyer's primary identity key for duplicate prevention is the normalized 10-digit Indian WhatsApp/mobile number, unique within one operational pool:
 
-`UNIQUE(pool_id, whatsapp_number)`
+`UNIQUE(pool_id, normalized_whatsapp_number)`
 
-Required fields when joining a pool:
+The V1 form included a mandatory buying timeline and existing-quote questions. These are legacy data fields, not required inputs in the current V2 join flow. Follow Section 17 if any older text or code conflicts.
+
+**Required for a standard pool join:**
 
 1. `full_name` — required, trimmed, 2–100 characters.
-2. `whatsapp_number` — required, exactly 10 digits and matching `^[6-9][0-9]{9}$`; accept only digits in the submitted value (the UI may strip spaces/dashes before validating, but the server validates the normalized string again).
-3. `city` — required; defaults to the pool's city and must match the pool city for the initial MVP. A buyer looking for a different city should join that city's pool rather than silently changing the locality of this pool's lead.
-4. `buying_timeline` — required enum: `WITHIN_7_DAYS`, `WITHIN_15_DAYS`, or `WITHIN_30_45_DAYS`. Render labels “Immediate (Within 7 Days)”, “Soon (Within 15 Days)”, and “Planning (Within 30–45 Days)”.
-5. `has_existing_quote` — boolean.
-6. `existing_quote_amount` — optional non-negative INR amount, shown only when a quote is reported, if provided.
-7. `extra_message` — optional, maximum 1,000 characters; can include variant/color, exchange vehicle, loan needs, or lowest quote. Treat it as untrusted plain text, never as HTML.
+2. `whatsapp_number` — required, exactly 10 digits matching `^[6-9][0-9]{9}$` after permitted digit normalization.
+3. `selected_pool_kit_offer_id` — required only if the pool contains more than one active fixed-kit offer. The customer selects from pre-defined kits; they cannot customize individual components.
+4. Applicable privacy/communication consent shown clearly before submission.
 
-The form must also show a short privacy statement explaining that the information is used to manage this pool and contact the buyer about this request, and that contact/lead sharing with a dealer is only handled under the site's stated terms/consent. The final wording must be reviewed by the operator/legal adviser before launch; do not claim a legal review has occurred.
+**Locality/area/PIN code:** Collect only when needed for local installation/delivery coverage. If needed for a particular installation pool, make it required for that pool and explain why. The city is inherited from the pool; do not ask the customer to select a different city inside the join form or allow the submitted city to override the pool's city.
+
+Do not require a password, buying timeline, a separate waiting-period preference, an existing dealer quote, an exact budget, or a long technical questionnaire to join. An optional short note may be retained if useful, but should not increase join friction.
+
+Keep the historic `buying_timeline`, `has_existing_quote`, `existing_quote_amount` and `extra_message` fields where they already exist so old records and the admin CRM are not destroyed. In V2, timeline/quote fields are optional legacy/secondary fields; do not invent values for old records or make users answer those questions as a condition of joining.
+
+The form must show a concise privacy statement explaining that details are used to manage the selected pool and contact the buyer about the request. Sharing buyer contact details with a vendor requires the appropriate notice/consent and must not happen automatically merely because a form was submitted. Final legal wording must be reviewed by the operator/legal adviser; do not claim that review has occurred.
 
 ### 1.3 Pool status lifecycle
 
@@ -348,6 +355,8 @@ poolbuy-india/
 ---
 
 ## 4. Database Specification — `supabase/schema.sql`
+
+> **V2 migration warning:** This section documents the original V1 baseline schema. The current application has reportedly already been initialized. Do not run this whole script destructively against an existing database and do not reset tables. Before V2 implementation, inspect the actual schema; update the clean-install schema and create additive, data-preserving migrations according to Section 17. The V2 dynamic taxonomy and city-specific kit-offer model supersede the V1 fixed category enum where they conflict.
 
 ### 4.1 Database invariants
 
@@ -873,18 +882,64 @@ Expected results: six demo pools; `anon_can_read_leads = false`; `anon_can_read_
 
 ## 5. TypeScript Data Models — `types/index.ts`
 
+> **V2 model note:** Existing V1 unions and interfaces are the baseline contracts for compatibility, not a requirement to hardcode a closed category list forever. Section 17 requires dynamic, admin-managed categories and cities, reusable product/kit definitions, city-specific pool offers, and a minimal join flow without mandatory timeline fields. Update types/repositories together and retain compatibility for historical data.
+
 Use a single shared type module for domain shapes and API contracts. Keep database snake_case row types distinct from app-facing camelCase types. All external/API data is untrusted and must be validated before casting.
 
 Required types (names may be refined without changing meanings):
 
 ```ts
-export type PoolCategory =
-  | 'EV_SCOOTERS'
-  | 'CARS'
-  | 'ROOFTOP_SOLAR'
-  | 'LAPTOPS'
-  | 'SMART_TVS'
-  | 'TRACTORS_COMMERCIAL';
+/** Category/city options are database-managed in V2, not a closed compile-time union. */
+export interface CategorySummary {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+}
+
+export interface CitySummary {
+  id: string;
+  name: string;
+  slug: string;
+  state: string;
+  isActive: boolean;
+  hasOperationalCoverage: boolean;
+}
+
+export interface ProductSummary {
+  id: string;
+  name: string;
+  slug: string;
+  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
+  installationRequired: boolean;
+  isStandardized: boolean;
+}
+
+export interface ProductKitSummary {
+  id: string;
+  productId: string;
+  brand: string;
+  modelSku: string;
+  displayName: string;
+  specifications: string;
+  inclusions: string[];
+  exclusions: string[];
+  warrantySummary: string | null;
+}
+
+export interface PublicPoolKitOffer {
+  id: string;
+  kit: ProductKitSummary;
+  referencePrice: number | null;
+  currentVerifiedPrice: number | null;
+  conditionalTargetPrice: number | null;
+  priceIsVerified: boolean;
+  quoteValidUntil: string | null;
+  selectionCount: number;
+  installationScope: string | null;
+}
 
 export type PoolStatus = 'ACTIVE' | 'UNLOCKED' | 'LEAD_FALLBACK' | 'CLOSED';
 
@@ -909,9 +964,13 @@ export interface PublicPool {
   name: string;
   shortDescription: string;
   longDescription: string;
-  category: PoolCategory;
+  category: CategorySummary;
   city: string;
   citySlug: string;
+  cityId: string;
+  productId: string;
+  installationRequired: boolean;
+  kitOffers: PublicPoolKitOffer[];
   productBrand: string;
   productModel: string;
   imageUrl: string | null;
@@ -939,12 +998,13 @@ export interface AdminPool extends PublicPool {
 export interface JoinPoolInput {
   fullName: string;
   whatsappNumber: string;
-  city: string;
-  buyingTimeline: BuyingTimeline;
-  hasExistingQuote: boolean;
-  existingQuoteAmount: number | null;
-  extraMessage: string;
-  // The server stamps the current privacy notice version; this is not buyer-editable.
+  selectedPoolKitOfferId?: string | null;
+  locality?: string | null;
+  pincode?: string | null;
+  extraMessage?: string;
+  consentAccepted: true;
+  // City comes from the server-resolved pool; it is never trusted from the client.
+  // Legacy timeline/quote data are not required in the V2 primary join flow.
 }
 
 export interface JoinPoolResult {
@@ -962,11 +1022,11 @@ export interface PoolLead {
   poolId: string;
   poolSlug: string;
   poolName: string;
-  poolCategory: PoolCategory;
+  poolCategory: CategorySummary;
   fullName: string;
   whatsappNumber: string;
   city: string;
-  buyingTimeline: BuyingTimeline;
+  buyingTimeline: BuyingTimeline | null;
   hasExistingQuote: boolean;
   existingQuoteAmount: number | null;
   extraMessage: string;
@@ -980,7 +1040,13 @@ export interface PoolLead {
 export interface PoolRequest {
   id: string;
   productName: string;
-  category: PoolCategory | null;
+  category: CategorySummary | null;
+  requestedCategoryText?: string | null;
+  requestedBrandModel?: string | null;
+  locality?: string | null;
+  pincode?: string | null;
+  consentAt?: string | null;
+  resultingPoolId?: string | null;
   city: string;
   fullName: string | null;
   whatsappNumber: string | null;
@@ -1086,7 +1152,7 @@ Filtering can happen in a client `PoolCatalog` initialized with a typed safe poo
 - Prevent double submissions while the request is in flight. Retry should not create a second lead because the database has a unique constraint and idempotent RPC.
 - On successful live insert, show `You are Buyer #N` and the refreshed live count. If the same number already joined, say `This number is already registered for this pool` and display the existing buyer number without implying a second lead was created.
 - On successful demo submission, show `Demo only — this interest is stored in this browser, not sent to a dealer`.
-- Generate the share message after success. It should be Hinglish/English, e.g. `Main [City] mein [Product] ke PoolBuy group-buy pool mein interest register kar chuka/ chuki hoon. Target hit hone par dealer se bulk-price terms verify hongi. Details: [public deal URL]`. If savings/price is not verified, do not claim a guaranteed ₹ amount. If an illustrative amount is used in local demo, the demo label must be present and the message should call it an estimate.
+- Generate the share message after success. It should be Hinglish/English, e.g. `Maine PoolBuy par [Product] ke group-buy pool mein interest register kiya hai. Jitne zyada log judenge, utna better bulk price negotiate karne ka mauka ho sakta hai. Latest verified offer aur pool details: [production deal URL]. Aap bhi interest register kar sakte hain.` Use gender-neutral wording; never use `chuka/chuki`. The V2 minimal join form and canonical URL rules in Section 17 supersede earlier wording. If savings/price is not verified, do not claim a guaranteed ₹ amount. If an illustrative amount is used in local demo, the demo label must be present and the message should call it an estimate.
 - Open WhatsApp with `https://wa.me/?text=${encodeURIComponent(message)}` for sharing; do not insert buyer phone details into the share text.
 
 ### 6.5 Demand discovery form — `components/pool-request-form.tsx`
@@ -1359,7 +1425,9 @@ Map expected Postgres RPC errors to these codes. Do not leak raw SQL details to 
 
 ---
 
-## 11. Implementation Plan — Six Sequential Phases
+## 11. Original Implementation Plan — Six Baseline Phases (Historical)
+
+> The following Phase 1–6 prompts are retained as the original baseline record because the owner reports that all six phases have already been implemented. Do NOT run them again or reinitialize the project. For the current upgrade, the authoritative implementation sequence is Section 17.8, V2 Phases A–F. This is especially important because dynamic categories, minimal buyer forms and multi-city-but-city-specific pools supersede some original assumptions.
 
 The IDE agent must execute phases in order. Each phase prompt below is intended to be copied into Antigravity IDE. Do not ask the agent to implement all six phases in one pass. After each phase, compare the output to the verification checklist before proceeding.
 
@@ -1689,4 +1757,1182 @@ Use current official documentation when resolving a version-specific detail; thi
 - [Schema.org Product](https://schema.org/Product)
 - [Schema.org Offer](https://schema.org/Offer)
 
-**End of authoritative blueprint.**
+**End of V1 baseline specification. Current V2 authority is defined by the amendment at the beginning and Section 17.**
+---
+
+# V2.0 CURRENT IMPLEMENTATION AMENDMENT — MULTI-CITY, CITY-SPECIFIC GROUP BUYING
+
+**Amendment date:** 26 October 2026  
+**Authority:** This amendment supersedes any conflicting V1 requirement elsewhere in this file. The original Phases 1–6 document the initial build and are historical baseline instructions; they must NOT be rerun from scratch. Implement the incremental V2 phases A–F in Section 17 against the existing local project.
+
+## Current owner-approved product direction
+
+PoolBuy India is a technology-first, local-fulfilment, fixed-kit demand aggregation and group-buying platform. The app is currently being developed and verified at `http://localhost:3000`. Do not deploy, change DNS, migrate the production domain, or modify a production database unless the owner explicitly authorizes that action.
+
+- Multiple cities can be listed in one catalog, but **each installation-dependent operational pool belongs to exactly one city** and has independent demand, vendor/installer coverage, quotations, pricing tiers, deadlines, and fulfilment.
+- Reuse a standardized product and its brand-kit templates across cities; never merge different cities' buyer counts to imply local installation demand.
+- Launch candidates include rooftop solar (hero candidate), inverter+battery fixed combos, whole-house water softeners, 200 LPD solar water heaters, chimney + hob combos, and additional approved standardized kits. This is a flexible catalog, not a closed category enum.
+- Customers join a published pool for free. Keep the join form minimal: name, Indian WhatsApp number, and chosen pre-defined kit; capture locality/area or PIN code where needed to determine installation coverage. The pool already determines the city. Do not require a password, a mandatory buying timeline, a “how many days can you wait?” answer, or a long technical questionnaire to join.
+- Customer-driven `Request a New Pool` is available for items outside the current catalog/category list. A request is stored as a demand request and enters an authenticated admin review queue. **It never creates a public pool until the admin approves the request, standardizes the product/package, confirms local fulfilment feasibility and records an appropriate vendor/pricing plan.**
+- The admin initially manages cities, categories, standardized product templates, local vendors, fixed kit options, quotations, price tiers, and offer publication. Do not build a vendor portal in this change set; reserve it for a future phase after the manual process is validated.
+- A buyer target being reached is only a demand milestone. A discount is not confirmed until the relevant vendor has approved a written offer or a valid pre-approved quantity-based price tier exists.
+- Do not enable real token payments during this upgrade unless the existing project already has a correctly configured, legally reviewed payment flow and the owner confirms the exact commercial policy. The old ₹499–₹999 values are not a binding V2 default. Token pricing and money movement must pass the explicit commercial decision gate in Section 17.8.
+- Preserve privacy, server-side admin authorization, RLS, service-role isolation, CSV formula-injection protection, truthful demo mode, and verified-price rules.
+
+## Conflict-resolution map
+
+When V1 sections conflict with this V2 amendment, follow V2 and update the implementation/documentation accordingly:
+
+| V1 area | V2 rule that supersedes it |
+|---|---|
+| Section 1.2: mandatory buying timeline and quote questions in join form | Remove mandatory timeline/quote questions from the primary join flow. Keep legacy columns nullable/backward-compatible where necessary; collect only name, WhatsApp number, selected fixed kit, and locality/PIN when needed. |
+| Sections 3–5: six-value category enum and fixed category TypeScript union | Make categories admin-managed data, not a permanently hardcoded enum. Migrate existing values safely into a `categories` table or equivalent dynamic taxonomy. |
+| Section 4.2: initial schema SQL and seed categories | Treat it as the V1 baseline for understanding existing data. Do not re-run it destructively against existing Supabase. Update clean-install schema and add reviewed, additive migrations for any database already initialized. |
+| Sections 6.2–6.7: limited categories and fixed city lists | Public catalog supports multiple configured cities and dynamically managed approved categories. Every operational installation pool remains city-specific. |
+| Section 8: original pool and request admin behavior | Extend admin to manage cities, dynamic categories, standardized products, fixed kits, per-city vendor offers, request approval, and pool creation from an approved request. |
+| Section 11: Phases 1–6 execution prompts | These are the original build record, not the current execution plan. Execute only V2 incremental Phases A–F in Section 17. |
+| V1 token default / unlock assumptions | No token collection merely because target was hit. Vendor terms and the exact money-flow model must be verified and approved first. |
+
+---
+
+## 17. V2 Incremental Upgrade Specification and External Benchmark
+
+### 17.1 Purpose and current repository state
+
+The original six-phase project is reportedly built and runs locally. The owner reports two unresolved live-data symptoms: a successful join briefly displays an incremented count, but a refresh resets it to zero; and an admin-created pool may report success but not appear in the public catalog. The repository itself must prove the root cause—do not assume one.
+
+This upgrade adds the current business model to the existing system while fixing these data-integrity issues. It is not permission to initialize a new Next.js app, replace the stack, move to `src/`, wipe data, or redo every original phase.
+
+### 17.2 External website benchmark: `https://poolbuy.app/`
+
+The owner asked to review this website as a business/product benchmark. On 26 October 2026, its publicly readable homepage, group-buying explanation, and privacy page presented these product patterns. These are observations of the website's public claims; the site's actual backend, contracts, payment protections, and commercial results have not been independently audited.
+
+**Potentially useful patterns to learn from, without copying its text, graphics, code, brand assets, or exact visual design:**
+
+1. A short, free interest-registration journey before a customer must commit money.
+2. Product/category selection plus a “Something else” path, so demand for unlisted items can be captured.
+3. Locality/PIN-based matching to help identify suppliers capable of serving a buyer's area.
+4. A post-submission share action and customer updates when a matching group/offer becomes available.
+5. A public aggregate-demand view that does not expose names, phone numbers, or precise PIN codes; its stated policy uses a minimum cohort before displaying an item.
+6. Written vendor prices and clear explanations of whether a displayed amount is indicative or a confirmed offer.
+7. Direct purchase from the seller, with seller/dealer onboarding and the seller's fulfilment responsibilities made visible.
+8. A clear “what happens if the group does not fill?” explanation before any booking/payment decision.
+9. A seller-facing value proposition based on aggregated intent and payment tied to a completed sale, as described in its public copy.
+
+**PoolBuy India should adapt the principles, not copy the implementation blindly:**
+
+- Keep the primary join form shorter than the competitor's form: no mandatory buying timeline or waiting-period question in the V2 join flow.
+- Since the intended products may need physical installation, use the selected city plus locality/PIN/vendor coverage as applicable. Do not hardcode a 5 km radius as a universal rule; let each vendor's verified service area and product type determine coverage.
+- For ordinary installation kits, pools in Bhopal and Indore are separate even if the product is identical. A city can become active only when the admin has configured an appropriate local fulfilment option or clearly labels the demand as unserved/request-only.
+- Do not expose individual participants or tiny-area demand publicly. Any discovery dashboard outside a known pool should aggregate data and apply a privacy threshold (default minimum 3 unrelated valid requests for a public aggregate; do not show phone, name, house, or exact PIN). An operator may choose a higher threshold for sensitive categories.
+- The site currently uses the PoolBuy name and publicly identifies a separate operating company in its footer. Because the proposed project also uses “PoolBuy India”, the owner must perform an official trademark/company/domain clearance review before broad marketing or claiming exclusivity. The IP India official trademark search is at https://tmrsearch.ipindia.gov.in/tmrpublicsearch and the official guidance is at https://ipindia.gov.in/trade-marks-before-you-apply-search-existing-trademarks. This blueprint does not make a legal determination that the name is available or infringing.
+- Do not claim that competitor-reported discounts, registrations, or safety measures are independently verified. Treat all benchmark observations as website statements, not audited outcomes.
+
+**Observed competitive mechanics (summary only):** the homepage describes free registration, local/pincode-based grouping, group-price examples for different buyer counts, written seller terms before payment, direct seller purchase, a booking payment credited toward the purchase price, and a seller fee after a delivered sale. Its privacy page says publicly visible demand is aggregated and personal details are shared with a seller only at a later stage in the journey. These patterns are reference points, not mandatory PoolBuy policies. Source URLs: https://poolbuy.app/ ; https://poolbuy.app/what-is-group-buying ; https://poolbuy.app/privacy .
+
+### 17.3 V2 domain model: catalog entities versus operational pools
+
+Separate reusable definitions from local campaigns. Reuse equivalent existing tables if they already provide the same behavior; do not create duplicate tables just to match these names.
+
+#### A. `cities`
+
+Admin-managed city directory. Minimum conceptual fields: `id`, `name`, unique `slug`, `state`, `is_active`, `created_at`, `updated_at`. Optionally include public display text and service-region metadata.
+
+- Seed/migrate existing city values such as Bhopal, Indore, Pune, Delhi, Mumbai, and Banda only where appropriate to the existing data.
+- The city list in public filters comes from active configured city records, not duplicated hardcoded arrays.
+- Adding a city in admin must not imply that a local installation vendor already exists.
+- A city can be marked `demand_only`/not operational (or represented through equivalent existing fields) until a local vendor/fulfilment route is verified.
+
+#### B. `categories`
+
+Admin-managed dynamic categories. Minimum conceptual fields: `id`, `name`, unique `slug`, description, `is_active`, sort order, timestamps. A category may also be `draft` until the admin publishes it.
+
+- Do not make a PostgreSQL enum the sole source of available product categories.
+- Existing enum values must be backfilled into the dynamic category table.
+- Avoid deleting or rewriting historic category data during migration.
+- Public category pages and filters derive from active published categories with appropriate inventory.
+- A new free-text request does not automatically create a category.
+
+#### C. `products`
+
+Reusable standardized product definitions. Minimum conceptual fields: `id`, `name`, unique/controlled `slug`, `category_id`, description, installation-required flag, standardization notes, `is_active`, timestamps. Do not store per-city price as the product's global price.
+
+#### D. `product_kits` (or equivalent reusable fixed-kit template)
+
+Represents one predefined option with a brand and exact model/SKU. Fields should capture brand, model/SKU, display name, technical configuration, included components, exclusions, warranty details, standard installation scope where applicable, and active state.
+
+Customers select from these predefined options. They do not build a custom kit from loose components. If a product legitimately has no brand choice, use one fixed standard package instead of adding empty configuration screens.
+
+#### E. `pools`
+
+A pool is an operational campaign for one product in exactly one city, optionally with a defined vendor service area. Reuse existing pool records and IDs.
+
+Every operational pool must have an unambiguous city reference and its own status, target count, deadline, buyer count, publication state, vendor/fulfilment requirements, offer validity, and timestamps.
+
+The same product may have separate pool records in several cities. Each pool has its own city-specific quotation and demand. No public query may sum different cities into one installation-dependent buyer count.
+
+Prefer city UUID foreign keys in the new normalized model. If the existing slug/text columns must remain for compatibility, backfill them and add controlled consistency checks before changing read paths. Do not break existing SEO URLs while adding the city key.
+
+#### F. Local vendor/fulfilment records
+
+If there is no usable vendor model already, create an admin-managed `vendors` table or equivalent. Track business name, city/service area, product/category coverage, status, authorization/verification notes, contact information (private), quotation availability and timestamps. Vendor verification claims must reflect evidence the operator actually checked.
+
+No vendor login or self-service portal in this upgrade. All vendor data mutations remain admin-only.
+
+#### G. Pool kit offers / city-specific offers
+
+A pool can offer several predefined kit choices. A pool-kit-offer join table (or equivalent) should bind a reusable kit to a specific city pool and a valid vendor quote. Track per-offer reference price, current quoted price, conditional target price, price verification state, quotation date, validity, inclusions/exclusions, vendor reference, and publication state.
+
+Track both total pool interest and selected-kit demand. If the pool has 10 interested customers but only 6 have selected Waaree, do not tell the Waaree vendor that 10 Waaree buyers are committed unless a written vendor arrangement explicitly defines a shared mixed-brand tier.
+
+#### H. Price tiers and history
+
+Support two modes:
+
+1. **Pre-approved quantity tier:** a vendor has confirmed quantity thresholds, prices, scope, and validity in writing. The system can apply a tier when its condition is met and the quote remains valid.
+2. **Fresh quotation required:** demand reaches a threshold, but the admin must obtain a new quotation. Until it is confirmed, the public state says that a quote is pending; it must not fabricate a lower price.
+
+Store each material quotation/offer change as an immutable history event or versioned record with old/new values, vendor/source, quantity condition, timestamp, validity, operator and status. Do not silently overwrite evidence needed to explain a price displayed to a customer.
+
+#### I. `pool_leads`
+
+Preserve existing leads, UUIDs, and current buyer numbers. Add fields only through safe migrations as necessary, including the selected pool-kit offer and locality/PIN code when needed for installation matching. The pool city is authoritative and must not be overwritten by arbitrary client form input.
+
+The join form must not require `buying_timeline` in V2. Existing records and legacy admin filters must remain valid: make the field nullable or use an equivalent backward-compatible “not supplied” representation after reviewing the existing schema and TypeScript contracts. Do not fabricate timeline values for old leads.
+
+Duplicate protection remains `UNIQUE(pool_id, normalized_whatsapp_number)`. Per-pool buyer numbers and `current_buyers` must remain transactionally consistent. A duplicate join must not create another buyer or send a duplicate success-notification event.
+
+#### J. `pool_requests`
+
+Allow demand for any product/category, including one that does not exist yet. Retain the submitted free text. Suggested fields include request ID, requested product text, optional requested brand/model, requested city, optional locality/PIN, contact name, normalized WhatsApp number, optional note, consent timestamp/version, review status, reviewer note, review timestamps, linked standardized product/category IDs after approval, and resulting pool ID after creation.
+
+The existing V1 `category public.pool_category` enum cannot by itself support future categories. Introduce a dynamic category foreign key and/or free-text category label with a safe migration. Do not require an unknown category to cast into an old enum. Preserve the old field until dependent code and data have migrated.
+
+Requests progress through a controlled review process such as `SUBMITTED`, `UNDER_REVIEW`, `NEEDS_INFORMATION`, `APPROVED`, `REJECTED`, and `CONVERTED_TO_POOL`. Reuse existing statuses where possible and migrate carefully. “Approved” means the product idea is accepted for validation, not necessarily published; the actual pool needs its own explicit create/publish action.
+
+### 17.4 Buyer journey and local serviceability
+
+#### Existing pool join
+
+The form must be minimal and product-aware:
+
+**Required:** name, valid 10-digit Indian WhatsApp number, one predefined kit selection if the pool has multiple options, and the applicable consent checkbox/text required by the approved privacy design.
+
+**Locality/PIN code:** required only when needed to establish local installation/delivery coverage; otherwise optional. The city is inherited from the pool and shown to the user. Do not ask for city again in the join modal when the pool already defines it.
+
+**Remove from the primary join form:** mandatory buying timeline, mandatory wait-period question, mandatory quote amount, and long customization fields. Optional note may remain if it is genuinely useful. A product-specific follow-up can collect more information later, with the customer's permission.
+
+The join experience must state that registration is free and does not constitute a purchase or guarantee a price. Keep the success page concise, show the authoritative buyer count/number, and offer a gender-neutral share link.
+
+Suggested neutral share text (do not reproduce the old “chuka/chuki” version):
+
+> Main PoolBuy par {{Product Name}} ke group-buy pool mein interest register kar raha/rahi hoon.
+> Jitne zyada log judenge, utna better bulk price negotiate karne ka mauka ho sakta hai.
+> Latest verified offer aur pool details: {{Production Deal URL}}
+> Aap bhi pool join karke interest register kar sakte hain.
+
+For the most gender-neutral version, avoid first-person gendered verb forms entirely:
+
+> Maine PoolBuy par {{Product Name}} ke group-buy pool mein interest register kiya hai. Jitne zyada log judenge, utna better bulk price negotiate karne ka mauka ho sakta hai. Latest verified offer aur pool details: {{Production Deal URL}}. Aap bhi interest register kar sakte hain.
+
+Do not claim a particular saving amount or “deal unlocked” unless the relevant price is verified and the pool status allows that claim.
+
+#### Request a New Pool
+
+Keep it short but contactable:
+
+- Product/package requested (required free text).
+- City (required, selected from configured cities or submitted as a validated request for an unconfigured city).
+- Name (required).
+- WhatsApp number (required and validated).
+- Locality/PIN and short note/brand preference (optional or conditionally required for installation feasibility).
+- Clear notice that PoolBuy may contact the user about the request, and a separate clear choice before sharing personal contact details with a supplier.
+
+A request for an unconfigured city may be saved as a request, but it must not produce an operational pool until a city/vendor and fulfilment arrangement is approved.
+
+#### Locality matching
+
+Do not impose a universal 5 km rule. For installation-dependent products, check city and vendor service-area/PIN coverage. The admin may define a service zone or relevant PIN code list for a vendor/pool. If coverage is unknown or unavailable, allow a request or interest record but do not show “installation available” or a confirmed local price.
+
+For the public “demand discovery” view, show only aggregated, privacy-preserving counts. Never display names, WhatsApp numbers, exact home addresses, or exact PIN codes. For new/unpublished requests outside a known pool, default to showing a public aggregate only after at least 3 unrelated valid requests exist for that same standardized item and locality group. This threshold is a privacy rule, not an offer/price threshold.
+
+### 17.5 Admin workflow and publication controls
+
+Extend the existing admin screen rather than building a separate app. Preserve authentication and every server-side route guard.
+
+Required admin capabilities in V2:
+
+1. **Cities:** create/activate/deactivate cities; see which have eligible vendor coverage; do not label a city fully operational without a checked fulfilment route.
+2. **Categories:** create/manage arbitrary categories; category slugs unique; draft categories remain private until deliberately published.
+3. **Products:** create standardized product templates; capture whether installation is needed; link product to a category; avoid duplicate templates with an admin search.
+4. **Fixed kits:** define brands, exact models/SKUs, specs, inclusions, exclusions, warranty and standard installation terms.
+5. **City pools:** create a separate pool for a product in a chosen city. The same product can be reused in more cities without copying other city's pricing or leads.
+6. **Vendors:** initially record and manage local vendors/coverage manually. No vendor login in V2.
+7. **Kit offer/prices:** link a pool to approved kit options and quotations; publish only verified offers.
+8. **Demand Requests:** search/filter requests, review duplicate demand, approve/reject/ask for information, create a product/category if appropriate, then explicitly create/publish a pool and link the request(s).
+9. **Price history:** retain all published offer versions and the evidence/date/source for each update.
+10. **Audit trail:** record admin actor and timestamp for category creation, pool publication, quote changes, status transitions, and token-related changes if configured.
+
+Do not automatically create a new city, category, product, vendor, or public pool from an anonymous request without admin review.
+
+### 17.6 Financial model and token decision gate
+
+The current owner proposal has discussed a customer token between roughly ₹799 and ₹2,499, credited toward the agreed deal price, with the remaining balance paid to the local vendor. The competitor website's public copy describes a different arrangement: a booking amount credited to the seller's price and a fee paid by the seller after a delivered sale. These are different commercial flows; do not mix them in code or user-facing explanations.
+
+Before enabling any real payment feature, the owner must select and document one exact model with accounting/payment-provider/legal review:
+
+**Model A — Seller-paid success fee (reference option):** customer booking/deposit is handled through the supplier or a suitably configured payment provider and is credited toward the customer's purchase price; PoolBuy invoices/receives an agreed seller fee only under a written success-fee agreement after the defined sale/delivery milestone.
+
+**Model B — Customer-paid booking/token credited toward price:** the buyer pays a disclosed amount to the specified recipient, that exact amount is deducted from the remaining purchase price according to the signed vendor agreement, and the vendor's receivable is calculated accordingly. The terms must define who is merchant of record, how the amount is settled, platform revenue/tax treatment, cancellations, refund responsibility, disputed transactions and payment-provider support.
+
+**Model C — Separate customer service/platform fee:** only if explicitly approved and disclosed as a genuine additional fee. Do not simultaneously claim it is extra platform revenue and also count it as a credit against the vendor's price without a corresponding reconciled ledger and signed agreement.
+
+No model is automatically endorsed by this technical specification. Until the model is chosen and tested, keep live payment collection disabled. The MVP may publish a verified offer and give instructions for direct vendor purchase, but it must not pretend to process a token or generate fake payment success.
+
+Do not use “refundable” unless the refund conditions, payer/recipient, processing responsibility and time expectations are documented. Do not call a customer fee a “platform commission” in tax/accounting records without appropriate professional advice.
+
+### 17.7 Known defects that must be verified locally
+
+The owner reports:
+
+- The join success UI increments the buyer count, but a refresh resets the displayed count to zero.
+- Submitted leads do not reliably appear in the admin CRM.
+- Admin-created pools may report success but not appear on the public frontend.
+- WhatsApp share messages have included `http://localhost:3000`.
+
+Treat these as P0 symptoms. For each, capture actual reproduction steps, request/response, Supabase result, and affected files. Likely causes such as optimistic UI state, mock fallback, query/view conditions, cache invalidation, inconsistent IDs, or mismatched Supabase projects are hypotheses until proved.
+
+After a live join, independently verify the persisted lead row, pool aggregate count, public feed, and admin table. After pool creation/publication, verify the same pool ID in admin, base table, public view/query, home listing, city/category filters, and deal route. Fix the cause rather than adding an arbitrary client refresh or hardcoded count.
+
+`NEXT_PUBLIC_SITE_URL` should be validated centrally. `http://localhost:3000` is acceptable only in local development. Any production share URL must use the configured canonical HTTPS host. All WhatsApp wording must be gender-neutral and must not imply an unconfirmed discount.
+
+### 17.8 V2 implementation phases — exact prompts for Antigravity IDE
+
+**Execution mode:** The original Phase 1–6 are completed baseline phases according to the owner. Do not re-run those prompts. Execute Phases A–F sequentially below against the current local project. Continue to the next phase only if the current phase's acceptance gate passes; if a required live integration is unavailable, mark that gate `NOT VERIFIED` and do not falsely claim it passed. Work locally at `http://localhost:3000`; do not deploy.
+
+#### Phase A — Audit and fix persistence/public visibility/canonical URLs
+
+**Likely files:** existing join modal, pool repository, join Route Handler, SQL/RPC/migration, public pool repository/view, admin pool API, admin leads API, `lib/format.ts`/URL helper, relevant tests, `README.md`.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md completely. Treat Section 17 as the current V2 authority. This is Phase A only; do not implement the future category/product/vendor model yet.
+
+Audit the existing local PoolBuy India code and prove the root causes of (1) join success with count resetting after refresh, (2) leads missing from the admin table, (3) admin-created pools not appearing publicly, and (4) WhatsApp share URLs containing localhost in an incorrect environment.
+
+Trace actual code from UI through Route Handler/RPC/table/view and back to public/admin readers. Inspect Supabase project configuration and cache/revalidation behavior. Do not assume the cause. Preserve the root app/ Next.js 16 setup. Apply the smallest safe fix, preserve real data, never reset the database, never hide live DB errors by falling back to mock success, and keep the mock banner truthful. Use the database as the sole source of truth in configured live mode. Centralize canonical URL construction from NEXT_PUBLIC_SITE_URL and make production links use HTTPS production host.
+
+Run the existing lint, TypeScript, test and build commands. Verify locally: submit a valid test join, confirm the database row and counter, refresh the public page and admin table, resubmit the same number and confirm the count does not increase, create/publish a test pool, and confirm it appears from the authoritative public query and on the matching deal URL. If Supabase is not configured, do not claim live persistence passed; document the limitation and test available mock behavior separately. Do not implement Phase B onward until reporting Phase A findings and gate status.
+```
+
+**Gate:** one actual persisted join remains present and counted after refresh; the admin sees the same lead; duplicate phone submission is idempotent; published pool ID is consistent between admin and public listing; canonical link behavior is correct.
+
+#### Phase B — Multi-city, dynamic categories/products and safe migrations
+
+**Likely files:** `types/index.ts`, `lib/constants.ts`, catalog repositories, city/category/deal pages, admin pool APIs/UI, `supabase/schema.sql`, new additive `supabase/migrations/*`, SQL tests.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md. Implement Phase B only, using the V2 data model in Section 17. Do not reset Supabase or delete existing rows. Inspect actual schema and code, then add reviewed, additive migrations for dynamic cities, dynamic categories, reusable standardized products and fixed-kit templates as needed. Backfill existing categories and cities without changing existing pool IDs or breaking current deal slugs. Keep legacy enum/text columns until all reads/writes are migrated and tests prove compatibility; do not blindly rerun the V1 schema against an existing database.
+
+Allow the same product/template to exist as independent operational pools in multiple cities. Each pool must have its own city, current buyers, lead set, deadline, vendor/fulfilment arrangement and pricing. Public city/category filters must load from configured active data, not a closed hardcoded union. A product request or category must not become public automatically. Preserve public/private DTO separation and all admin authentication/RLS rules.
+
+Use the installed Next.js 16 async params pattern and preserve current canonical routes. City and deal route lookup must require a matching city and pool slug. Support active city selection and a helpful empty-state/request action for cities without a live pool. Do not mark a city operational unless its local installation/fulfilment arrangement is verified.
+
+Run migrations only on a safe development database or provide a clear operator-reviewed migration plan if no development DB exists. Test two city pools for the same product, each with separate count, lead, vendor quote and price. Run lint, tsc, tests and build; inspect the local city selector and both deal pages at http://localhost:3000. Stop at this phase gate.
+```
+
+**Gate:** two city pools for the same product are independent; categories/cities are data-driven; no old URLs or records are lost; unknown category values can be requested without enum-cast errors.
+
+#### Phase C — Demand request queue and admin-approved pool creation
+
+**Likely files:** `components/pool-request-form.tsx`, `app/api/pool-requests/route.ts`, existing admin request APIs/components, city/category/product admin forms, request schema/RPC/migration, tests.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md. Implement Phase C only. Build a short public Request a New Pool flow that accepts free-text product/package, requested city (including a validated request for an unconfigured city), name, valid 10-digit WhatsApp number, and optional area/PIN/brand/note. Do not require the product to belong to an existing category, do not force a long questionnaire, and do not create a public pool automatically.
+
+Persist requests in the database through a validated server route/RPC. Ensure the current schema can store unknown category/product requests without casting free text to the legacy pool_category enum. Use appropriate consent/privacy text, anti-spam limits, and server-side validation. Demo submissions must remain visibly demo-only and never appear as real leads.
+
+In the admin, implement search/filter, request detail, review note, status update, duplicate-demand discovery that preserves individual records, approval/rejection/need-information, and a separate explicit workflow to create a standardized product/category and then a city-specific pool. Link the source requests to the resulting product/pool. Require admin session verification on every read/write. Approval of an idea is not equivalent to publication; only a separate explicit pool publish action makes it public.
+
+Verify by submitting an existing-category request and an unknown-category request from the browser, refreshing, confirming both in admin, approving one, creating a category/product/pool, and confirming it becomes public only after publication. Test unauthorized admin APIs. Run lint, tsc, tests and build; stop at the gate.
+```
+
+**Gate:** requests persist across refresh; unknown categories are accepted as request text; all review actions are protected; only approved and explicitly published pools become public.
+
+#### Phase D — Fixed brand kits, city-specific vendor quotes and price ladder
+
+**Likely files:** new/reused kit-offer and price-tier components/repositories, admin pool form/tab, pool detail/card, offer API/Route Handlers, schema migration and tests.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md. Implement Phase D only. Support multiple predefined, non-customizable brand-kit options inside one city-specific product pool. Reuse product-kit templates across cities but create separate city-specific vendor offers, quote validity, price verification and price-history records. Do not make the customer assemble components.
+
+Track total pool interest separately from per-kit buyer selections. A mixed-brand group can count toward one vendor threshold only when the written vendor offer explicitly permits it. Add admin CRUD for exact SKU/model, package inclusions/exclusions, installation scope, warranty, vendor, reference price/source/date, current quote, conditional target price, validity and verification state.
+
+Support a vendor-approved quantity tier and a manual-new-quote-required mode. When a threshold is met, update the approved tier only if its terms are still valid; otherwise show quote pending and notify/admin-flag the pool. Never generate a lower price simply because the count increased. Keep an immutable/auditable quote history and make all public price/savings claims conditional on comparability and verification.
+
+Use realistic test records only in explicitly labeled demo mode. Keep real dealer identities, contact details, cost prices and private terms out of public API responses. Verify at localhost: create one pool with three brand options, join 6/3/1 test buyers, check per-kit counts, update one vendor quote and see the approved offer/history update without affecting another city. Ensure unverified/expired quotes are not labelled current savings. Run lint, tsc, tests and build; stop at the gate.
+```
+
+**Gate:** fixed kits and independent per-kit counts work; quote updates are auditable; public prices never claim unverified savings; city-specific prices remain isolated.
+
+#### Phase E — Simplified customer UX, share links, consent and payment readiness
+
+**Likely files:** join form/success UI, WhatsApp helper, canonical URL helper, privacy copy, admin offer publication, optional payment configuration (only if separately approved), tests and docs.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md. Implement Phase E only. Simplify the buyer join form to name, valid WhatsApp number, selected fixed kit when applicable, and locality/PIN only when required for vendor coverage. The city comes from the pool. Remove mandatory buying timeline, mandatory waiting-period, mandatory existing-quote, and long customization fields from the primary join flow. Preserve legacy lead data safely and do not invent values for fields no longer collected.
+
+Update share copy to natural gender-neutral Hinglish. Always use the canonical URL helper: localhost links are allowed only when intentionally testing locally; production uses the configured production HTTPS URL. Include price/savings only if supported by a current verified offer. Do not say the deal is unlocked merely because demand hit the target.
+
+Implement offer-notification readiness around approved price publication, consent, opt-out, deduplication by offer version and an auditable manual WhatsApp prefill workflow. A wa.me link is manual, not an automatic send. Do not claim bulk WhatsApp API sending without the official provider integration configured.
+
+Do not turn on real payment collection during this phase unless the project owner has explicitly selected and documented the payment model in Section 17.6 and the gateway/legal/accounting prerequisites are actually configured. The current proposal has a token credited toward vendor price, while a public industry reference describes seller-paid success fees; do not merge those models. If unresolved, keep payment disabled, keep verified offer display functional and report the exact remaining business decision. Do not build an escrow or wallet.
+
+Test the simplified form, demo/live errors, production URL configuration, WhatsApp encoding, offer expiry, consent/opt-out behavior and payment-disabled state at localhost:3000. Run lint, tsc, tests and build. Stop at the gate.
+```
+
+**Gate:** form is minimal; sharing is correctly gender-neutral; links use the right environment; offer communications are truthful; payment cannot be used until its commercial/legal flow has been explicitly approved.
+
+#### Phase F — Regression, hardening, documentation and local acceptance
+
+**Likely files:** all affected components/repositories/Route Handlers, tests, `README.md`, `.env.example`, `AGENTS.md`, `MASTER_BLUEPRINT.md`, migration docs.
+
+**Exact IDE prompt:**
+
+```text
+Read AGENTS.md and MASTER_BLUEPRINT.md. Implement Phase F only. Run a full regression review of the existing and V2 features without redesigning unrelated UI or deploying. Add tests for persistent join/count idempotency, admin-created pool visibility, multiple cities for the same product, dynamic category creation, unknown-product requests, admin approval, fixed-kit selection counts, quote validity/history, WhatsApp/canonical URLs, RLS/private data, CSV formula injection and admin authentication.
+
+Run the repository's actual commands for lint, TypeScript, test suite and production build. Use a disposable/test Supabase project for database integration tests if available; if it is not available, clearly mark live persistence and RLS acceptance as NOT VERIFIED rather than claiming success. Keep mock mode visible and do not seed fake leads into live data. Do not deploy or change domains; the current phase is local development.
+
+Update README with local start instructions, environment setup, schema/migration order, admin setup, troubleshooting for stale counts/missing pools, how to add city/category/product/request-approved pool, vendor quote updates, current payment-disabled/approved status, and the exact tests performed. Update AGENTS.md so it points to this amended MASTER_BLUEPRINT as authoritative. Remove contradictions in duplicated instructions, but retain useful project-specific constraints.
+
+Verify in a browser at http://localhost:3000 at 375px mobile width and desktop width: join persists, refresh does not reset the count, admin lead list sees it, a new city-specific pool appears publicly, city counts/prices remain separate, a new product request enters admin review, approved request creates a pool only through the explicit action, quote updates render correctly, and WhatsApp links are correct. Report PASS/FAIL/NOT VERIFIED with evidence. Do not deploy and do not claim production readiness without live verification.
+```
+
+**Gate:** tests and build pass; all locally available end-to-end checks pass; unavailable live prerequisites are listed without false claims; documentation matches the final code.
+
+### 17.9 Required route/data-access additions or adaptations
+
+Reuse existing routes where they already satisfy the behavior. Add only the minimum missing routes, such as:
+
+- Admin cities: `GET/POST /api/admin/cities`, `PATCH /api/admin/cities/[cityId]`.
+- Admin categories: `GET/POST /api/admin/categories`, `PATCH /api/admin/categories/[categoryId]`.
+- Admin products/kits if required: routes under `/api/admin/products/**` and `/api/admin/pools/[poolId]/kit-offers/**`.
+- Admin pool requests: existing protected list/update APIs plus an explicit approved-request-to-pool action.
+- Public pool listing/detail: use safe public repository/view and match both city and pool slug.
+
+Every new admin Route Handler must validate the session and Origin for mutations. `Cache-Control: no-store` applies to private admin responses. Public view models must exclude buyer PII, private vendor contact details, private acquisition costs, payment URLs, and admin notes.
+
+### 17.10 Local development and completion rules
+
+The owner says the project currently runs locally. Work against the existing local project directory and use `http://localhost:3000` for manual checks. The IDE agent should not rely on this ChatGPT environment having access to the owner's Windows filesystem or local browser session.
+
+- Preserve the installed package manager and lockfile.
+- Do not run destructive database commands or a schema reset.
+- Use a development/test Supabase project for migration and persistence tests. If `.env.local` targets production, do not run mutation tests until the operator verifies a safe environment.
+- Do not paste `.env.local`, admin credentials, session secrets, service-role keys or buyer PII into chat or generated reports.
+- If the repository is not open at the specified project root, stop and ask the operator to open the correct folder rather than creating another project.
+- If tests fail, fix the causes before moving to the next phase. A build success is not proof of data persistence or business correctness.
+- The final implementation report must include changed files, migrations, actual command results, browser scenarios, and any NOT VERIFIED gate.
+
+---
+
+## V2 External References and Benchmark Notes
+
+- PoolBuy.app homepage observed 26 October 2026: https://poolbuy.app/
+- PoolBuy.app group-buying explanation observed 26 October 2026: https://poolbuy.app/what-is-group-buying
+- PoolBuy.app privacy page observed 26 October 2026: https://poolbuy.app/privacy
+- Official IP India trademark search: https://tmrsearch.ipindia.gov.in/tmrpublicsearch
+- Official IP India trademark search guidance: https://ipindia.gov.in/trade-marks-before-you-apply-search-existing-trademarks
+
+**Benchmark limitation:** This is a review of publicly accessible website claims and UX patterns, not independent verification of PoolBuy.app's source code, payments, dealer agreements, discounts, registrations, or business results.
+
+# V3.0 OWNER-APPROVED IMPLEMENTATION AMENDMENT — LOCATION-FIRST UX, POOL LIFECYCLE, BUYING TIMELINE, NATIONAL SEO, BLOG CMS
+
+**Document ID:** PBI-MASTER-001  
+**Version:** 3.0  
+**Last updated:** 26 October 2026  
+**Precedence:** This Section 18 supersedes any earlier conflicting requirements in Sections 1–17, especially the old buying-timeline enum, single-city launch assumptions, hardcoded category lists, six-phase baseline, pool lifecycle, SEO scope, and non-goals. All compatible earlier security, architecture, validation, RLS, test, and migration requirements remain in force.
+
+## 18.1 Current repository and phase state
+
+The original Phases 1–6 and updated Phases A–C are reported as implemented and locally verified. The most recent Phase C report explicitly states that local verification ran with `NEXT_PUBLIC_DEMO_MODE=true`, and that the Supabase migration `20261026000002_dynamic_categories_and_pool_requests.sql` was prepared and tested locally but remote execution was **NOT VERIFIED**.
+
+The IDE agent must not treat a local mock pass as proof of remote database durability. Before any new database-dependent feature is declared complete:
+
+1. Inspect all existing migrations and the actual local repository.
+2. Preserve the Phase A persistence fixes, Phase B city isolation, and Phase C request/category approval workflow.
+3. Determine which migrations have actually been applied to the configured development database.
+4. Do not run migrations or destructive mutations against a production database unless the operator has explicitly confirmed the target environment and backup/safe migration procedure.
+5. If a dev Supabase connection is unavailable, implement and test safe local behavior, prepare migrations, and mark live persistence/RLS as `NOT VERIFIED`.
+6. Do not duplicate features already implemented. Make incremental changes to the existing application.
+
+## 18.2 Product definition and customer identity — final owner decision
+
+PoolBuy India is a location-aware, fixed-kit group-buying platform. It collects buying interest from customers without requiring customer accounts, passwords, OTP login, or registration workflows. Customers may provide their name, WhatsApp number, selected State/City, a locality/PIN code when needed, their selected fixed kit, and a simple buying timeline.
+
+Customer accounts are explicitly **out of scope** for the buyer journey. Typical purchases in these categories are infrequent and account creation adds friction without proving incremental value. The admin remains protected through the existing server-verified passkey session. A separate vendor login portal remains a later phase, not part of this implementation.
+
+The platform will initially emphasize these three standardized product families:
+
+1. **Rooftop Solar Complete Kits** — separate fixed product/pool templates for 3 kW and 5 kW, with exact verified brand/model packages and locally verified installation terms.
+2. **Home Power-Backup Combo** — exact inverter + 200 Ah battery + trolley/package configuration, with model, warranty and installation scope fixed in advance.
+3. **Whole-House Water Softener Kit** — a predefined home-use package with stated flow/resin/specification and clearly declared installation assumptions.
+
+These are the first catalog priorities, not permission to invent vendor availability or margins. Product templates may be created as draft/catalog definitions. A city-specific operational pool must not be publicly represented as a live offer until the required local vendor and package terms are verified. Existing TVS iQube, Ather, car, laptop, QLED, tractor and other categories may remain in the extensible catalog but should not compete with the three launch product families in the initial primary marketing experience unless approved by the operator.
+
+## 18.3 Customer buying timeline — final exact options
+
+The join/interest form must include this single question:
+
+**When are you planning to buy?**
+
+- `THIS_MONTH` — **This month**
+- `WITHIN_1_3_MONTHS` — **1–3 months**
+- `WITHIN_3_6_MONTHS` — **3–6 months**
+- `JUST_EXPLORING` — **Just exploring**
+
+Do not ask a separate question such as “How many days can you wait for a better deal?”
+
+Keep the rest of the customer form as short as the chosen package permits:
+
+- Full name.
+- Indian WhatsApp number.
+- State and City, preselected from the browsing context/pool.
+- Locality or PIN code only when useful for local service coverage.
+- Preferred fixed brand-kit option if the pool contains multiple kits.
+- The exact four-option buying timeline above.
+- Clear consent/privacy notice for pool follow-up. Separate consent should be used for vendor sharing/marketing where required by the published policy.
+
+Do not require customer password, account creation, detailed customization fields, financing interrogation, waiting-period preferences, or existing dealer quote details in the main flow. Optional follow-up questions can be collected later if operationally necessary and consented.
+
+### Safe migration of old timeline values
+
+The pre-V3 database may contain `WITHIN_7_DAYS`, `WITHIN_15_DAYS`, and `WITHIN_30_45_DAYS`. Do not silently map old records to a new timeline unless the source data supports that mapping. Add the new enum values or use a safe, forward-only text/check migration after inspecting dependencies. Keep legacy values readable in admin history and reports. New submissions must use the four V3 values. Update form labels, runtime validation, API validation, TypeScript types, admin filters, tests, and database/RPC validation consistently.
+
+## 18.4 Location-first experience — State → City → local pools
+
+### Core UX rule
+
+Do not present a cluttered all-India catalog with every city’s pool mixed together. The first important discovery control is location. The customer must be able to:
+
+1. Select a State/Union Territory.
+2. Select a City/Town/recognized service area from that state.
+3. Optionally click **Use my location**.
+4. Confirm the detected city before viewing or joining a local installation-dependent pool.
+5. See only the pools belonging to the selected city, together with the relevant category filters.
+6. Change location easily without losing the ability to discover products.
+
+The location picker is a discovery/filtering interface, not a promise of vendor service. A city may exist in the directory without an active vendor or pool.
+
+### Use my location
+
+- Location access must be initiated only after the user presses a clearly labelled button.
+- Use the browser Geolocation API only in supported secure contexts and handle denied permission, timeout, inaccurate result, and unsupported browser gracefully.
+- Do not request or store GPS coordinates merely on page load.
+- If a reverse-geocoding provider is configured, resolve coordinates server-side and return a suggested State/City for user confirmation.
+- If no geocoding provider/key is configured, do not invent the city from raw coordinates. Keep manual State/City/PIN selection available and explain the limitation in plain language.
+- Do not expose a geocoding secret in a `NEXT_PUBLIC_` variable unless it is explicitly a provider-approved public browser key with restricted domains and quotas.
+- Do not persist exact coordinates to customer records by default. Retain only the city/locality/PIN details needed for the requested service, and only with a clear purpose.
+- The product must never require location permission: manual selection is always a full alternative.
+- Remember a user's selected city locally only where appropriate; expose a visible “Change location” action. Do not treat localStorage selection as verified address or consent.
+
+### Data model
+
+Inspect the existing `cities` table added in Phase B and preserve its IDs/relationships. Introduce a normalized `states`/`state_directory` table if necessary. Keep the migration additive and data-preserving. City records should support at least:
+
+- Stable ID and unique canonical slug.
+- Display name.
+- State/UT foreign key or normalized `state_slug`.
+- Place type such as `CITY`, `TOWN`, `ISLAND_CENTRE`, or `SERVICE_ZONE` where a territorial unit is not reasonably a conventional city.
+- Whether it is selectable in the location directory.
+- Operational availability state: `ACTIVE`, `DEMAND_COLLECTING`, `NOT_YET_AVAILABLE`, or `INACTIVE` (adapt current fields if equivalent).
+- Optional, verified service coverage metadata.
+- Created/updated timestamps.
+
+Important distinction: `selectable` does not mean `operational`. Do not label every seeded city as an active market. Only activate a city for live pool promotion when corresponding pool/fulfilment status is actually supported. Inactive/unserved cities can still be selected for a demand request.
+
+## 18.5 India location directory — launch seed coverage
+
+Seed a selectable State/UT directory containing all 28 States and all 8 Union Territories referenced by the Government of India's public State/UT directory. Seed the following representative initial urban markets for each State. This is a useful directory seed—not a claim that all locations currently have local dealers, are the five largest by population, or are operational markets.
+
+For Union Territories with fewer than five genuine cities, do **not** fabricate five cities. Represent real towns/island centres/administrative locations as such and keep their serviceability status distinct.
+
+### 28 States — five initial city/town selections each
+
+- **Andhra Pradesh:** Visakhapatnam, Vijayawada, Guntur, Tirupati, Kurnool.
+- **Arunachal Pradesh:** Itanagar, Naharlagun, Pasighat, Tawang, Ziro.
+- **Assam:** Guwahati, Dibrugarh, Silchar, Jorhat, Tezpur.
+- **Bihar:** Patna, Gaya, Muzaffarpur, Bhagalpur, Darbhanga.
+- **Chhattisgarh:** Raipur, Bhilai, Bilaspur, Korba, Durg.
+- **Goa:** Panaji, Margao, Vasco da Gama, Mapusa, Ponda.
+- **Gujarat:** Ahmedabad, Surat, Vadodara, Rajkot, Gandhinagar.
+- **Haryana:** Gurugram, Faridabad, Panipat, Hisar, Ambala.
+- **Himachal Pradesh:** Shimla, Dharamshala, Solan, Mandi, Baddi.
+- **Jharkhand:** Ranchi, Jamshedpur, Dhanbad, Bokaro Steel City, Hazaribagh.
+- **Karnataka:** Bengaluru, Mysuru, Mangaluru, Hubballi-Dharwad, Belagavi.
+- **Kerala:** Thiruvananthapuram, Kochi, Kozhikode, Thrissur, Kollam.
+- **Madhya Pradesh:** Bhopal, Indore, Jabalpur, Gwalior, Ujjain.
+- **Maharashtra:** Mumbai, Pune, Nagpur, Nashik, Chhatrapati Sambhajinagar.
+- **Manipur:** Imphal, Thoubal, Churachandpur, Bishnupur, Kakching.
+- **Meghalaya:** Shillong, Tura, Jowai, Nongpoh, Williamnagar.
+- **Mizoram:** Aizawl, Lunglei, Champhai, Kolasib, Serchhip.
+- **Nagaland:** Dimapur, Kohima, Mokokchung, Tuensang, Wokha.
+- **Odisha:** Bhubaneswar, Cuttack, Rourkela, Sambalpur, Berhampur.
+- **Punjab:** Ludhiana, Amritsar, Jalandhar, Patiala, Bathinda.
+- **Rajasthan:** Jaipur, Jodhpur, Udaipur, Kota, Ajmer.
+- **Sikkim:** Gangtok, Namchi, Gyalshing, Mangan, Singtam.
+- **Tamil Nadu:** Chennai, Coimbatore, Madurai, Tiruchirappalli, Salem.
+- **Telangana:** Hyderabad, Warangal, Karimnagar, Nizamabad, Khammam.
+- **Tripura:** Agartala, Udaipur, Dharmanagar, Kailashahar, Belonia.
+- **Uttar Pradesh:** Lucknow, Kanpur, Varanasi, Agra, Prayagraj.
+- **Uttarakhand:** Dehradun, Haridwar, Haldwani, Roorkee, Rudrapur.
+- **West Bengal:** Kolkata, Howrah, Durgapur, Siliguri, Asansol.
+
+### 8 Union Territories — honest location coverage
+
+- **Andaman and Nicobar Islands:** Sri Vijaya Puram (formerly Port Blair), Diglipur, Mayabunder, Rangat, Hut Bay. Use accurate place types; several are towns/settlements, not major cities.
+- **Chandigarh:** Chandigarh. Do not create artificial extra cities. If helpful, support separately labelled service zones/sector areas.
+- **Dadra and Nagar Haveli and Daman and Diu:** Silvassa, Daman, Diu, Dadra, Khanvel, with correct town/locality place types.
+- **Delhi (NCT):** Delhi as the principal urban location. If the business needs locality-level coverage, store Delhi service/locality zones separately from cities (for example, Dwarka, Rohini, South Delhi, East Delhi), not as false independent cities.
+- **Jammu and Kashmir:** Srinagar, Jammu, Anantnag, Baramulla, Udhampur.
+- **Ladakh:** Leh, Kargil, Diskit, Drass, Nyoma, with correct settlement/service-area labels.
+- **Lakshadweep:** Kavaratti, Agatti, Andrott, Minicoy, Amini as island/community centres, not five major cities.
+- **Puducherry:** Puducherry, Karaikal, Mahe, Yanam. Do not force a fifth fictional city.
+
+### Location-directory implementation rules
+
+- Add these seed locations in an idempotent migration/seed mechanism using canonical slugs and `ON CONFLICT DO NOTHING` (or equivalent safe upsert that does not overwrite operator-edited fields).
+- Do not automatically create 140+ empty public pools. Seed locations only.
+- Existing operational cities with valid active pools should retain their current operational status after a data review.
+- New seeded cities should default to `NOT_YET_AVAILABLE` or `DEMAND_COLLECTING`, not `ACTIVE` merely because they are present in the directory.
+- Product templates may be visible nationally. Active offers must still be filtered by the selected city.
+- A customer who selects an unavailable location must see a clean empty state plus a request option, not unrelated offers from other states.
+- Use an accessible searchable State/City selector. Do not show 180 city cards on the homepage.
+- Optionally show a national category page with a compact location prompt; once a location is selected, the page should focus on that city.
+- City slug uniqueness must be handled safely. If the same display name exists in two states, use a stable disambiguated slug (for example, `city-state`) rather than mapping two cities to one route.
+
+## 18.6 The three initial product families and fixed kits
+
+### Product family A — Rooftop Solar Complete Kit
+
+Provide fixed product templates for 3 kW and 5 kW; these may be separate product templates and separate operational pools. Within each city pool, support multiple complete brand-kit options only when the vendor can supply and install the exact defined package.
+
+Each option's inclusions must be explicit: module type/brand/model and DC capacity; inverter make/model/capacity; ACDB/DCDB; earthing/lightning protection; standard structure specification; installation; delivery; net-metering assistance scope; warranty and service scope; taxes; and exclusions. Do not advertise exact structure thickness/coating, number of earthing pits, subsidy result, warranty, or service obligation unless supported by a written verified offer. Elevated/walkable-structure price additions must be a vendor-approved fixed add-on and clearly scoped.
+
+Display total pre-subsidy package price separately from any possible government subsidy. A subsidy is never subtracted as guaranteed instant cashback; eligibility, commissioning, DISCOM/portal requirements and approval must be stated accurately. Compare only like-for-like complete installed packages. The illustrative `₹70,000/kW` or any proposed `₹55,000/kW`/brand target is an assumption until written quotations validate it.
+
+### Product family B — Home power-backup combo
+
+Create a fixed package template for an exact inverter + 200 Ah battery + trolley (and any included standard installation). The model/technology, battery chemistry, warranty, invoice, delivery and installation scope must be fixed in each kit. Do not allow customers to configure individual components during join. Different exact bundles should be separate predefined options.
+
+### Product family C — Whole-house water softener
+
+Create a fixed home-use package template (initially one clearly specified standard model/size, with additional sizes as separate kits if needed). Display flow rate/resin capacity, suitable home assumptions, included bypass/prefilter/plumbing work, installation exclusions, warranty, servicing/salt needs, and local vendor quote. Do not claim a kit fits every house without assessment; if site assessment is required, state that it is part of vendor fulfilment and does not turn the online product into a customer-configurable kit.
+
+### Catalog visibility
+
+- Seed or define these three product families as initial priorities, but set vendor-offer verification independently.
+- Do not fabricate prices, dealer identities, verified quotes, savings, reviews, or vendor authorizations.
+- Existing category/product data must be preserved and remain supported by the dynamic catalog model from Phase C.
+- A product template can be national. A vendor offer and installation pool is city-specific unless a written fulfilment agreement explicitly defines another coverage region.
+
+## 18.7 Pool lifecycle, auto-expiry, archive and deletion
+
+Pool lifecycle management must be explicit, auditable, and safe. “Delete” must not permanently erase real buyer leads or financial/quotation history by default.
+
+### Public/admin actions
+
+Admin pool controls must include:
+
+- **Save Draft** when the existing architecture supports drafts.
+- **Publish / Activate** only after required pool fields and supplier/fulfilment prerequisites are satisfied.
+- **Pause / Resume** (if added, implement as a valid explicit state or controlled activation flag; do not overload `CLOSED` ambiguously).
+- **Close now** with required reason.
+- **Expire now** (immediately set a terminal/expired lifecycle outcome with reason `ADMIN_EXPIRED`, without waiting for the deadline).
+- **Archive** to remove from active operational screens while preserving history.
+- **Soft delete / hide** for erroneous or withdrawn draft pools. Maintain a recoverable record and audit trail.
+- **Restore** an archived/soft-deleted pool only if the offer is still valid and the admin revalidates it.
+- **Permanent deletion** only for an unused draft/test record with no leads, payment/commitment references, requests, vendor quotes, or audit dependencies and only after explicit confirmation. If any dependent business record exists, disable hard deletion and use archive/soft-delete instead.
+
+### Schema evolution
+
+Inspect the current `pool_status` enum and current pool fields before changing them. Prefer an additive migration adding clear lifecycle fields rather than destabilizing existing status values unnecessarily. Possible fields include:
+
+- `closed_at timestamptz`
+- `closure_reason text` constrained to approved reasons such as `ADMIN_CLOSED`, `AUTO_POOL_EXPIRED`, `ADMIN_EXPIRED`, `AUTO_OFFER_EXPIRED`, `VENDOR_UNAVAILABLE`, or `OTHER`
+- `archived_at timestamptz null`
+- `deleted_at timestamptz null`
+- `deleted_by text/uuid null` appropriate to current passkey-admin model
+- `deletion_reason text null`
+- `offer_valid_until timestamptz null` separate from initial pool deadline
+
+Use existing columns when equivalent. Do not add redundant fields merely because they are listed as examples. Preserve foreign keys and historical leads. The `CLOSED` status can remain the terminal display state if `closure_reason` disambiguates manual close from automatic expiry; otherwise propose a safe normalized state migration.
+
+### Automatic expiry rules
+
+- `deadline` governs the period during which an `ACTIVE` pool accepts new interest/joins.
+- A pool whose deadline has passed must stop accepting joins even if a scheduled job has not yet run. This rule must be enforced in the database RPC and public UI/query.
+- On scheduled expiry, an `ACTIVE` pool whose deadline has passed is transitioned to closed/expired with `closure_reason = AUTO_POOL_EXPIRED` and a timestamp.
+- An `UNLOCKED` offer may have a separate `offer_valid_until`. If that offer expires, close the offer/pool according to the documented business state and record `AUTO_OFFER_EXPIRED`; do not silently extend the offer.
+- Do not auto-expire/delete leads. Preserve leads and the pool audit trail according to retention policy.
+- Expiry execution must be idempotent and safe when called more than once or concurrently.
+- Public catalogue queries must filter expired deadlines immediately, even if the lifecycle update job is delayed.
+
+### Serverless scheduler
+
+- Provide a protected endpoint such as `GET /api/cron/expire-pools` using `CRON_SECRET` and constant-time secret comparison or platform-supported authenticated cron handling.
+- Add Vercel Cron configuration only after inspecting existing `vercel.json` and account/plan constraints. A recommended hourly schedule is acceptable for this first release if plan limits allow; do not promise minute-perfect execution.
+- For Netlify or local development, document the supported scheduled invocation mechanism. The local environment cannot depend on a background process running permanently; provide a protected admin “Run expiry check” action or a safe local script for verification.
+- Cron endpoint must return summary counts only, not buyer PII, and must use server-only privileged database access.
+- Never expose `CRON_SECRET` to the client or logs.
+
+### Admin visibility
+
+Provide filters/tabs for Active, Target Reached/Quote Pending, Unlocked, Lead Fallback, Closed/Expired, Archived and Deleted where supported. Do not show expired pools among active opportunities. Keep a view of historical pools and associated buyers for admin audit/export.
+
+### Pool expiry acceptance tests
+
+1. Active future-deadline pool remains joinable.
+2. Active past-deadline pool rejects joins at the database/RPC boundary even before the cron runs.
+3. Expiry job closes only eligible expired pools and is idempotent.
+4. Unlocked offer expiry is handled using `offer_valid_until`, not the original deadline alone.
+5. Archived/soft-deleted pools do not appear publicly.
+6. Restoring a record requires a revalidation path.
+7. Pool with leads cannot be permanently deleted through ordinary admin UI.
+8. All existing leads and pool history remain intact after close/archive.
+
+## 18.8 National SEO architecture and search-friendly location hierarchy
+
+The objective is to make PoolBuy India discoverable nationally, but no agent can guarantee Google rankings. Implement technical SEO fundamentals and useful people-first content; avoid thin auto-generated location pages and copied vendor claims.
+
+### Recommended public URLs
+
+- `/` — location-first homepage.
+- `/locations` — searchable State/City directory, with clear availability labels.
+- `/state/[stateSlug]` — state coverage page where genuinely useful and indexable.
+- `/city/[citySlug]` — city pools and useful local information.
+- `/category/[categorySlug]` — national category landing page.
+- `/deals/[citySlug]/[poolSlug]` — single city-specific live pool/offer.
+- `/blog` — article index.
+- `/blog/[slug]` — published article.
+- `/blog/topic/[topicSlug]` — optional topic landing pages only if they have meaningful content.
+- `/about`, `/how-it-works`, `/privacy`, `/terms`, `/contact`, `/refund-policy` or equivalent trust pages only with real, approved business details and reviewed policy language.
+
+Preserve current route shapes where possible. Add `/state/[stateSlug]` only if it can provide useful content without making the site a page farm. Existing routes and old published URLs must remain stable or be handled by explicit redirects.
+
+### Indexing rules
+
+- Index useful national category pages with substantive product/market content.
+- Index a city page only when it has live relevant pools or substantive, unique service/content information. Empty/not-yet-served city pages should ordinarily be `noindex,follow` until they become useful.
+- Do not index every seeded directory city simply because a location record exists.
+- Do not index request IDs, admin URLs, API paths, demos, test records, unapproved requests, draft/expired/archived offers, or private views.
+- Individual closed deal pages may remain as truthful historical/closed pages with `noindex` or be redirected by a documented policy.
+- Keep product/Offer JSON-LD honest. `Offer` structured data is allowed only when price is currently verified, valid and actually available under defined terms. Do not fabricate availability, seller, SKU, rating/review, or price.
+- A city-specific pool page must resolve using both city slug and pool slug.
+
+### Metadata and structured data
+
+Use Next.js 16-compatible `generateMetadata` with async `params`. Provide unique, meaningful titles/descriptions, absolute canonical URLs, OpenGraph, Twitter card metadata, language, and robots directives. Use the validated central canonical-URL helper.
+
+Use relevant schema only when supported by visible page content: `Organization`/`WebSite` for site identity, `BreadcrumbList` for navigation, `Product` and conditional `Offer` for real product offers, `BlogPosting` for articles. JSON-LD must be serialized safely (escape `<` to `\\u003c`) and never contain personal data, admin notes, private vendor costs or payment URLs.
+
+### Crawlability and performance
+
+- `app/sitemap.ts` should include only canonical, published, indexable pages: the homepage, useful active categories/cities/states, valid public pool pages and published articles. Do not require remote database access during production build if the architecture can read at request time.
+- `app/robots.ts` should disallow admin/API paths and must not be used as a substitute for authentication.
+- Add crawlable internal links from articles to useful category/city/deal pages and vice versa.
+- Optimize images, responsive layout, metadata, canonical host, 404s, redirects and mobile performance.
+- Provide a Search Console and analytics setup checklist, but never claim the properties are verified or tracking is live unless actual configuration is done.
+- Avoid keyword stuffing, duplicate city content, generated content farms, artificial review markup and guaranteed ranking claims.
+
+## 18.9 Blog CMS — regular publishing without code edits
+
+Add a protected Blog Management tab inside the existing admin command center. The owner must be able to create and publish regular posts without editing the repository or manually changing SQL rows.
+
+### Blog data model
+
+Inspect whether a blog table already exists. Otherwise, add an additive migration creating `blog_posts` and, only if justified, a `blog_topics` table. A blog post should support:
+
+- Stable UUID.
+- Unique slug with safe slug normalization.
+- Title.
+- Short excerpt/summary.
+- Body content stored as Markdown or a deliberately selected safe structured format.
+- Author/byline field (real, owner-provided; never fabricate a credential).
+- Topic/category and tags.
+- Featured image URL and descriptive alt text.
+- SEO title and meta description.
+- Status `DRAFT`, `PUBLISHED`, or `ARCHIVED`.
+- `published_at`, `created_at`, `updated_at` and suitable revision/audit information.
+- Optional source/reference URLs and editorial review notes not exposed publicly.
+
+Prevent duplicate slugs. Slug changes on already published articles require a 301 redirect or preserved slug alias, not a silent broken URL.
+
+### Blog admin workflow
+
+- Create draft.
+- Edit draft.
+- Preview the article using the same typography as the public page.
+- Publish only after explicit admin action.
+- Edit a published post with an updated timestamp/audit trail.
+- Archive a post without deleting its history.
+- Validate title, slug, body length, excerpt, image alt, canonical metadata and required byline.
+- Drafts/archived posts must not be returned by public article queries or included in the sitemap/RSS.
+- No public user registrations or article comments are required.
+
+### Safe content rendering
+
+Use the project's existing Markdown renderer if safe and suitable. Otherwise, select a maintained renderer only if necessary and avoid raw HTML by default. Sanitize any HTML if HTML authoring is ever supported. Do not execute arbitrary scripts/embeds supplied through article content. Use secure external-link handling.
+
+### Public blog routes and publishing effects
+
+Implement:
+
+- `/blog` — paginated, mobile-friendly article index with headline, excerpt, image, byline, publication date and topic tags.
+- `/blog/[slug]` — full article with headings, table of contents where useful, sources/references, author/date, related content and contextual links to PoolBuy product/category/location pages.
+- An RSS endpoint at `/feed.xml` or equivalent.
+- Blog sitemap entries containing only published articles.
+- `BlogPosting` JSON-LD with truthful author, dates, headline and image.
+- Revalidation of `/blog`, the specific article, relevant topic pages, RSS and sitemap after publish/update/archive.
+- Empty-state UI for a new blog with no published posts; do not expose drafts.
+
+### Publishing quality
+
+The CMS is a publishing tool, not a bulk SEO-page generator. Articles should be original, fact-checked, useful to Indian buyers, clearly dated and attributed. For solar or subsidy material, link to current official sources and distinguish policy facts, vendor quotes and editorial estimates. Never publish fabricated market data, made-up customer case studies, false author credentials, or unverified discounts. Do not mass-generate dozens of thin near-duplicate city posts just for keyword coverage.
+
+## 18.10 Benchmark lessons from PoolBuy.app
+
+The public website `https://poolbuy.app/` was reviewed on 26 October 2026. It publicly presents a short interest form, category selection with “Something else,” name and WhatsApp, home PIN code, optional “Use my location,” the same four buying-timeline options, public aggregate registrations without names/numbers/exact PINs, seller-direct fulfilment and written seller terms before payment. It also describes booking amounts credited toward the seller price and a seller-paid fee per completed sale.
+
+PoolBuy India may adopt useful UX principles:
+
+- Free, quick interest registration.
+- “Something else” product request linked to admin review.
+- State/City/PIN/location-driven matching.
+- Privacy-safe aggregate demand display with minimum cohort threshold.
+- Verified written offers and direct seller fulfilment.
+- Minimal friction and no compulsory customer account.
+
+Do not copy another site's text, branding, imagery or code. Do not assume its commercial terms, registrations, margins, authorization claims or implementation are independently verified. PoolBuy India's token proposal differs from seller-paid success-fee models; keep the approved financial flow separate and do not enable payments until terms are settled.
+
+## 18.11 Admin product catalogue, category and vendor readiness
+
+The existing admin must continue to support:
+
+- City and State/UT directory management.
+- Operational status independent of simple directory presence.
+- Runtime category and standard-product creation.
+- Product request review and conversion.
+- Local pool creation with one authoritative city.
+- Separate fixed-kit offers and vendor quotes.
+- Pool lifecycle/expiry/archive actions.
+- Blog draft/publish/archive workflow.
+
+Any new admin route must check the signed admin session on every request, validate Origin on mutation, return `Cache-Control: no-store` for private data, and keep service-role use server-only. Never add customer account/login features just to solve admin needs.
+
+Vendor login and self-service quote submission remain explicitly deferred. The initial vendor process is admin-managed; vendor portal should only be implemented under a later approved specification.
+
+## 18.12 Required database migration strategy
+
+Review the actual ordered migration set, expected to include at least the previously reported:
+
+- `20261025000001_initial_schema.sql`
+- `20261025000002_rls_and_rpc.sql`
+- `20261026000001_cities_and_multicity_pools.sql`
+- `20261026000002_dynamic_categories_and_pool_requests.sql`
+
+Do not assume that any migration has been remotely applied just because its file exists. Verify migration state using the safe supported Supabase CLI/database workflow and the correct development project.
+
+New migrations may need to add:
+
+- State/city directory relationships and operational availability metadata.
+- New timeline enum values or a compatible timeline text/check representation.
+- Pool closure/expiry/archive/soft-delete fields.
+- Offer expiry timestamp and closure reason.
+- Fixed-kit/offer/price-history structures if not already present.
+- Blog posts/topics tables and their RLS/policies.
+- Indexes, RPCs, view updates and grant changes.
+
+All SQL changes must be forward-only/additive where practical, idempotent where feasible, reviewed for existing data compatibility, and tested against a disposable development database. Backfill existing pools/categories/cities/timeline values safely. Keep public safe-view column lists explicitly defined after adding tables/columns.
+
+Never blindly replace `schema.sql` or rerun seed statements that reset data. `schema.sql` is the fresh-install reference; incremental migrations govern an existing database. Keep both aligned and document the migration order.
+
+## 18.13 V3 implementation plan — continue after Phase C
+
+Phase A–C are reported complete in local demo mode. The IDE agent must first perform a short repository/database preflight, then implement the remaining work in the following order. Do not repeat the initial six baseline phases.
+
+### Preflight — repository and migration reality check
+
+Inspect Phase A–C report and current repository. Confirm which routes/components/schema changes exist. Check demo mode settings and configured development database destination without printing secrets. Determine whether prior migrations are applied in the development DB. Preserve current state and tests. Report any missing remote prerequisites before making DB writes.
+
+### Phase D — Fixed kit catalog and vendor-approved price management
+
+Implement or complete the three initial product families (solar 3/5 kW, exact inverter + 200 Ah battery combo, whole-house water softener), reusable product-kit templates, per-pool kit selections, per-kit buyer counts, city-specific vendor quotes, approved quantity tiers/manual quote-pending behavior, public verified-price rules, and auditable price history. Do not fabricate vendor prices or margins. Do not implement a vendor portal. Stop only if its gate fails after attempting fixes; report exact evidence.
+
+### Phase E — Location directory, State → City selection and optional geolocation
+
+Add all 28 States with five representative city/town options each, plus all eight UTs and honest available towns/coverage centres as specified in Section 18.5. Seed directory entries as selectable but not live-operational by default. Implement dependent State/City selectors, search, optional user-initiated geolocation with permission/reverse-geocoding fallback, city confirmation, persistent city preference where appropriate, and active city-filtered catalog. Do not mix city pools. Inactive city pages must show an honest “not available yet / request a pool” state. Do not create 180 duplicate product pools.
+
+### Phase F — Buying timeline, pool expiry, close/archive/delete
+
+Update new joins to the four exact buying timeline options in Section 18.3 and migrate schema/types/admin filters compatibly. Add auto-expiry and separate offer-expiry handling, manual expire/close/archive/restore actions, safe soft-delete defaults, constrained hard deletion for dependency-free draft/test records only, and an idempotent secured scheduled endpoint. Configure Vercel Cron or document the selected hosting-equivalent scheduler. Always enforce deadline at query and join/RPC time, even if cron is late. Preserve lead/audit history.
+
+### Phase G — Technical SEO, national/local indexability and analytics readiness
+
+Implement useful national category pages, useful state/city pages, city-specific deal metadata, sitemap/robots, canonicals, social previews, safe conditional Product/Offer JSON-LD, breadcrumbs, internal links and noindex rules. Ensure only published and useful pages are indexable. Add a Google Search Console/analytics setup runbook and any minimal privacy-conscious analytics hook if configured. Do not promise rankings, create thin mass-generated city pages or publish invented prices.
+
+### Phase H — Blog CMS and regular publishing workflow
+
+Build protected admin Blog Management, safe editor/preview, draft/publish/archive, public blog index/article pages, RSS feed, metadata, BlogPosting schema, sitemap inclusion, source/byline/date fields and cache revalidation. Keep raw HTML/script execution disabled. Do not require customer accounts. Ensure new posts can be created/updated from admin without code deployment.
+
+### Phase I — End-to-end regression, security, docs and completion report
+
+Test real and demo mode separately. Validate joins, duplicate handling, live queries, city isolation, product requests, admin approval, kits/price tiers, pool expiry/archives, timeline, geolocation denied/allowed/manual fallback, blog publishing, sitemap, canonical URLs, SEO structured data, admin auth and public/private data boundaries. Run lint, TypeScript, unit tests and build. If remote Supabase isn't available, explicitly mark all live DB/RLS/migration gates `NOT VERIFIED`. Update `README.md`, `.env.example`, `AGENTS.md` and this blueprint's status/implementation notes without deleting the specification or logging secrets.
+
+The IDE agent should attempt all remaining phases in order in a controlled execution run. If output/time limits make the entire run impossible, complete the current phase gate, save a clear continuation report, and continue in a later run without redoing completed phases. Do not skip gates, claim unverified tests passed, or ask the owner to repeat information already present here.
+
+## 18.14 Blog and SEO acceptance matrix
+
+- New blog draft can be created and saved by admin.
+- Draft preview is private; anonymous visitors cannot fetch a draft by slug.
+- Publishing makes the article available at `/blog/[slug]` without code changes or full rebuild.
+- Updating/archive removes or changes the article according to its publication status and revalidates sitemap/RSS.
+- Only published articles appear in public listings, RSS and sitemap.
+- Correct canonical, metadata, alt text, byline/date and safe BlogPosting JSON-LD render.
+- No raw unsafe HTML/script executes.
+- City/category/deal pages only index when useful and accurate.
+- State/City directory includes all intended selectable regions without falsely labelling them active markets.
+- A new local pool changes only its city-specific pages and appropriate sitemap entries.
+- `robots.txt` does not substitute for authentication or accidentally block required CSS/JS.
+- Search Console/analytics are documented as configured or not configured honestly.
+
+## 18.15 Final acceptance matrix and definition of done
+
+The system can be described as locally implemented only when:
+
+1. The lead/count bug stays fixed and is tested against the configured mode.
+2. Demo and live persistence are clearly distinguished.
+3. Each pool has one authoritative city and no cross-city count/price leakage exists.
+4. State and city selection works; geolocation is optional and permission-respecting.
+5. Directory contains all States/UTs and the proposed city/town entries, while operational availability remains truthful.
+6. City-based public listings are uncluttered and show only selected-city pools.
+7. Pool requests for existing and unknown categories go to protected admin approval.
+8. Three initial product families are represented by fixed kit templates without fabricated offer data.
+9. Multiple fixed kits have separate selection counts; prices use verified quotes and history.
+10. The exact four buying timeline choices work for new leads and old lead history remains readable.
+11. Pool deadline is enforced server-side and automatically expired pools leave public active listings.
+12. Admin can close, expire, archive, soft-delete and restore safely; hard delete is blocked when history exists.
+13. Blog drafts/published posts work from admin without code edits; published articles are crawled via sitemap/RSS.
+14. SEO metadata/JSON-LD/canonicals/internal linking are valid and no thin-page farm is created.
+15. WhatsApp links use the correct environment's canonical host and neutral wording.
+16. All secrets remain server-only and private lead/vendor data cannot be read anonymously.
+17. `npm run lint`, `npx tsc --noEmit`, `npm test`, and `npm run build` actually pass (use actual repository scripts).
+18. Local browser verification is performed at `http://localhost:3000`.
+19. Remote Supabase migrations, persistence, RLS and production hosting are explicitly marked verified or not verified; no false claim of production readiness.
+
+> **Historical prompt warning:** The execution prompt in this subsection reflects the older three-product/legacy lifecycle model. Section 19 is newer and authoritative for the current MVP. Do not run Section 18.16 as written; use `ANTIGRAVITY_MVP_EXECUTION_PROMPT.md` together with `MVP.md` and this document.
+
+## 18.16 Single master execution prompt for Antigravity IDE
+
+Copy the following block when executing the remaining system scope:
+
+```text
+POOLBUY INDIA — MASTER V3 EXECUTION
+
+Read AGENTS.md and MASTER_BLUEPRINT.md completely. The latest authoritative requirements are in Section 18. Original implementation Phases 1–6 and updated Phases A–C are reported complete; do not rebuild the app or repeat them. Inspect the actual local repository and the Phase A/B/C reports first.
+
+Work only inside the existing project root: C:\\Users\\iamvi\\OneDrive\\Documents\\poolbuy-india. Preserve root app/ (no src/), Next.js 16, TypeScript, Tailwind v4, Supabase, the existing lockfile, and the current local setup at http://localhost:3000. Do not deploy to production.
+
+Before modifying the database, identify the configured environment without printing secrets and determine which migrations are actually applied. The Phase A–C reports were verified in demo/local mode; remote Supabase migrations and live persistence may still be NOT VERIFIED. Never run destructive SQL, reset data, fabricate leads, or claim a live DB test passed when it did not.
+
+Then execute Sections 18.13 Phases D through I in order, using a phase acceptance gate for every phase. Implement the entire pending scope: (D) fixed product-kit catalog for rooftop solar 3 kW/5 kW, exact inverter + 200 Ah battery combo, and whole-house water softener; city-specific vendor quotes, kit-specific demand counts, valid vendor-approved price tiers and price history; (E) location-first State → City selector with all 28 States, all 8 UTs, five representative cities/towns per State and honest UT place types, optional permission-based geolocation, manual fallback and city-only pools; (F) the exact buying timeline choices “This month”, “1–3 months”, “3–6 months”, and “Just exploring”, plus automatic pool expiry, offer expiry, close/archive/soft-delete/restore controls and protected scheduler; (G) national SEO architecture, correct indexability, dynamic sitemap/robots/canonicals/metadata/safe JSON-LD and no thin city page farm; (H) protected blog CMS with draft/preview/publish/archive, public /blog and /blog/[slug], safe Markdown rendering, Article structured data, RSS, sitemap and revalidation; (I) full security/regression/documentation verification.
+
+Buyers must never need accounts/passwords. City is authoritative for every installation-dependent pool. Same product templates can exist in many cities, but buyer counts, kit selections, vendor offers, deadline and pricing are strictly independent by city. The product can be listed nationally but a live installation offer is shown only where a verified fulfilment route exists. Requests for new products/categories are reviewed by admin and never automatically become public pools.
+
+Do not invent supplier price, margin, warranty, subsidy outcome, authorization, active vendor coverage, customer testimonial, or guaranteed saving. Treat all seed figures as demo and unverified. Target count does not automatically guarantee a discount or open payment collection. Payment stays disabled unless the owner-approved financial terms, gateway setup and legal/accounting review are actually documented and configured. Do not build customer login or vendor portal in this execution.
+
+Pool expiry must be both query/RPC-enforced and scheduler-backed. Archive/soft delete by default; do not hard-delete pools with leads, quotations, requests, payment or audit references. Make expiry idempotent and protected with CRON_SECRET. Keep direct local verification possible and document hosting scheduler setup.
+
+The city directory is selectable data, not a claim that all cities are operational. Do not create empty pools in every city. Keep public UX uncluttered: visitor selects state/city, then sees only that city’s listings. Unserved cities show a useful request action and do not leak unrelated pools.
+
+Blog management must let the operator publish content from /admin without a code edit or redeploy. Only published articles are public and in sitemap/RSS. Preserve accurate authorship and sources; do not bulk-generate near-duplicate city SEO pages.
+
+Implement incrementally. Reuse existing functionality where correct. Create reviewed additive migrations and preserve all existing IDs/leads. For each phase: test it, fix failures, report changed files and actual results, then proceed. If a necessary prerequisite is unavailable, complete safe work and mark that criterion NOT VERIFIED rather than fabricating success. Do not stop after producing a plan; implement and verify everything possible in the current local environment. If the context/time limit prevents all phases, finish the current gate, update a continuation report, and explicitly identify remaining phases rather than claiming completion.
+
+At the end run the actual commands from package.json for lint, tsc, tests and production build. Use the actual browser at http://localhost:3000. Update README.md, .env.example and AGENTS.md to match the final implementation. Return a final PASS/FAIL/NOT VERIFIED matrix; state clearly whether test coverage was demo-only or used the configured development Supabase database. Do not deploy.
+```
+
+## 18.17 Official references and constraints
+
+- Government of India, State/UT directory (28 States + 8 UTs): https://www.india.gov.in/directory/web-directory/state-uts
+- PoolBuy.app public benchmark reviewed 26 October 2026: https://poolbuy.app/ (public UX claims only; backend, contract terms, and performance not independently audited).
+- Google Search Central, helpful and reliable people-first content: https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+- Google Search Essentials: https://developers.google.com/search/docs/essentials
+- Next.js App Router ISR guidance: https://nextjs.org/docs/app/guides/incremental-static-regeneration
+- Vercel Cron Jobs: https://vercel.com/docs/cron-jobs and https://vercel.com/docs/cron-jobs/quickstart
+- MDN Geolocation API and permission/security considerations: https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API
+
+These references guide implementation; they do not prove the owner's local code or production deployment has the described capabilities.
+
+**End of V3.0 owner-approved implementation amendment.**
+
+
+
+---
+
+# 19. V3.1 OWNER-APPROVED MVP AMENDMENT — COMMUNITY-LED LOCAL GROUP BUYING
+
+**Amendment date:** 27 October 2026  
+**Authority:** This section is the latest owner-approved requirement. It supersedes conflicting content in Sections 1–18 for business model, branding hierarchy, customer creation journey, pool lifecycle, pricing/fee handling, admin operations, WhatsApp contact, and the final MVP scope. Earlier specifications remain useful for technical/security constraints and are historical unless consistent with this section.
+
+## 19.1 Product definition and boundaries
+
+The MVP is a local group-buying coordination platform. People can start a proposed group for a product in a state/city, other people can join it without creating accounts, the group gathers local demand, and when the target is reached the operator can help opted-in participants connect and optionally share vendor quotations.
+
+The platform is a facilitator, not the seller, manufacturer, escrow, lender, legal service, property/land broker, or guarantor of price/savings. Members and sellers decide the actual product, seller, final quotation, contract, delivery, warranty, and payment directly. PoolBuy/GroupBuying must not claim it controls or guarantees the resulting transaction.
+
+Allowed MVP categories are admin-managed, expandable product-buying categories. Do not hard-code the three current product families as the only possible categories. Rooftop solar, home power backup, and whole-house water softeners can remain initial categories, alongside additional reviewed consumer/commercial categories. Do not launch land/property deals, legal services, or other high-risk/non-product transaction categories in this MVP. Reject or send ambiguous categories to admin review; never auto-publish them.
+
+No buyer account, password, OTP login, vendor portal, wallet, escrow, in-app checkout, automatic WhatsApp sending, or payment gateway is required for this MVP. Admin remains protected by the existing server-verified passkey session.
+
+## 19.2 Brand and domain hierarchy
+
+- Primary concept and visible brand identity: **GroupBuying**.
+- Canonical production origin: `https://groupbuying.store`, but do not make the `.store` suffix the visual headline or primary value proposition. It is the domain/canonical host, not the concept.
+- Keep existing **PoolBuy India** mentions where contextually useful for historical continuity, existing URLs/content, and natural search intent. Do not perform a blind global deletion or mass rewrite merely to remove this phrase. Do not let it compete with the primary GroupBuying identity in the logo, headline, organization/site name, or core homepage H1.
+- Header wordmark should emphasize **GroupBuying**. A small contextual secondary mention of PoolBuy India is acceptable only where it reads naturally and is not misleading. Preserve stable slugs and inbound URL behavior where possible.
+- Recommended homepage title: `GroupBuying | Local Group Buying in India`.
+- Recommended H1: `Bring local buyers together.`
+- Supporting copy: `Start or join a buying group in your city. Build collective demand, explore available quotations and decide together where to buy.`
+- Primary CTA: `Start a Group Buy`. Secondary CTA: `Explore Local Groups`.
+- Do not hard-wire the business into solar/power-backup/water-softener-only messaging. Explain that categories depend on approved group demand and actual serviceability.
+- Structured data should use `GroupBuying` as the primary site/organization identity. Preserve PoolBuy India in appropriate contextual copy, not as a second competing primary identity. Canonical URLs continue to use the production origin after it is actually configured.
+
+## 19.3 Homepage and discovery UX
+
+Required home sections, in this order unless the existing design proves a better accessible flow:
+
+1. Compact header: GroupBuying wordmark, Explore Groups, How It Works, Blog/Guides if available, Start a Group Buy, one primary state/city selector.
+2. Clear hero: group buying as a general concept, not a three-product-only pitch. Explain that joining is free and members decide whether to accept a quote or buy directly elsewhere.
+3. Popular city shortcuts, clearly labeled as shortcuts rather than claims that each city is operational. Initial suggestions may include Bhopal, Indore, Delhi NCR, Mumbai, Pune, Jaipur, Bengaluru, Hyderabad, Chennai, Kolkata, and Lucknow. The list must be data-driven/configurable and not imply that active groups exist there.
+4. Category icon grid backed by approved, admin-managed categories. Selecting a category filters the current city; a missing category can lead to Start a Group Buy.
+5. One clear `How it works` visual/text section: (a) select city/product, (b) start or join a group, (c) build local demand, (d) after target, review available offers and choose whether/how to connect.
+6. Current-city group list. Only eligible groups for the selected city may appear. No unrelated city listings mixed into the page.
+7. `Start a Group Buy` and `Suggest a Product` alternatives for unsupported products/cities.
+8. Trust/disclosure section: participation is free before the target milestone; a target does not guarantee a discount or vendor quote; purchases and fulfillment are decided directly by participants and seller; any optional connection service charge/terms are shown before any payment action.
+
+Use a single source of truth for selected city. Remove/synchronize duplicate city dropdowns so that the header selector, city shortcuts and catalog filters update each other. On first visit do not rely on IP geolocation to silently infer a city. Show a sensible configured default/nearest suggestion only with clear user control; permission-based browser location is optional and must always have manual fallback. If Bhopal is selected, do not show Banda or unrelated cities merely because they exist in the directory. If a city has no published groups, show an honest empty state with `Start a Group Buy`/`Suggest a Product`, not fake inventory.
+
+## 19.4 Location directory and operational status
+
+- Store State/UT and City/Town options in the database-backed directory, with correct parent relationships and stable slugs.
+- Allow a user to select any valid directory State/UT and City/Town. Support `Other city/town` as a typed request subject to validation/review; do not silently make a new city operational.
+- State/city appearing in the selector does not mean groups, vendors, delivery, or installation are operational.
+- Model operational readiness independently: `NOT_YET_AVAILABLE`, `DEMAND_COLLECTING`, and `OPERATIONAL` (or an equivalent backward-compatible field/status model).
+- Public city pages list only that city's eligible published groups. Directory pages without useful real groups should be noindex or informational, not thin SEO doorway pages.
+- Keep all 28 States and 8 UTs available as the directory basis, but do not fabricate towns or active group listings to meet arbitrary counts.
+
+## 19.5 Start a Group Buy — user-submitted group proposal
+
+A visitor can submit a proposal without creating an account. Fields should be minimal yet sufficient:
+
+- Product/group title (required).
+- State and city/town (required; locality/PIN optional unless relevant to a local service).
+- Category (optional, selected from approved categories; `Other` accepts free text).
+- Short requirements/package description (required with sensible length limits).
+- Approximate target group size (bounded integer, e.g. 2–10,000).
+- Optional requested deadline or desired timing, subject to permitted bounds.
+- Name and valid Indian WhatsApp number for proposal follow-up (required if operator needs a contact to moderate/clarify the proposal).
+- Clear privacy/contact consent and acknowledgement that submission is a proposal, not a published offer or guaranteed price.
+
+Public submission creates a **pending group proposal/request**. It does not publish a live group automatically. The admin must review category safety, duplicate proposals, city validity, spam, product scope, and any claims before approving and creating/publishing a group. After approval, the group creator is linked to the resulting pool as its proposer/organizer, but does not become an admin and cannot access other people's private contact details.
+
+`Suggest a Product` can reuse the request form with a different request type. Store the user's original free text even if the category/product does not yet exist. Do not force unknown categories into a legacy enum. Preserve original proposal and review/audit history if the proposal becomes a pool.
+
+## 19.6 Join a group and member mapping
+
+- No member registration/account is required.
+- Minimal join fields: name, normalized 10-digit Indian WhatsApp/mobile number, applicable consent, selected fixed kit only if the pool genuinely offers multiple predefined kits, and locality/PIN only where needed for service coverage.
+- A pool has one authoritative State/City. The browser cannot override the pool's city.
+- Each accepted join creates a persistent lead/member record linked to the exact pool, with generated `buyer_number`, `pool_id`, `created_at`, consent record, contact/communication preference, lead status, and optional selected offer/kit.
+- Enforce one active participation per normalized phone number per pool using database constraints and transactionally safe RPC/route logic. Duplicate submission returns the original confirmation safely and never increments the aggregate count twice.
+- Aggregate counts come from the database in live mode; they are never fabricated client-side.
+- New leads should include explicit and versioned consent for managing the group and the contact channel. Consent to receive a group connection invitation or to have contact details shared is a separate, clear choice. Do not imply consent to vendor/member sharing from a simple join alone.
+- Do not expose individual phone numbers/names to other group members or public endpoints. A member's PII is visible only to the authorized admin and handled according to the recorded consent/purpose.
+
+## 19.7 Group lifecycle and after-target process
+
+Do not overload the legacy `UNLOCKED` status to mean community connection ready. Keep existing enum values readable for compatibility; add new fields/status semantics with reviewed additive migrations rather than a destructive rewrite.
+
+Model the public/pool status separately from connection/payment workflow. At minimum, support or equivalently represent:
+
+- Proposal: pending review / approved / rejected / needs information.
+- Published group: active and accepting joins / closed / archived / soft-deleted.
+- Threshold milestone: target not reached / target reached, recorded with timestamp and audit event.
+- Connection workflow: not eligible / admin review pending / fee terms pending / payment link prepared / payment pending / waived or not applicable / ready to connect / completed / cancelled. Store this in a separate field/table, not by assuming target reached automatically means paid or connected.
+
+Rules:
+
+- A group target is a demand milestone only, not a promised discount or finalized deal.
+- Once target is reached, block or explicitly pause further joins according to the configured group policy; never show negative remaining places. A future waitlist is optional, not required for MVP.
+- Notify/show an admin alert for target reached; require an authorized admin action to proceed to connection.
+- Admin may choose a valid vendor quote, let members source their own quote, or close/continue the group under an explicitly recorded decision. Vendor selection is optional; PoolBuy does not force a purchase.
+- Group connection must be limited to members who opted into that connection/contact step. Provide a documented manual workflow first; do not promise automatic WhatsApp group creation.
+- If the target is not reached by deadline, let admin close, extend with audit reason, archive, or continue demand collection if supported. Deadline enforcement must work even if a scheduled job is late.
+
+## 19.8 Pricing and quotation data model
+
+Admin can create/edit a reference market price and an estimated group price. They are separate amounts with separate status/source metadata. Support at least:
+
+- Market price: unknown / indicative estimate / sourced reference / verified comparable reference.
+- Group price: unknown / indicative estimate / vendor quotation received / vendor quotation verified / expired or withdrawn.
+- Source/vendor reference, quote/reference date, quote validity, inclusions/exclusions, city/fulfilment scope, and internal admin notes (private).
+- Public price label generated from status, not a manually typed badge. Estimated amounts must always say `Indicative estimate — final price may differ` or equivalent. A quote may be labelled vendor-quoted only when evidence and date/validity exist.
+- Do not show savings unless market and group values are comparable and currently approved/verified. No fabricated discount, MRP, vendor authorization, warranty, subsidy, or availability claims.
+- If better pricing may be negotiated by group members or another vendor, explain that the shown estimate/quote is not exclusive and the final decision is theirs.
+- Each quote change gets an audit/history entry. No silent destructive overwrite of prior quotes needed to explain published claims.
+
+## 19.9 Connection fee and payment-link policy
+
+The owner has suggested that joining and building a group remain free until the target is reached, and a minimal connection-service charge may be considered afterwards. A percentage around 0.10% is only a tentative internal concept; it is NOT an approved payable amount, fee base, or public price and must not be coded as an assumed charge.
+
+- Do not display a connection percentage/amount in the homepage hero, category tiles, or ordinary pre-target group cards.
+- Do not charge for joining before target is reached.
+- Do not collect real payments during this implementation unless the owner has separately approved the exact fee basis, who pays, refund/cancellation rules, payment recipient, payment provider, and applicable legal/accounting requirements.
+- At the connection/payment step, before opening/sending a payment link, the user must see the actual applicable charge and clear terms. Do not make a user pay an undisclosed fee. If fee policy or payment provider is not configured, keep payment status `DISABLED/NOT_CONFIGURED` and allow only a clearly marked manual/no-charge test workflow.
+- MVP may store an admin-entered external payment link only after the terms are approved and the exact charge/recipient are validated. Never claim that the app processed payment; an external link's payment result is unverified unless reconciled by a trusted provider/webhook or manually recorded by admin with an audit trail.
+- No wallet, escrow, card/UPI credential collection, automatic refund promise, or automated fee calculation from product value until explicitly approved.
+- Production launch requires legal review of the applicable consumer/e-commerce and privacy obligations. India's Consumer Protection (E-Commerce) (Amendment) Rules, 2026 are reported by the Government as effective 1 January 2027; re-check the official current text before launch if launch occurs on/after that date.
+
+## 19.10 Admin console — full MVP operation
+
+The admin console is core product functionality, not a hidden stub. Every protected API must independently validate the existing signed passkey session. Required areas:
+
+### A. Dashboard
+- Count active groups, proposals needing review, target-reached groups, connection pending, closed/expired and archived groups; counts use real repository queries in live mode.
+- Clear demo/live indicator, no fake KPI claims.
+
+### B. Groups/pools manager
+- List, search, filter by state, city, category, status, target reached, created date, and title.
+- Create draft, view detail, edit supported fields, save draft, publish/unpublish, duplicate/clone to a different city as a new independent group, close, extend deadline with reason, archive, restore, soft-delete, and view history.
+- Edits to city/product/target/deadline/price must preserve the group-to-leads relationship and log before/after values for material fields.
+- When a group has any members, requests, quote history, payment/connection records, or audit dependency, permanent deletion is disabled. Use archive/soft-delete and preserve history. Permanent delete is allowed only for a dependency-free draft/test record after clear two-step confirmation and server-side dependency recheck.
+- Public visibility must always derive from status, city operational state, deletion/archive state, deadline and valid publication data; do not rely on frontend hiding alone.
+
+### C. Group members / lead CRM
+- From each group, an authorized admin can open a member table with buyer number, name, masked or full WhatsApp only in authorized detail, join date, group, consent state, communication/connection opt-ins, status, optional selected kit, area/PIN if collected, and notes.
+- Search/filter/paginate by group, city, status, join date, consent/opt-in, selected kit; do not expose PII in public API responses.
+- Support status update (e.g. NEW, CONTACTED, QUALIFIED, DO_NOT_CONTACT) and safe correction/redaction only with audit trail and duplicate/unique-key checks.
+- CSV export only to authenticated admin, with correct filters, UTF-8 and formula-injection neutralization. No phone lists in logs.
+
+### D. WhatsApp contact
+- Each lead can have a `WhatsApp`/`Message` action using a `https://wa.me/<countrycode+number>?text=<URL-encoded-message>` link, constructed from normalized stored number, not untrusted free text.
+- Pre-fill a relevant template containing GroupBuying identity, group/product name, selected city, and truthful status/next step. Don't insert unverified savings or say final deal confirmed prematurely.
+- Offer a group-target reached template only to members who consented to the relevant contact. Offer vendor-sharing/connection templates only when the corresponding consent exists.
+- Links open WhatsApp/WhatsApp Web and require a human to review/send. They do not send automatically. No claim of bulk message automation. A bulk-selected workflow, if implemented, must open a safe queue of individual manual actions and skip opted-out records; it must not attempt to automate sends.
+- Admin may copy a consent-filtered invite list/export for manual WhatsApp group creation, but don't reveal numbers to other members or claim to create WhatsApp groups through a normal wa.me link.
+- Respect `DO_NOT_CONTACT`/opt-out across every template and prevent generating a contact link when contact is disallowed.
+
+### E. Group proposals / product requests
+- Show user-submitted proposals, original fields, state/city, contact consent, possible duplicates, status and review notes.
+- Approve, reject, request more information, or convert into a standardized product/category + draft group. Approval does not automatically publish; publish is a separate explicit action.
+- Preserve a source-request ID on the resulting group and keep the review history.
+
+### F. Location and category management
+- Manage States/UTs, cities/towns, operational status, popular-city order, categories and category icon/image mapping.
+- Directory presence alone must not make a city operational or create empty active pools.
+
+### G. Pricing, quotation and connection
+- Manage estimated market price, estimated group price, vendor quotation status, source, validity, price history and public labels.
+- Admin can record target reached, connection decision, fee configuration status, payment-link readiness, manual payment reconciliation if approved, and connected/completed status.
+- All material transitions include admin identity/session context, timestamp, and reason where appropriate.
+
+### H. Settings and audit
+- Expose configured support/contact, privacy/consent text version, connection/payment enabled/disabled state, and scheduler health only when verifiable.
+- Record security-relevant actions: create/edit/publish/status change/archive/restore/delete, member status/consent change, quote change, connection/payment transition, export, WhatsApp link generation if needed for audits. Do not store unnecessary full message contents or secrets.
+
+## 19.11 API and database requirements
+
+- Build from existing Next.js App Router Route Handlers; do not add an Express server or second backend.
+- Use Supabase/PostgreSQL as source of truth in live mode. Mock mode is only a local/dev/demo fallback and must remain clearly labelled.
+- All public writes go through server validation and narrow database RPCs; do not expose unrestricted direct insert/update access to leads or requests.
+- RLS must block anonymous lead/member PII, private vendor details, internal notes, payment URLs and admin audit data.
+- Service-role/secret keys are server-only and never in `NEXT_PUBLIC_`, bundles, logs or responses. Admin APIs use a server-verified passkey session every time, validate request origin on mutations, and return `Cache-Control: no-store` for private data.
+- Use additive, versioned migrations. Inspect the complete `20261026000000` through `20261026000006` chain and any actual remote state before apply. Do not assume file existence equals applied migration. Do not reset or hard-delete real data.
+- Migration must preserve existing pool IDs, lead IDs, counts, URLs, category/city references, and request history. Keep old status/field values backward-compatible; map semantics only in a reviewed migration with tests.
+- API errors use consistent envelopes and safe error codes. Add request validation, sensible rate/abuse guards, pagination caps, and idempotency for public join requests.
+- The project currently has no Supabase account/project/credentials. Local implementation and SQL review can proceed, but remote persistence/RLS/migration application cannot be marked PASS until owner provisioning.
+
+### Required route coverage (adapt paths to existing code, don't create duplicates unnecessarily)
+- Public: `GET /api/pools` or existing repository-driven reads; `POST /api/pools/[poolId]/join`; `POST /api/pool-requests` or `POST /api/group-proposals`.
+- Admin auth: `POST /api/admin/session`, `DELETE /api/admin/session`, `GET /api/admin/session` only if needed to validate current session.
+- Groups: `GET/POST /api/admin/pools`; `GET/PATCH/DELETE /api/admin/pools/[poolId]`; action routes for publish, close, archive, restore, soft-delete, clone, target-reached/connection if needed.
+- Members: `GET /api/admin/pools/[poolId]/leads` or filtered `GET /api/admin/leads`; `PATCH /api/admin/leads/[leadId]`; `GET /api/admin/leads/export`; `POST /api/admin/leads/[leadId]/whatsapp`.
+- Requests: `GET /api/admin/pool-requests`; `PATCH /api/admin/pool-requests/[requestId]`; explicit convert-to-draft/pool action.
+- Directories: `GET/POST/PATCH` for cities, States/UTs and categories as appropriate.
+- Quotes/connection/audit: protected routes for quote history and state transitions as needed.
+
+## 19.12 MVP exclusions
+
+Do not implement in this MVP unless the owner explicitly changes scope:
+- Customer registration/login/password/OTP.
+- Vendor self-service portal.
+- Marketplace checkout, escrow, wallet, automated refunds, card/UPI credential handling.
+- Automated WhatsApp bulk delivery or automatic WhatsApp group creation.
+- Legal services, land/property transaction pools, or claims that PoolBuy/GroupBuying provides legal/transaction assurance.
+- Mass-generated SEO landing pages for every directory city without substantive public groups.
+- Removal of every historic `PoolBuy India` string or URL merely for rebranding.
+- Production deployment, custom-domain DNS changes, or production database writes during local MVP implementation.
+
+## 19.13 End-to-end acceptance checklist
+
+MVP is implementation-ready only after all applicable checks have evidence:
+
+1. Current repo/branch/status inspected; existing setup preserved; baseline regression tests pass.
+2. Visible primary branding is GroupBuying; `.store` is not overemphasized; useful PoolBuy India references and stable URLs remain naturally compatible.
+3. Demo mode remains honestly labelled; live mode never silently falls back to mock success/data on DB errors.
+4. Header, city shortcuts, and catalog share one city state; Bhopal selection never lists Banda/other cities.
+5. Category icons are data-driven; categories are admin-managed; empty city/category surfaces show truthful calls to action.
+6. Start a Group Buy accepts validated state/city/product/target/contact/consent and goes to pending review; it never auto-publishes or auto-creates unapproved offer claims.
+7. Join stores member against exactly one pool; count and buyer number are consistent; duplicate number does not add a second member.
+8. Per-pool admin member list maps every lead to the right group; contact/opt-in and DO_NOT_CONTACT rules are visible and enforced.
+9. Admin can create/edit/draft/publish/close/extend/archive/restore/soft-delete/clone groups; hard delete is guarded by server-side dependency checks and confirmation.
+10. Admin can view/search/filter/paginate/export members and requests securely; CSV formula injection is neutralized.
+11. Per-lead WhatsApp links open the right stored number with encoded truthful text; no automatic messages; opted-out leads cannot be contacted.
+12. Target-reached transition triggers appropriate admin state; it does not invent a quotation, guarantee a discount, or imply payment/connection completed.
+13. Estimated price and vendor quote labels are correct; quote expiry and price history are enforced; unverified savings are hidden.
+14. Fee is not charged before target; exact applicable fee/terms are disclosed before any post-target payment. If rules/provider remain unapproved, payment stays disabled.
+15. Expiry is checked by query/join logic regardless of scheduler; protected scheduler behavior is testable in local mode and deployment requirements are documented.
+16. All protected APIs verify admin session, validate payloads/origin, suppress caching, and keep secrets/private data out of public responses.
+17. Blog/SEO routes already built remain correct; only useful pages are indexed; JSON-LD/canonical host uses GroupBuying identity/domain appropriately.
+18. Accessibility and responsive checks at mobile widths 320/360/390/430 and desktop 1280+ pass; no horizontal overflow, stuck modal, broken action, or dead link.
+19. `npm run lint`, `npx tsc --noEmit`, `npm test`, all available scenario tests, and `npm run build` actually pass.
+20. Local browser flow is tested from start group → admin review → publish → join → admin member map → WhatsApp click-to-chat → target reached → connection pending.
+21. Remote Supabase project not yet created: migration execution, real persistence, live RLS and production behavior must remain `NOT VERIFIED`, not PASS.
+22. Git changes are committed and pushed to the designated feature branch; working tree and remote sync are checked. No production deployment or DNS change is made.
+
+## 19.14 Required execution workflow
+
+The IDE agent should implement the scope in ordered workstreams, but it must not stop after writing a plan. Complete all safe local implementation, repair regressions, run tests, update documentation, commit and push the designated feature branch. If Supabase credentials are absent, complete code/migration preparation and local demo-mode verification, then stop the remote database gate with a precise owner-action checklist. Never claim full live-production readiness while remote DB, email/domain and hosting have not been configured and verified.
+
+Suggested internal order:
+1. Repository/branch and current-state inventory.
+2. Product/model and migration design review.
+3. Database/model and API contracts; additive migrations.
+4. Admin CRUD, per-pool member CRM, WhatsApp and lifecycle.
+5. Public city-first homepage, group proposals, join path, pricing labels.
+6. Integration/security/regression and responsive accessibility.
+7. Docs, final acceptance matrix, commit/push.
+8. Remote staging gate after owner creates Supabase account; Netlify launch remains a later authorized release phase.
+
+**End of V3.1 Owner-Approved MVP Amendment.**

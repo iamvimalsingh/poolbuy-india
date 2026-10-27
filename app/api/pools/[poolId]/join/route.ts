@@ -55,6 +55,10 @@ export async function POST(
       existingQuoteAmount: validatedInput.existingQuoteAmount ?? null,
       extraMessage: validatedInput.extraMessage,
       selectedKitOfferId: validatedInput.selectedKitOfferId,
+      connectionOptIn: validatedInput.connectionOptIn,
+      vendorShareConsent: validatedInput.vendorShareConsent,
+      locality: validatedInput.locality,
+      pinCode: validatedInput.pinCode,
     };
 
     // Handle Mock Mode
@@ -85,7 +89,7 @@ export async function POST(
       }
 
       // Check city matching
-      if (validatedInput.city.trim().toLowerCase() !== pool.city.trim().toLowerCase()) {
+      if (validatedInput.city && validatedInput.city.trim().toLowerCase() !== pool.city.trim().toLowerCase()) {
         return NextResponse.json(
           {
             success: false,
@@ -100,19 +104,36 @@ export async function POST(
 
       // Enforce authoritative pool city in the recorded lead
       joinInput.city = pool.city;
-      const result = recordDemoLead(poolId, joinInput);
-
-      // Revalidate affected routes
       try {
-        revalidatePath('/');
-        revalidatePath(`/city/${pool.citySlug}`);
-        revalidatePath(`/category/${pool.category.toLowerCase().replace(/_/g, '-')}`);
-        revalidatePath(`/deals/${pool.citySlug}/${pool.slug}`);
-      } catch (revalErr) {
-        console.warn('Revalidation notice:', revalErr);
-      }
+        const result = recordDemoLead(poolId, joinInput);
 
-      return NextResponse.json({ success: true, data: result });
+        // Revalidate affected routes
+        try {
+          revalidatePath('/');
+          revalidatePath(`/city/${pool.citySlug}`);
+          revalidatePath(`/category/${pool.category.toLowerCase().replace(/_/g, '-')}`);
+          revalidatePath(`/deals/${pool.citySlug}/${pool.slug}`);
+        } catch (revalErr) {
+          console.warn('Revalidation notice:', revalErr);
+        }
+
+        return NextResponse.json({ success: true, data: result });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg === 'TARGET_REACHED') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'TARGET_REACHED',
+                message: 'This group has reached its target capacity and is no longer accepting new joins.',
+              },
+            },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
     }
 
     // Live Mode via join_pool RPC
@@ -129,7 +150,7 @@ export async function POST(
       }
 
       // Check city matching
-      if (validatedInput.city.trim().toLowerCase() !== pool.city.trim().toLowerCase()) {
+      if (validatedInput.city && validatedInput.city.trim().toLowerCase() !== pool.city.trim().toLowerCase()) {
         return NextResponse.json(
           {
             success: false,
@@ -178,6 +199,19 @@ export async function POST(
             error: {
               code: 'POOL_NOT_OPEN',
               message: 'This pool is no longer active or its deadline has expired.',
+            },
+          },
+          { status: 409 }
+        );
+      }
+
+      if (message.includes('TARGET_REACHED')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'TARGET_REACHED',
+              message: 'This group has reached its target capacity and is no longer accepting new joins.',
             },
           },
           { status: 409 }

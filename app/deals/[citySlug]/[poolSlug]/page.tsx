@@ -10,12 +10,14 @@ import { JsonLd } from '@/components/json-ld';
 import { PoolCard } from '@/components/pool-card';
 import { PoolImage } from '@/components/pool-image';
 import { getPoolFallbackImage } from '@/lib/pool-image-fallback';
+import { connection } from 'next/server';
 
 interface DealPageProps {
   params: Promise<{ citySlug: string; poolSlug: string }>;
 }
 
 export async function generateMetadata({ params }: DealPageProps): Promise<Metadata> {
+  await connection();
   const { citySlug, poolSlug } = await params;
   const pool = await getPublicPoolBySlug(citySlug, poolSlug);
 
@@ -67,6 +69,7 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
 }
 
 export default async function DealPage({ params }: DealPageProps) {
+  await connection();
   const { citySlug, poolSlug } = await params;
   const pool = await getPublicPoolBySlug(citySlug, poolSlug);
 

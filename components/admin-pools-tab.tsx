@@ -1,7 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit3, AlertCircle, CheckCircle2, X, Filter, Clock, Archive, Trash2, RotateCcw } from 'lucide-react';
+import {
+  Plus,
+  Edit3,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Filter,
+  Clock,
+  Archive,
+  Trash2,
+  RotateCcw,
+  Copy,
+  Calendar,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { AdminPool, PoolCategory, PoolStatus, City } from '@/types';
 import { CATEGORIES, CITIES, STATUS_LABELS } from '@/lib/constants';
 import { STANDARD_PRODUCTS } from '@/lib/products';
@@ -20,6 +35,23 @@ export function AdminPoolsTab() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Clone Modal State
+  const [cloneModalPool, setCloneModalPool] = useState<AdminPool | null>(null);
+  const [cloneTargetCity, setCloneTargetCity] = useState('');
+  const [cloneDays, setCloneDays] = useState(14);
+  const [isCloning, setIsCloning] = useState(false);
+
+  // Extend Deadline Modal State
+  const [extendModalPool, setExtendModalPool] = useState<AdminPool | null>(null);
+  const [extendNewDeadline, setExtendNewDeadline] = useState('');
+  const [extendReason, setExtendReason] = useState('');
+  const [isExtending, setIsExtending] = useState(false);
+
+  // Delete Modal State
+  const [deleteModalPool, setDeleteModalPool] = useState<AdminPool | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'soft' | 'hard'>('soft');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Create form controlled fields
   const [formName, setFormName] = useState('');
@@ -125,24 +157,6 @@ export function AdminPoolsTab() {
     }
   };
 
-  const handleSoftDelete = async (poolId: string) => {
-    if (!confirm('Soft-delete this pool? It will be closed and hidden from public views.')) return;
-    try {
-      const res = await fetch(`/api/admin/pools/${poolId}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setErrorMessage(data.error?.message || 'Failed to delete pool.');
-        return;
-      }
-      setSuccessMessage('Pool soft-deleted successfully.');
-      loadPools();
-    } catch {
-      setErrorMessage('Network error deleting pool.');
-    }
-  };
-
   const handleRestore = async (poolId: string) => {
     try {
       const res = await fetch(`/api/admin/pools/${poolId}`, {
@@ -159,6 +173,115 @@ export function AdminPoolsTab() {
       loadPools();
     } catch {
       setErrorMessage('Network error restoring pool.');
+    }
+  };
+
+  const handleTogglePublish = async (pool: AdminPool) => {
+    const nextPublished = !(pool.isPublished ?? true);
+    try {
+      const res = await fetch(`/api/admin/pools/${pool.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: nextPublished }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Failed to toggle publication status.');
+        return;
+      }
+      setSuccessMessage(
+        nextPublished
+          ? `Pool "${pool.name}" is now publicly visible.`
+          : `Pool "${pool.name}" unpublished to draft.`
+      );
+      loadPools();
+    } catch {
+      setErrorMessage('Network error updating publication status.');
+    }
+  };
+
+  const handleExecuteClone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cloneModalPool || !cloneTargetCity) return;
+    setIsCloning(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/admin/pools/${cloneModalPool.id}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetCity: cloneTargetCity, deadlineDays: cloneDays }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Failed to clone pool.');
+        return;
+      }
+      setSuccessMessage(
+        `Pool successfully cloned to ${cloneTargetCity} as an independent draft pool.`
+      );
+      setCloneModalPool(null);
+      loadPools();
+    } catch {
+      setErrorMessage('Network error cloning pool.');
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const handleExecuteExtendDeadline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!extendModalPool || !extendNewDeadline || !extendReason.trim()) return;
+    setIsExtending(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/admin/pools/${extendModalPool.id}/extend-deadline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newDeadline: new Date(extendNewDeadline).toISOString(),
+          reason: extendReason.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Failed to extend deadline.');
+        return;
+      }
+      setSuccessMessage('Deadline extended successfully.');
+      setExtendModalPool(null);
+      loadPools();
+    } catch {
+      setErrorMessage('Network error extending deadline.');
+    } finally {
+      setIsExtending(false);
+    }
+  };
+
+  const handleExecuteDelete = async () => {
+    if (!deleteModalPool) return;
+    setIsDeleting(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `/api/admin/pools/${deleteModalPool.id}${deleteMode === 'hard' ? '?hard=true' : ''}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Delete operation failed.');
+        return;
+      }
+      setSuccessMessage(
+        data.data?.action === 'hard_deleted'
+          ? 'Pool permanently deleted.'
+          : 'Pool soft-deleted and closed.'
+      );
+      setDeleteModalPool(null);
+      loadPools();
+    } catch {
+      setErrorMessage('Network error deleting pool.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -232,6 +355,17 @@ export function AdminPoolsTab() {
       const targetBuyers = parseInt(formData.get('targetBuyers') as string, 10);
       const groupPriceStr = formData.get('groupPrice') as string;
       const groupPrice = groupPriceStr ? parseFloat(groupPriceStr) : null;
+      const isPublished = formData.get('isPublished') === 'true';
+      const marketPriceType = (formData.get('marketPriceType') as string) || undefined;
+      const groupPriceType = (formData.get('groupPriceType') as string) || undefined;
+      const savingsDisplayApproved = formData.get('savingsDisplayApproved') === 'true';
+      const quoteSource = (formData.get('quoteSource') as string) || null;
+      const quoteDate = (formData.get('quoteDate') as string) || null;
+      const quoteValidUntil = (formData.get('quoteValidUntil') as string) || null;
+      const quoteScope = (formData.get('quoteScope') as string) || null;
+      const quotePrivateNotes = (formData.get('quotePrivateNotes') as string) || null;
+      const connectionStatus = (formData.get('connectionStatus') as string) || undefined;
+      const connectionNotes = (formData.get('connectionNotes') as string) || null;
 
       const payload = {
         status,
@@ -242,6 +376,17 @@ export function AdminPoolsTab() {
         tokenAmount,
         targetBuyers: isNaN(targetBuyers) ? undefined : targetBuyers,
         groupPrice: isNaN(Number(groupPrice)) ? undefined : groupPrice,
+        isPublished,
+        marketPriceType,
+        groupPriceType,
+        savingsDisplayApproved,
+        quoteSource,
+        quoteDate,
+        quoteValidUntil,
+        quoteScope,
+        quotePrivateNotes,
+        connectionStatus,
+        connectionNotes,
       };
 
       const res = await fetch(`/api/admin/pools/${editingPool.id}`, {
@@ -491,6 +636,15 @@ export function AdminPoolsTab() {
                           >
                             {statusMeta.label}
                           </span>
+                          {p.isPublished === false ? (
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                              Draft
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                              Published
+                            </span>
+                          )}
                           {p.closureReason && (
                             <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
                               {p.closureReason}
@@ -531,6 +685,24 @@ export function AdminPoolsTab() {
                             <>
                               <button
                                 type="button"
+                                onClick={() => handleTogglePublish(p)}
+                                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors ${
+                                  p.isPublished === false
+                                    ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                }`}
+                                title={p.isPublished === false ? 'Publish publicly' : 'Unpublish to draft'}
+                              >
+                                {p.isPublished === false ? (
+                                  <Eye className="w-3 h-3" aria-hidden="true" />
+                                ) : (
+                                  <EyeOff className="w-3 h-3" aria-hidden="true" />
+                                )}
+                                <span>{p.isPublished === false ? 'Publish' : 'Unpublish'}</span>
+                              </button>
+
+                              <button
+                                type="button"
                                 onClick={() => {
                                   setEditingPool(p);
                                   setModalError(null);
@@ -540,6 +712,36 @@ export function AdminPoolsTab() {
                               >
                                 <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
                                 <span>Edit</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCloneModalPool(p);
+                                  setCloneTargetCity(
+                                    activeCitiesList.find((c) => c.name !== p.city)?.name || ''
+                                  );
+                                  setCloneDays(14);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-700 transition-colors"
+                                title="Clone pool to another city as independent pool"
+                              >
+                                <Copy className="w-3 h-3" aria-hidden="true" />
+                                <span>Clone</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExtendModalPool(p);
+                                  setExtendNewDeadline('');
+                                  setExtendReason('');
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+                                title="Extend deadline with logged reason"
+                              >
+                                <Calendar className="w-3 h-3" aria-hidden="true" />
+                                <span>Extend</span>
                               </button>
 
                               {p.status === 'ACTIVE' && (
@@ -570,9 +772,12 @@ export function AdminPoolsTab() {
 
                               <button
                                 type="button"
-                                onClick={() => handleSoftDelete(p.id)}
+                                onClick={() => {
+                                  setDeleteModalPool(p);
+                                  setDeleteMode('soft');
+                                }}
                                 className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors"
-                                title="Soft delete pool"
+                                title="Delete or soft-delete pool"
                               >
                                 <Trash2 className="w-3 h-3" aria-hidden="true" />
                                 <span>Delete</span>
@@ -724,6 +929,152 @@ export function AdminPoolsTab() {
                       className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Publication Status */}
+              <div className="pt-2 border-t border-gray-100">
+                <label className="block font-semibold text-gray-800 mb-1">Public Visibility</label>
+                <select
+                  name="isPublished"
+                  defaultValue={editingPool.isPublished !== false ? 'true' : 'false'}
+                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 outline-hidden"
+                >
+                  <option value="true">Published (Visible in city catalog and discovery)</option>
+                  <option value="false">Draft / Unpublished (Admin only)</option>
+                </select>
+              </div>
+
+              {/* Quote & Pricing Management */}
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">
+                  Quote Classification & Evidence
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1">Market Price Classification</label>
+                    <select
+                      name="marketPriceType"
+                      defaultValue={editingPool.marketPriceType || 'INDICATIVE_ESTIMATE'}
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white"
+                    >
+                      <option value="INDICATIVE_ESTIMATE">Indicative Estimate (Approximate)</option>
+                      <option value="SOURCED_REFERENCE">Sourced Reference / MSRP</option>
+                      <option value="VERIFIED_COMPARABLE">Verified Comparable</option>
+                      <option value="UNKNOWN">Unknown</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1">Group Price Classification</label>
+                    <select
+                      name="groupPriceType"
+                      defaultValue={editingPool.groupPriceType || 'INDICATIVE_ESTIMATE'}
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white"
+                    >
+                      <option value="INDICATIVE_ESTIMATE">Indicative Target</option>
+                      <option value="VENDOR_QUOTED">Vendor Quoted</option>
+                      <option value="VENDOR_VERIFIED">Vendor Verified</option>
+                      <option value="EXPIRED_WITHDRAWN">Expired / Withdrawn</option>
+                      <option value="UNKNOWN">Unknown</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="savingsDisplayApproved"
+                    name="savingsDisplayApproved"
+                    value="true"
+                    defaultChecked={Boolean(editingPool.savingsDisplayApproved)}
+                    className="w-4 h-4 rounded text-emerald-600"
+                  />
+                  <label htmlFor="savingsDisplayApproved" className="text-gray-700 font-medium text-[11px]">
+                    Approve public savings badge display (only check if verified pricing evidence exists)
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1">Quote Source</label>
+                    <input
+                      type="text"
+                      name="quoteSource"
+                      defaultValue={editingPool.quoteSource || ''}
+                      placeholder="e.g. Authorized Dealer Invoice"
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1">Quote Valid Until</label>
+                    <input
+                      type="date"
+                      name="quoteValidUntil"
+                      defaultValue={
+                        editingPool.quoteValidUntil ? editingPool.quoteValidUntil.split('T')[0] : ''
+                      }
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1">Quote Scope & Deliverables</label>
+                  <input
+                    type="text"
+                    name="quoteScope"
+                    defaultValue={editingPool.quoteScope || ''}
+                    placeholder="e.g. Standard ex-showroom, portable charger, 3-yr battery warranty"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1">Private Quote Notes</label>
+                  <textarea
+                    name="quotePrivateNotes"
+                    rows={2}
+                    defaultValue={editingPool.quotePrivateNotes || ''}
+                    placeholder="Private notes for admin records (never public)"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Connection Stage */}
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block">
+                  Connection Stage (Post-Target)
+                </span>
+                <p className="text-[11px] text-gray-500">
+                  Participation is free before target. Connection fees are unconfigured and disabled in this MVP release.
+                </p>
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1">Stage Status</label>
+                  <select
+                    name="connectionStatus"
+                    defaultValue={editingPool.connectionStatus || 'NOT_ELIGIBLE'}
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white"
+                  >
+                    <option value="NOT_ELIGIBLE">NOT_ELIGIBLE (Free pooling / before target)</option>
+                    <option value="ADMIN_REVIEW_PENDING">ADMIN_REVIEW_PENDING (Target reached, verifying quotes)</option>
+                    <option value="TERMS_PENDING">TERMS_PENDING (Reviewing dealer terms)</option>
+                    <option value="PAYMENT_LINK_CONFIGURED">PAYMENT_LINK_CONFIGURED (Terms / link ready)</option>
+                    <option value="PAYMENT_PENDING">PAYMENT_PENDING (Awaiting confirmation)</option>
+                    <option value="READY_TO_CONNECT">READY_TO_CONNECT (Ready for showroom introduction)</option>
+                    <option value="COMPLETED">COMPLETED (Concluded / fulfilled)</option>
+                    <option value="CANCELLED">CANCELLED (Group cancelled)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1">Connection Stage Notes</label>
+                  <textarea
+                    name="connectionNotes"
+                    rows={2}
+                    defaultValue={editingPool.connectionNotes || ''}
+                    placeholder="Internal connection progress notes"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 resize-none"
+                  />
                 </div>
               </div>
 
@@ -961,6 +1312,214 @@ export function AdminPoolsTab() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clone Pool Modal */}
+      {cloneModalPool && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 relative">
+            <button
+              type="button"
+              onClick={() => setCloneModalPool(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <h3 className="text-lg font-bold text-gray-950 mb-1">Clone Group to Another City</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Creates an independent group for <span className="font-semibold">{cloneModalPool.name}</span> in a new city.
+              Counters start at 0, no buyer leads are transferred, and the new group is saved as an un-published draft.
+            </p>
+            <form onSubmit={handleExecuteClone} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-800 mb-1">Target Operational City</label>
+                <select
+                  value={cloneTargetCity}
+                  onChange={(e) => setCloneTargetCity(e.target.value)}
+                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white"
+                  required
+                >
+                  <option value="">Select Target City</option>
+                  {activeCitiesList
+                    .filter((c) => c.name.toLowerCase() !== cloneModalPool.city.toLowerCase())
+                    .map((c) => (
+                      <option key={c.slug} value={c.name}>
+                        {c.name} ({c.state})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-800 mb-1">New Duration (Days from now)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={cloneDays}
+                  onChange={(e) => setCloneDays(parseInt(e.target.value, 10) || 14)}
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300"
+                />
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCloneModalPool(null)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCloning || !cloneTargetCity}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {isCloning ? 'Cloning...' : 'Create Cloned Draft Group'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extend Deadline Modal */}
+      {extendModalPool && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 relative">
+            <button
+              type="button"
+              onClick={() => setExtendModalPool(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <h3 className="text-lg font-bold text-gray-950 mb-1">Extend Group Deadline</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Current deadline: <span className="font-semibold">{new Date(extendModalPool.deadline).toLocaleDateString()}</span>.
+              A logged justification is required for audit history.
+            </p>
+            <form onSubmit={handleExecuteExtendDeadline} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-800 mb-1">New Target Deadline Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={extendNewDeadline}
+                  onChange={(e) => setExtendNewDeadline(e.target.value)}
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-gray-800 mb-1">Extension Reason / Commercial Justification</label>
+                <textarea
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Dealer requested 5 more days to finalize bulk tier pricing for additional buyers."
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 resize-none"
+                  required
+                />
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExtendModalPool(null)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isExtending || !extendNewDeadline || !extendReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isExtending ? 'Extending...' : 'Confirm Deadline Extension'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalPool && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 relative">
+            <button
+              type="button"
+              onClick={() => setDeleteModalPool(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <h3 className="text-lg font-bold text-gray-950 mb-1">Delete Group Pool</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Pool: <span className="font-semibold">{deleteModalPool.name}</span> ({deleteModalPool.city}).
+            </p>
+            <div className="space-y-3 text-xs mb-6">
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="deleteMode"
+                  checked={deleteMode === 'soft'}
+                  onChange={() => setDeleteMode('soft')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="font-bold text-gray-900">Soft-Delete (Recommended)</div>
+                  <div className="text-gray-500 text-[11px]">
+                    Closes the group and hides it from public exploration. Preserves all buyer lead history, quotation notes, and audit trails. Can be restored anytime.
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-200 bg-rose-50/50 cursor-pointer hover:bg-rose-50">
+                <input
+                  type="radio"
+                  name="deleteMode"
+                  checked={deleteMode === 'hard'}
+                  onChange={() => setDeleteMode('hard')}
+                  className="mt-0.5 text-rose-600"
+                />
+                <div>
+                  <div className="font-bold text-rose-900">Permanent Hard Delete</div>
+                  <div className="text-rose-700 text-[11px]">
+                    Irrevocably deletes record from database. Permitted ONLY if 0 buyer leads, 0 price records, and 0 proposal links exist. If dependencies exist, the server will block this action.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModalPool(null)}
+                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleExecuteDelete}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 text-xs disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : deleteMode === 'hard' ? 'Hard Delete Permanently' : 'Soft-Delete Pool'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 ## Authoritative Specification
-The product and implementation specification is defined in `MASTER_BLUEPRINT.md`. All coding decisions, data models, routes, UI requirements, and security rules must adhere strictly to `MASTER_BLUEPRINT.md`.
+The product and implementation specification is defined in `MASTER_BLUEPRINT.md` and `MVP.md`. Section 19 of `MASTER_BLUEPRINT.md` (V3.1 amendment) and `MVP.md` represent the latest owner-approved requirements and supersede any conflicting older text in Sections 1–18. The primary brand identity is **GroupBuying** (`https://groupbuying.store`), retaining natural/useful **PoolBuy India** context and stable URLs. All coding decisions, data models, routes, UI requirements, and security rules must adhere strictly to `MASTER_BLUEPRINT.md` Section 19 and `MVP.md`.
 
 <!-- BEGIN:nextjs-agent-feedback -->
 

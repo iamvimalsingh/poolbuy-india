@@ -6,8 +6,17 @@ import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, addDemoPool } from '@/lib/mock-data';
 import { AdminPool } from '@/types';
 import { z } from 'zod';
-import { poolCategoryEnum, poolStatusEnum, isValidHttpsUrl } from '@/lib/validation';
+import {
+  poolCategoryEnum,
+  poolStatusEnum,
+  isValidHttpsUrl,
+  marketPriceTypeEnum,
+  groupPriceTypeEnum,
+  connectionStatusEnum,
+  paymentConfigStateEnum,
+} from '@/lib/validation';
 import { slugify } from '@/lib/format';
+import { recordAdminAudit } from '@/lib/audit';
 
 const createPoolSchema = z.object({
   name: z.string().trim().min(3).max(180),
@@ -31,6 +40,19 @@ const createPoolSchema = z.object({
   tokenPaymentUrl: z.string().nullable().optional(),
   dealerOfferUrl: z.string().nullable().optional(),
   dealerTerms: z.string().trim().max(5000).nullable().optional(),
+  isPublished: z.boolean().default(true),
+  marketPriceType: marketPriceTypeEnum.default('INDICATIVE_ESTIMATE'),
+  groupPriceType: groupPriceTypeEnum.default('INDICATIVE_ESTIMATE'),
+  savingsDisplayApproved: z.boolean().default(false),
+  quoteSource: z.string().trim().max(180).nullable().optional(),
+  quoteDate: z.string().nullable().optional(),
+  quoteValidUntil: z.string().nullable().optional(),
+  quoteScope: z.string().trim().max(1000).nullable().optional(),
+  quotePrivateNotes: z.string().trim().max(5000).nullable().optional(),
+  connectionStatus: connectionStatusEnum.default('NOT_ELIGIBLE'),
+  paymentConfigState: paymentConfigStateEnum.default('DISABLED'),
+  connectionNotes: z.string().trim().max(5000).nullable().optional(),
+  sourceRequestId: z.string().nullable().optional(),
 });
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -85,6 +107,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       tokenPaymentUrl: row.token_payment_url,
       dealerOfferUrl: row.dealer_offer_url,
       dealerTerms: row.dealer_terms,
+      isPublished: row.is_published !== false,
+      marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
+      groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
+      savingsDisplayApproved: Boolean(row.savings_display_approved),
+      quoteSource: row.quote_source || null,
+      quoteDate: row.quote_date || null,
+      quoteValidUntil: row.quote_valid_until || null,
+      quoteScope: row.quote_scope || null,
+      quotePrivateNotes: row.quote_private_notes || null,
+      connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
+      paymentConfigState: (row.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
+      connectionNotes: row.connection_notes || null,
+      targetReachedAcknowledgedAt: row.target_reached_acknowledged_at || null,
     }));
 
     return NextResponse.json(
@@ -183,9 +218,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         tokenPaymentUrl: val.tokenPaymentUrl || null,
         dealerOfferUrl: val.dealerOfferUrl || null,
         dealerTerms: val.dealerTerms || null,
+        isPublished: val.isPublished,
+        marketPriceType: val.marketPriceType,
+        groupPriceType: val.groupPriceType,
+        savingsDisplayApproved: val.savingsDisplayApproved,
+        quoteSource: val.quoteSource || null,
+        quoteDate: val.quoteDate || null,
+        quoteValidUntil: val.quoteValidUntil || null,
+        quoteScope: val.quoteScope || null,
+        quotePrivateNotes: val.quotePrivateNotes || null,
+        connectionStatus: val.connectionStatus,
+        paymentConfigState: val.paymentConfigState,
+        connectionNotes: val.connectionNotes || null,
+        sourceRequestId: val.sourceRequestId || null,
       };
 
       addDemoPool(demoPool);
+
+      await recordAdminAudit({
+        action: 'POOL_CREATED',
+        targetType: 'POOL',
+        targetId: demoPool.id,
+        changesSummary: `Created pool "${demoPool.name}" in ${demoPool.city}. Published: ${demoPool.isPublished}.`,
+        details: { poolId: demoPool.id, name: demoPool.name, city: demoPool.city },
+      });
 
       try {
         revalidatePath('/');
@@ -229,6 +285,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         token_payment_url: val.tokenPaymentUrl || null,
         dealer_offer_url: val.dealerOfferUrl || null,
         dealer_terms: val.dealerTerms || null,
+        is_published: val.isPublished,
+        market_price_type: val.marketPriceType,
+        group_price_type: val.groupPriceType,
+        savings_display_approved: val.savingsDisplayApproved,
+        quote_source: val.quoteSource || null,
+        quote_date: val.quoteDate || null,
+        quote_valid_until: val.quoteValidUntil || null,
+        quote_scope: val.quoteScope || null,
+        quote_private_notes: val.quotePrivateNotes || null,
+        connection_status: val.connectionStatus,
+        payment_config_state: val.paymentConfigState,
+        connection_notes: val.connectionNotes || null,
+        source_request_id: val.sourceRequestId || null,
       })
       .select()
       .single();
@@ -279,7 +348,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tokenPaymentUrl: data.token_payment_url,
       dealerOfferUrl: data.dealer_offer_url,
       dealerTerms: data.dealer_terms,
+      isPublished: data.is_published !== false,
+      marketPriceType: (data.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
+      groupPriceType: (data.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
+      savingsDisplayApproved: Boolean(data.savings_display_approved),
+      quoteSource: data.quote_source || null,
+      quoteDate: data.quote_date || null,
+      quoteValidUntil: data.quote_valid_until || null,
+      quoteScope: data.quote_scope || null,
+      quotePrivateNotes: data.quote_private_notes || null,
+      connectionStatus: (data.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
+      paymentConfigState: (data.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
+      connectionNotes: data.connection_notes || null,
+      sourceRequestId: data.source_request_id || null,
     };
+
+    await recordAdminAudit({
+      action: 'POOL_CREATED',
+      targetType: 'POOL',
+      targetId: created.id,
+      changesSummary: `Created pool "${created.name}" in ${created.city}. Published: ${created.isPublished}.`,
+      details: { poolId: created.id, name: created.name, city: created.city },
+    });
 
     try {
       revalidatePath('/');

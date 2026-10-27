@@ -138,6 +138,7 @@ export const REQUEST_STATUS_LABELS: Record<PoolRequestStatus, string> = {
   REVIEWING: 'Under Review',
   APPROVED: 'Approved for Pool',
   REJECTED: 'Declined',
+  NEEDS_INFO: 'Needs Information',
 };
 
 export const PRIVACY_NOTICE_VERSION = '2026-10-26-v1';

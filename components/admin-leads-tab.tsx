@@ -32,7 +32,9 @@ export function AdminLeadsTab() {
 
   // WhatsApp modal state
   const [activeWhatsAppLead, setActiveWhatsAppLead] = useState<PoolLead | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<'UNLOCKED_TOKEN' | 'LEAD_FALLBACK' | 'QUOTE_FOLLOWUP'>('QUOTE_FOLLOWUP');
+  const [selectedTemplate, setSelectedTemplate] = useState<
+    'UNLOCKED_TOKEN' | 'LEAD_FALLBACK' | 'QUOTE_FOLLOWUP' | 'TARGET_REACHED_INVITATION'
+  >('TARGET_REACHED_INVITATION');
   const [generatedWhatsApp, setGeneratedWhatsApp] = useState<{ url: string; text: string } | null>(null);
   const [isGeneratingWhatsApp, setIsGeneratingWhatsApp] = useState(false);
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
@@ -290,6 +292,28 @@ export function AdminLeadsTab() {
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-gray-950 text-sm">{lead.fullName}</div>
                       <div className="text-[11px] text-gray-500 font-mono">+91 {lead.whatsappNumber}</div>
+                      {lead.locality && (
+                        <div className="text-[10px] text-gray-500">
+                          {lead.locality} {lead.pinCode ? `(${lead.pinCode})` : ''}
+                        </div>
+                      )}
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {lead.connectionOptIn && (
+                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded">
+                            Connect Opt-in
+                          </span>
+                        )}
+                        {lead.vendorShareConsent && (
+                          <span className="text-[9px] font-bold text-blue-800 bg-blue-100 px-1.5 py-0.2 rounded">
+                            Vendor Share OK
+                          </span>
+                        )}
+                        {lead.doNotContact && (
+                          <span className="text-[9px] font-bold text-rose-800 bg-rose-100 px-1.5 py-0.2 rounded">
+                            Do Not Contact
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-semibold text-gray-900">{lead.poolName}</div>
@@ -319,7 +343,7 @@ export function AdminLeadsTab() {
                         className={`text-[11px] font-semibold px-2 py-1 rounded-md border outline-hidden ${
                           lead.status === 'CONVERTED'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : lead.status === 'DO_NOT_CONTACT'
+                            : lead.status === 'DO_NOT_CONTACT' || lead.doNotContact
                             ? 'bg-rose-50 text-rose-800 border-rose-200'
                             : 'bg-gray-50 text-gray-700 border-gray-200'
                         }`}
@@ -332,14 +356,20 @@ export function AdminLeadsTab() {
                       </select>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateWhatsApp(lead)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Follow Up</span>
-                      </button>
+                      {lead.status === 'DO_NOT_CONTACT' || lead.doNotContact ? (
+                        <span className="inline-flex text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                          Opted Out
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateWhatsApp(lead)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Follow Up</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -441,6 +471,21 @@ export function AdminLeadsTab() {
                 >
                   <div className="font-bold">3. Quotation Follow-up</div>
                   <div className="text-[11px] text-gray-500">Invites buyer to share existing quote to match/beat.</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleGenerateWhatsApp(activeWhatsAppLead, 'TARGET_REACHED_INVITATION')}
+                  className={`text-left text-xs p-3 rounded-xl border transition-all ${
+                    selectedTemplate === 'TARGET_REACHED_INVITATION'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-semibold'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-bold">4. Target Reached — Quotation Review Invitation</div>
+                  <div className="text-[11px] text-gray-500">
+                    Notifies buyer that the group reached its buyer target and quotes are under review. No fee or commitment.
+                  </div>
                 </button>
               </div>
             </div>

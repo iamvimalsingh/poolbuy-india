@@ -14,6 +14,7 @@ import {
 } from '@/lib/mock-data';
 import { AdminPool, PoolCategory } from '@/types';
 import { slugify } from '@/lib/format';
+import { recordAdminAudit } from '@/lib/audit';
 
 type RouteContext = {
   params: Promise<{ requestId: string }>;
@@ -192,6 +193,13 @@ export async function POST(
         currentBuyers: 0,
         deadline,
         status: 'ACTIVE',
+        isPublished: false, // Converts to draft group; publish is a separate action
+        sourceRequestId: requestId,
+        connectionStatus: 'NOT_ELIGIBLE',
+        paymentConfigState: 'DISABLED',
+        marketPriceType: 'INDICATIVE_ESTIMATE',
+        groupPriceType: 'INDICATIVE_ESTIMATE',
+        savingsDisplayApproved: false,
         priceIsVerified: Boolean(val.dealerName),
         priceVerifiedAt: val.dealerName ? new Date().toISOString() : null,
         createdAt: new Date().toISOString(),
@@ -210,6 +218,14 @@ export async function POST(
         status: 'APPROVED',
         conversionStatus: 'CONVERTED',
         resultingPoolId: createdPoolId,
+      });
+
+      await recordAdminAudit({
+        action: 'POOL_CONVERTED',
+        targetType: 'POOL',
+        targetId: createdPoolId,
+        changesSummary: `Converted request ${requestId} into pool "${newAdminPool.name}".`,
+        details: { requestId, poolId: createdPoolId, name: newAdminPool.name },
       });
     } else {
       const supabase = getAdminSupabase();
@@ -259,6 +275,13 @@ export async function POST(
           current_buyers: 0,
           deadline,
           status: 'ACTIVE',
+          is_published: false,
+          source_request_id: requestId,
+          connection_status: 'NOT_ELIGIBLE',
+          payment_config_state: 'DISABLED',
+          market_price_type: 'INDICATIVE_ESTIMATE',
+          group_price_type: 'INDICATIVE_ESTIMATE',
+          savings_display_approved: false,
           price_is_verified: Boolean(val.dealerName),
           dealer_name: val.dealerName || null,
         })

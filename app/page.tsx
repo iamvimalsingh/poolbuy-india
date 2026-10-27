@@ -32,32 +32,40 @@ export default async function HomePage() {
           {/* Trust pill */}
           <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 text-emerald-800 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-6 shadow-xs animate-fade-in">
             <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-            <span>Zero-Risk Indian Group Buying • 100% Free to Express Interest</span>
+            <span>Community-Led Group Buying in India • 100% Free to Join or Propose</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 tracking-tight max-w-4xl mx-auto leading-[1.15] mb-6">
-            Group Buying for <span className="text-emerald-600">Solar, Power Backup &amp; Water Softeners</span> in India
+            Bring local buyers together.
           </h1>
 
-          {/* Subheading emphasizing 3 V3 launch product families */}
+          {/* Supporting copy */}
           <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-8">
-            Register free interest alongside verified local buyers in your city for rooftop solar systems (3kW &amp; 5kW), home inverter-battery combos, and whole-house water softeners. Offers depend on local demand and verified supplier terms.
+            Start or join a buying group in your city. Build collective demand, explore available quotations and decide together where to buy.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="#pools"
+              href="#request-pool"
               className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-98 transition-all shadow-sm shadow-emerald-600/20"
             >
-              <span>Explore Group Deals</span>
+              <Sparkles className="w-4 h-4" aria-hidden="true" />
+              <span>Start a Group Buy</span>
+            </Link>
+
+            <Link
+              href="#pools"
+              className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span>Explore Local Groups</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
 
             <Link
               href="#how-it-works"
-              className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-3.5 text-gray-500 hover:text-gray-800 transition-colors text-xs sm:text-sm"
             >
               <span>How It Works</span>
             </Link>
@@ -67,15 +75,15 @@ export default async function HomePage() {
           <div className="mt-12 pt-8 border-t border-gray-200/60 max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-6 text-center">
             <div>
               <p className="text-2xl sm:text-3xl font-extrabold text-gray-900">₹0</p>
-              <p className="text-xs text-gray-500 font-medium">To Register Interest</p>
+              <p className="text-xs text-gray-500 font-medium">To Join or Propose a Group</p>
             </div>
             <div>
-              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">100%</p>
-              <p className="text-xs text-gray-500 font-medium">Verified Showrooms</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">Local</p>
+              <p className="text-xs text-gray-500 font-medium">City-First Collective Demand</p>
             </div>
             <div className="col-span-2 sm:col-span-1">
               <p className="text-2xl sm:text-3xl font-extrabold text-gray-900">Direct</p>
-              <p className="text-xs text-gray-500 font-medium">Dealer Invoice & Delivery</p>
+              <p className="text-xs text-gray-500 font-medium">Members Decide Where to Buy</p>
             </div>
           </div>
         </div>
@@ -96,55 +104,73 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mx-auto text-center mb-12">
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 inline-block mb-3">
-              Transparent & Verified
+              Community Group Buying
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
-              How Group Buying Works in 3 Simple Steps
+              How Group Buying Works in 4 Steps
             </h2>
             <p className="text-sm text-gray-600 mt-2">
-              We aggregate buyer volume so verified local dealers offer authentic group pricing.
+              GroupBuying coordinates local buyer interest so you can negotiate or choose quotations with real volume leverage.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Step 1 */}
             <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-base shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
                 1
               </div>
-              <h3 className="font-bold text-gray-950 text-base">
-                Express Free Interest
+              <h3 className="font-bold text-gray-950 text-sm">
+                Choose City &amp; Product
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Choose a product and your city. Enter your name and WhatsApp number. No accounts, no passwords, and zero upfront payment.
+                Discover active groups in your city or start a new group buy proposal for a product you need.
               </p>
             </div>
 
             {/* Step 2 */}
             <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-base shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
                 2
               </div>
-              <h3 className="font-bold text-gray-950 text-base">
-                Target Met & Terms Verified
+              <h3 className="font-bold text-gray-950 text-sm">
+                Start or Join Free
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                When the pool hits its target threshold, our team secures signed commercial terms and group discount rates from verified local authorized dealerships.
+                No customer login, password, or upfront fees. Enter your name and WhatsApp number to register interest.
               </p>
             </div>
 
             {/* Step 3 */}
             <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-base shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
                 3
               </div>
-              <h3 className="font-bold text-gray-950 text-base">
-                Unlock Token & Buy at Showroom
+              <h3 className="font-bold text-gray-950 text-sm">
+                Build Local Demand
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                You receive the verified terms and a refundable token payment link (₹499–₹999) via WhatsApp. Pay directly at the authorized dealership for final invoice and delivery.
+                Your group aggregates verified community demand towards a clear buyer target before the pool deadline.
               </p>
             </div>
+
+            {/* Step 4 */}
+            <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
+                4
+              </div>
+              <h3 className="font-bold text-gray-950 text-sm">
+                Review Offers &amp; Connect
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                When the target milestone is met, review available vendor quotations and choose whether and how to connect.
+              </p>
+            </div>
+          </div>
+
+          {/* Trust and Independence Disclosure */}
+          <div className="mt-10 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 text-center max-w-3xl mx-auto leading-relaxed">
+            <strong>Facilitator Disclosure:</strong> GroupBuying facilitates local demand coordination. We are not an escrow agent, manufacturer, or seller. Participation is free before target milestones. Targets do not guarantee manufacturer discounts. Participants and suppliers decide contracts, payments, and fulfilment directly.
           </div>
         </div>
       </section>
@@ -155,22 +181,22 @@ export default async function HomePage() {
           <div className="relative z-10 max-w-2xl mb-8">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full border border-emerald-400/30 mb-4">
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              Demand Discovery
+              Start a Group Buy / Suggest a Product
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-4">
-              Looking for a product not listed here?
+              Start a group buy for any product in your city
             </h2>
             <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed mb-6">
-              Tell us what you want to buy and in which city. If enough local buyers express interest, we will organize a verified group-buy pool with authorized dealers.
+              Propose a product for collective buying in your city. Submissions enter community review and are published once approved so local neighbors can join.
             </p>
             <div className="flex flex-wrap gap-4 items-center">
               <div className="text-xs text-emerald-200 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-                <span>Zero obligation to purchase</span>
+                <span>100% Free to propose or join</span>
               </div>
               <div className="text-xs text-emerald-200 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-                <span>Showroom terms verified upon demand</span>
+                <span>Reviewed before public listing</span>
               </div>
             </div>
           </div>

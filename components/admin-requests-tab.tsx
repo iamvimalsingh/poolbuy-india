@@ -7,6 +7,7 @@ import {
   Clock,
   X,
   AlertCircle,
+  HelpCircle,
   Search,
   Rocket,
   ExternalLink,
@@ -145,6 +146,17 @@ export function AdminRequestsTab() {
       (c) => c.name.toLowerCase() === request.city.toLowerCase()
     );
 
+    let durationDays = '14';
+    if (request.requestedDeadline) {
+      const parsedTime = new Date(request.requestedDeadline).getTime();
+      if (!isNaN(parsedTime)) {
+        const days = Math.max(1, Math.round((parsedTime - Date.now()) / 86400000));
+        durationDays = String(Math.min(180, days));
+      } else if (!isNaN(Number(request.requestedDeadline))) {
+        durationDays = String(request.requestedDeadline);
+      }
+    }
+
     setConvertForm({
       citySlug: matchingCity ? matchingCity.slug : cities[0]?.slug || 'bhopal',
       productName: request.productName,
@@ -153,8 +165,8 @@ export function AdminRequestsTab() {
       productModel: request.modelPreference || 'Standardized Model',
       marketPrice: '',
       groupPrice: '',
-      targetBuyers: '10',
-      durationDays: '14',
+      targetBuyers: request.targetBuyersRequested ? String(request.targetBuyersRequested) : '10',
+      durationDays,
       dealerName: '',
     });
   };
@@ -303,6 +315,7 @@ export function AdminRequestsTab() {
             <option value="all">All Review Statuses</option>
             <option value="REQUESTED">Requested (New)</option>
             <option value="REVIEWING">Reviewing</option>
+            <option value="NEEDS_INFO">Needs Information</option>
             <option value="APPROVED">Approved</option>
             <option value="REJECTED">Rejected</option>
           </select>
@@ -336,11 +349,11 @@ export function AdminRequestsTab() {
             <table className="w-full text-left text-xs text-gray-600">
               <thead className="bg-gray-50/80 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
                 <tr>
-                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">Date & Type</th>
                   <th className="py-3.5 px-4">Product & Interest</th>
                   <th className="py-3.5 px-4">City / Category</th>
                   <th className="py-3.5 px-4">Requester Details</th>
-                  <th className="py-3.5 px-4">Notes & Preferences</th>
+                  <th className="py-3.5 px-4">Notes & Requirements</th>
                   <th className="py-3.5 px-4">Review Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -355,7 +368,18 @@ export function AdminRequestsTab() {
                   return (
                     <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3.5 px-4 whitespace-nowrap text-gray-400 text-[11px]">
-                        {formatDateTime(r.createdAt)}
+                        <div>{formatDateTime(r.createdAt)}</div>
+                        <div className="mt-1">
+                          {r.requestType === 'GROUP_PROPOSAL' ? (
+                            <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-purple-50 text-purple-700 border border-purple-200">
+                              Proposal
+                            </span>
+                          ) : (
+                            <span className="inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-sm bg-gray-100 text-gray-600 border border-gray-200">
+                              Suggestion
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -363,6 +387,13 @@ export function AdminRequestsTab() {
                         {(r.brandPreference || r.modelPreference) && (
                           <div className="text-[11px] text-gray-500 mt-0.5">
                             Pref: {[r.brandPreference, r.modelPreference].filter(Boolean).join(' • ')}
+                          </div>
+                        )}
+                        {(r.targetBuyersRequested || r.requestedDeadline) && (
+                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                            {r.targetBuyersRequested ? `Target: ${r.targetBuyersRequested} buyers` : null}
+                            {r.targetBuyersRequested && r.requestedDeadline ? ' • ' : null}
+                            {r.requestedDeadline ? `Deadline: ${new Date(r.requestedDeadline).toLocaleDateString('en-IN')}` : null}
                           </div>
                         )}
                         {(r.similarRequestCount ?? 1) > 1 && (
@@ -390,6 +421,11 @@ export function AdminRequestsTab() {
                         <div className="text-[11px] text-gray-400">
                           {r.categoryName || r.category || 'Custom Category'}
                         </div>
+                        {(r.locality || r.pinCode) && (
+                          <div className="text-[10px] text-gray-500 mt-0.5">
+                            {[r.locality, r.pinCode].filter(Boolean).join(', ')}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -409,8 +445,13 @@ export function AdminRequestsTab() {
                       </td>
 
                       <td className="py-3.5 px-4 max-w-xs">
+                        {r.requirementsSummary && (
+                          <div className="text-gray-800 text-[11px] font-medium" title={r.requirementsSummary}>
+                            Req: {r.requirementsSummary}
+                          </div>
+                        )}
                         {r.extraMessage && (
-                          <div className="text-gray-700 truncate" title={r.extraMessage}>
+                          <div className="text-gray-600 text-[11px] truncate mt-0.5" title={r.extraMessage}>
                             &ldquo;{r.extraMessage}&rdquo;
                           </div>
                         )}
@@ -473,12 +514,14 @@ export function AdminRequestsTab() {
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 : r.status === 'REVIEWING'
                                 ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : r.status === 'NEEDS_INFO'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
                                 : r.status === 'REJECTED'
                                 ? 'bg-rose-50 text-rose-800 border-rose-200'
                                 : 'bg-gray-100 text-gray-700 border-gray-200'
                             }`}
                           >
-                            {REQUEST_STATUS_LABELS[r.status]}
+                            {REQUEST_STATUS_LABELS[r.status] || r.status}
                           </span>
 
                           {isConverted && (
@@ -513,6 +556,16 @@ export function AdminRequestsTab() {
                               }`}
                             >
                               <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(r.id, 'NEEDS_INFO')}
+                              title="Needs Information"
+                              className={`p-1.5 rounded-md hover:bg-white transition-colors ${
+                                r.status === 'NEEDS_INFO' ? 'bg-amber-500 text-white hover:bg-amber-500' : 'text-gray-600'
+                              }`}
+                            >
+                              <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                             <button
                               type="button"

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { CATEGORIES } from '@/lib/constants';
 import { getPublicPools } from '@/lib/pools';
 import { getCityBySlug, getOperationalCities } from '@/lib/cities';
@@ -20,6 +21,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
+  await connection();
   const { citySlug } = await params;
   const city = await getCityBySlug(citySlug);
   if (!city) {
@@ -66,6 +68,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 }
 
 export default async function CityPage({ params }: CityPageProps) {
+  await connection();
   const { citySlug } = await params;
   const city = await getCityBySlug(citySlug);
 

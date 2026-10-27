@@ -110,6 +110,7 @@ export function LocationSelector({
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('poolbuy_preferred_city', citySlug);
+        window.dispatchEvent(new CustomEvent('poolbuy:city-change', { detail: citySlug }));
       } catch {
         // Ignore localStorage restrictions
       }

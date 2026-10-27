@@ -31,6 +31,10 @@ function JoinPoolDialogContent({
   );
   const [fullName, setFullName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [locality, setLocality] = useState('');
+  const [consentToContact, setConsentToContact] = useState(true);
+  const [connectionOptIn, setConnectionOptIn] = useState(false);
+  const [showAdditional, setShowAdditional] = useState(false);
   const [buyingTimeline, setBuyingTimeline] = useState<BuyingTimeline>('THIS_MONTH');
   const [hasExistingQuote, setHasExistingQuote] = useState(false);
   const [existingQuoteAmount, setExistingQuoteAmount] = useState<string>('');
@@ -44,6 +48,11 @@ function JoinPoolDialogContent({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (!consentToContact) {
+      setErrorMessage('Please consent to receiving WhatsApp updates about this group.');
+      return;
+    }
 
     // Front-end validations
     const trimmedName = fullName.trim();
@@ -77,6 +86,9 @@ function JoinPoolDialogContent({
       existingQuoteAmount: parsedQuote,
       extraMessage: extraMessage.trim(),
       selectedKitOfferId: selectedKitOfferId || undefined,
+      connectionOptIn,
+      vendorShareConsent: connectionOptIn,
+      locality: locality.trim() || undefined,
     };
 
     setIsSubmitting(true);
@@ -253,10 +265,25 @@ function JoinPoolDialogContent({
               </p>
             </div>
 
+            {/* Locality / Colony (Optional) */}
+            <div>
+              <label htmlFor="locality" className="block text-xs font-semibold text-gray-800 mb-1">
+                Colony / Area / Locality (Optional)
+              </label>
+              <input
+                id="locality"
+                type="text"
+                value={locality}
+                onChange={(e) => setLocality(e.target.value)}
+                placeholder="e.g. Arera Colony, MP Nagar, Kothrud"
+                className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
+              />
+            </div>
+
             {/* City (read-only for this pool) */}
             <div>
               <label htmlFor="city-locked" className="block text-xs font-semibold text-gray-800 mb-1">
-                City
+                City (Determined by group pool)
               </label>
               <input
                 id="city-locked"
@@ -267,73 +294,116 @@ function JoinPoolDialogContent({
               />
             </div>
 
-            {/* Buying Timeline */}
-            <div>
-              <label htmlFor="buying-timeline" className="block text-xs font-semibold text-gray-800 mb-1">
-                When are you planning to buy? <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="buying-timeline"
-                value={buyingTimeline}
-                onChange={(e) => setBuyingTimeline(e.target.value as BuyingTimeline)}
-                className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
-              >
-                <option value="THIS_MONTH">{TIMELINE_LABELS.THIS_MONTH}</option>
-                <option value="WITHIN_1_3_MONTHS">{TIMELINE_LABELS.WITHIN_1_3_MONTHS}</option>
-                <option value="WITHIN_3_6_MONTHS">{TIMELINE_LABELS.WITHIN_3_6_MONTHS}</option>
-                <option value="JUST_EXPLORING">{TIMELINE_LABELS.JUST_EXPLORING}</option>
-              </select>
-            </div>
-
-            {/* Existing Quote Toggle */}
-            <div className="pt-2 border-t border-gray-100">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+            {/* Explicit Communication & Connection Consents */}
+            <div className="pt-2 border-t border-gray-100 space-y-3">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={hasExistingQuote}
-                  onChange={(e) => {
-                    setHasExistingQuote(e.target.checked);
-                    if (!e.target.checked) setExistingQuoteAmount('');
-                  }}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                  required
+                  checked={consentToContact}
+                  onChange={(e) => setConsentToContact(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
                 />
-                <span className="text-xs font-medium text-gray-700">
-                  I already have a dealer quotation for this product
+                <span className="text-xs text-gray-700 leading-relaxed">
+                  <strong>WhatsApp updates:</strong> I agree to receive WhatsApp notifications about this group&apos;s progress and demand milestones. <span className="text-rose-500">*</span>
                 </span>
               </label>
 
-              {hasExistingQuote && (
-                <div className="mt-3 pl-6">
-                  <label htmlFor="quote-amount" className="block text-xs font-semibold text-gray-800 mb-1">
-                    Current Quoted Amount (₹)
-                  </label>
-                  <input
-                    id="quote-amount"
-                    type="number"
-                    min={0}
-                    value={existingQuoteAmount}
-                    onChange={(e) => setExistingQuoteAmount(e.target.value)}
-                    placeholder="e.g. 135000"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
-                  />
-                </div>
-              )}
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={connectionOptIn}
+                  onChange={(e) => setConnectionOptIn(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                />
+                <span className="text-xs text-gray-700 leading-relaxed">
+                  <strong>Post-target connection:</strong> When target is reached, invite me to connect and review verified vendor quotations.
+                </span>
+              </label>
             </div>
 
-            {/* Optional message / variant note */}
-            <div>
-              <label htmlFor="extra-message" className="block text-xs font-semibold text-gray-800 mb-1">
-                Specific Variant, Color, or Exchange Needs (Optional)
-              </label>
-              <textarea
-                id="extra-message"
-                rows={2}
-                maxLength={1000}
-                value={extraMessage}
-                onChange={(e) => setExtraMessage(e.target.value)}
-                placeholder="e.g. Looking for Top Model in Grey, with 2-wheeler exchange"
-                className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden resize-none"
-              />
+            {/* Collapsible Additional Preferences (Optional) */}
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowAdditional(!showAdditional)}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 focus:outline-hidden"
+              >
+                <span>{showAdditional ? '− Hide optional preferences' : '+ Add optional preferences (Timeline & notes)'}</span>
+              </button>
+
+              {showAdditional && (
+                <div className="mt-3 space-y-3 pt-2">
+                  {/* Buying Timeline */}
+                  <div>
+                    <label htmlFor="buying-timeline" className="block text-xs font-semibold text-gray-800 mb-1">
+                      Expected Timeline
+                    </label>
+                    <select
+                      id="buying-timeline"
+                      value={buyingTimeline}
+                      onChange={(e) => setBuyingTimeline(e.target.value as BuyingTimeline)}
+                      className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
+                    >
+                      <option value="THIS_MONTH">{TIMELINE_LABELS.THIS_MONTH}</option>
+                      <option value="WITHIN_1_3_MONTHS">{TIMELINE_LABELS.WITHIN_1_3_MONTHS}</option>
+                      <option value="WITHIN_3_6_MONTHS">{TIMELINE_LABELS.WITHIN_3_6_MONTHS}</option>
+                      <option value="JUST_EXPLORING">{TIMELINE_LABELS.JUST_EXPLORING}</option>
+                    </select>
+                  </div>
+
+                  {/* Existing Quote Toggle */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={hasExistingQuote}
+                        onChange={(e) => {
+                          setHasExistingQuote(e.target.checked);
+                          if (!e.target.checked) setExistingQuoteAmount('');
+                        }}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                      />
+                      <span className="text-xs font-medium text-gray-700">
+                        I already have a dealer quotation for this product
+                      </span>
+                    </label>
+
+                    {hasExistingQuote && (
+                      <div className="mt-2 pl-6">
+                        <label htmlFor="quote-amount" className="block text-xs font-semibold text-gray-800 mb-1">
+                          Current Quoted Amount (₹)
+                        </label>
+                        <input
+                          id="quote-amount"
+                          type="number"
+                          min={0}
+                          value={existingQuoteAmount}
+                          onChange={(e) => setExistingQuoteAmount(e.target.value)}
+                          placeholder="e.g. 135000"
+                          className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Optional message / variant note */}
+                  <div>
+                    <label htmlFor="extra-message" className="block text-xs font-semibold text-gray-800 mb-1">
+                      Variant or Exchange Note
+                    </label>
+                    <textarea
+                      id="extra-message"
+                      rows={2}
+                      maxLength={1000}
+                      value={extraMessage}
+                      onChange={(e) => setExtraMessage(e.target.value)}
+                      placeholder="e.g. Looking for Top Model in Grey, with 2-wheeler exchange"
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden resize-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Demo Mode Notice */}
@@ -349,7 +419,7 @@ function JoinPoolDialogContent({
             {/* Privacy Notice */}
             <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
               <p>
-                <strong>Privacy statement:</strong> By registering, you agree that PoolBuy may use your contact details to coordinate this group-buy pool. Dealer contact and lead sharing is handled only under our verified terms and DPDP Act compliance (Notice v{PRIVACY_NOTICE_VERSION}). No spam or public directory.
+                <strong>Privacy Statement:</strong> By registering, you agree that GroupBuying may use your contact details to coordinate this buying group. Dealer contact and lead sharing is handled only with separate consent and under DPDP Act compliance (Notice v{PRIVACY_NOTICE_VERSION}).
               </p>
             </div>
 
@@ -362,12 +432,12 @@ function JoinPoolDialogContent({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  <span>Confirming Interest...</span>
+                  <span>Joining Group...</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-                  <span>Join Pool for Free</span>
+                  <span>Join Group Free</span>
                 </>
               )}
             </button>

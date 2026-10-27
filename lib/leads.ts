@@ -26,6 +26,14 @@ interface RawLeadRow {
   consent_at: string;
   privacy_notice_version: string;
   created_at: string;
+  connection_opt_in?: boolean;
+  vendor_share_consent?: boolean;
+  locality?: string | null;
+  pin_code?: string | null;
+  admin_notes?: string | null;
+  do_not_contact?: boolean;
+  contact_preference?: string | null;
+  selected_kit_offer_id?: string | null;
   pools?: {
     slug: string;
     name: string;
@@ -53,6 +61,14 @@ function mapRawRowToLead(row: RawLeadRow): PoolLead {
     privacyNoticeVersion: row.privacy_notice_version,
     createdAt: row.created_at,
     buyerNumber: Number(row.buyer_number),
+    connectionOptIn: Boolean(row.connection_opt_in),
+    vendorShareConsent: Boolean(row.vendor_share_consent),
+    locality: row.locality || null,
+    pinCode: row.pin_code || null,
+    adminNotes: row.admin_notes || null,
+    doNotContact: Boolean(row.do_not_contact),
+    contactPreference: row.contact_preference || 'WHATSAPP',
+    selectedKitOfferId: row.selected_kit_offer_id || null,
   };
 }
 

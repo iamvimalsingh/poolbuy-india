@@ -40,7 +40,43 @@ export type PoolClosureReason =
   | 'MANUAL_CLOSE'
   | 'OTHER';
 
-export type PoolRequestStatus = 'REQUESTED' | 'REVIEWING' | 'APPROVED' | 'REJECTED';
+export type PoolRequestStatus =
+  | 'REQUESTED'
+  | 'REVIEWING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'NEEDS_INFO';
+
+export type PoolRequestType = 'GROUP_PROPOSAL' | 'PRODUCT_SUGGESTION';
+
+export type MarketPriceType =
+  | 'UNKNOWN'
+  | 'INDICATIVE_ESTIMATE'
+  | 'SOURCED_REFERENCE'
+  | 'VERIFIED_COMPARABLE';
+
+export type GroupPriceType =
+  | 'UNKNOWN'
+  | 'INDICATIVE_ESTIMATE'
+  | 'VENDOR_QUOTED'
+  | 'VENDOR_VERIFIED'
+  | 'EXPIRED_WITHDRAWN';
+
+export type ConnectionStatus =
+  | 'NOT_ELIGIBLE'
+  | 'ADMIN_REVIEW_PENDING'
+  | 'TERMS_PENDING'
+  | 'PAYMENT_LINK_CONFIGURED'
+  | 'PAYMENT_PENDING'
+  | 'READY_TO_CONNECT'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export type PaymentConfigState =
+  | 'DISABLED'
+  | 'MANUAL_NO_CHARGE'
+  | 'EXTERNAL_LINK_CONFIGURED'
+  | 'RECONCILED';
 
 /** Complete predefined kit package available within a pool or product */
 export interface PoolKitOffer {
@@ -175,6 +211,14 @@ export interface PublicPool {
   priceTiers?: VendorPriceTier[];
   createdAt: string;
   updatedAt: string;
+  // MVP Additions
+  isPublished?: boolean;
+  marketPriceType?: MarketPriceType;
+  groupPriceType?: GroupPriceType;
+  targetReachedAt?: string | null;
+  connectionStatus?: ConnectionStatus;
+  savingsDisplayApproved?: boolean;
+  sourceRequestId?: string | null;
 }
 
 /** Private server-only shape. Never serialize this to a public page or public API. */
@@ -185,17 +229,31 @@ export interface AdminPool extends PublicPool {
   dealerOfferUrl: string | null;
   dealerTerms: string | null;
   priceHistory?: PriceHistoryEntry[];
+  // MVP Additions
+  quoteSource?: string | null;
+  quoteDate?: string | null;
+  quoteValidUntil?: string | null;
+  quoteScope?: string | null;
+  quotePrivateNotes?: string | null;
+  connectionNotes?: string | null;
+  paymentConfigState?: PaymentConfigState;
+  targetReachedAcknowledgedAt?: string | null;
 }
 
 export interface JoinPoolInput {
   fullName: string;
   whatsappNumber: string;
-  city: string;
-  buyingTimeline: BuyingTimeline;
-  hasExistingQuote: boolean;
-  existingQuoteAmount: number | null;
-  extraMessage: string;
+  city?: string;
+  buyingTimeline?: BuyingTimeline;
+  hasExistingQuote?: boolean;
+  existingQuoteAmount?: number | null;
+  extraMessage?: string;
   selectedKitOfferId?: string;
+  // MVP Additions
+  connectionOptIn?: boolean;
+  vendorShareConsent?: boolean;
+  locality?: string;
+  pinCode?: string;
 }
 
 export interface JoinPoolResult {
@@ -205,9 +263,12 @@ export interface JoinPoolResult {
   targetBuyers: number;
   remainingBuyers: number;
   alreadyJoined: boolean;
+  isDuplicate?: boolean;
   poolStatus: PoolStatus;
   selectedKitCurrentBuyers?: number;
   selectedKitTargetBuyers?: number;
+  targetReached?: boolean;
+  isDemo?: boolean;
 }
 
 export interface PoolLead {
@@ -230,6 +291,14 @@ export interface PoolLead {
   privacyNoticeVersion: string;
   createdAt: string;
   buyerNumber: number;
+  // MVP Additions
+  connectionOptIn?: boolean;
+  vendorShareConsent?: boolean;
+  locality?: string | null;
+  pinCode?: string | null;
+  adminNotes?: string | null;
+  doNotContact?: boolean;
+  contactPreference?: string;
 }
 
 export interface PoolRequest {
@@ -250,6 +319,26 @@ export interface PoolRequest {
   similarRequestCount?: number;
   createdAt: string;
   reviewedAt: string | null;
+  // MVP Additions
+  state?: string | null;
+  locality?: string | null;
+  pinCode?: string | null;
+  requirementsSummary?: string | null;
+  targetBuyersRequested?: number | null;
+  requestedDeadline?: string | null;
+  contactConsent?: boolean;
+  consentAt?: string | null;
+  requestType?: PoolRequestType;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  actor: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 /** Blog CMS post entity */

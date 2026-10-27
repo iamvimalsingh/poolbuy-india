@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, CheckCircle2, AlertCircle, Loader2, Send, Info } from 'lucide-react';
+import { Sparkles, CheckCircle2, AlertCircle, Loader2, Send, Info, Users, Clock } from 'lucide-react';
 import { normalizePhone, isValidIndianMobile } from '@/lib/format';
 import { City, Category } from '@/types';
 
@@ -14,16 +14,21 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
   const [cities, setCities] = useState<City[]>(initialCities || []);
   const [categories, setCategories] = useState<Category[]>(initialCategories || []);
 
+  const [requestType, setRequestType] = useState<'GROUP_PROPOSAL' | 'PRODUCT_SUGGESTION'>('GROUP_PROPOSAL');
   const [productName, setProductName] = useState('');
   const [selectedCity, setSelectedCity] = useState(cities[0]?.name || 'Bhopal');
   const [customCity, setCustomCity] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [customCategory, setCustomCategory] = useState('');
+  const [requirementsSummary, setRequirementsSummary] = useState('');
+  const [targetBuyersRequested, setTargetBuyersRequested] = useState<number>(10);
+  const [requestedDeadlineDays, setRequestedDeadlineDays] = useState<number>(30);
   const [brandPreference, setBrandPreference] = useState('');
   const [modelPreference, setModelPreference] = useState('');
   const [fullName, setFullName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [extraMessage, setExtraMessage] = useState('');
+  const [contactConsent, setContactConsent] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -86,9 +91,16 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
       }
     }
 
+    if (!contactConsent && normalizedPhone) {
+      setErrorMessage('Please consent to contact regarding this proposal, or clear the phone field.');
+      return;
+    }
+
     const effectiveCategory = selectedCategory === '__OTHER__' ? null : selectedCategory || null;
     const effectiveCategoryName =
       selectedCategory === '__OTHER__' ? customCategory.trim() : null;
+
+    const requestedDeadline = new Date(Date.now() + requestedDeadlineDays * 86400000).toISOString();
 
     const payload = {
       productName: trimmedProduct,
@@ -100,6 +112,11 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
       fullName: fullName.trim() || null,
       whatsappNumber: normalizedPhone || null,
       extraMessage: extraMessage.trim(),
+      requirementsSummary: requirementsSummary.trim() || undefined,
+      targetBuyersRequested: Number(targetBuyersRequested) || 10,
+      requestedDeadline,
+      contactConsent,
+      requestType,
     };
 
     setIsSubmitting(true);
@@ -114,7 +131,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setErrorMessage(data.error?.message || 'Unable to submit your request. Please try again.');
+        setErrorMessage(data.error?.message || 'Unable to submit your proposal. Please try again.');
         return;
       }
 
@@ -133,19 +150,21 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
         <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
         </div>
-        <h3 className="text-xl font-bold">Demand Request Confirmed!</h3>
+        <h3 className="text-xl font-bold">
+          {requestType === 'GROUP_PROPOSAL' ? 'Group Buy Proposal Submitted!' : 'Product Suggestion Received!'}
+        </h3>
         <p className="text-sm text-emerald-100 max-w-md mx-auto leading-relaxed">
-          Thank you for requesting <strong>{productName}</strong> in <strong>{finalCityDisplay}</strong>.
-          We aggregate interest in this product and review local dealer availability. When feasible, an official group-buying pool will be launched.
+          Thank you for proposing <strong>{productName}</strong> in <strong>{finalCityDisplay}</strong>.
+          Your submission is in the <strong>Admin Review Queue</strong>. Once community demand and local availability are reviewed, an official buying group will be published.
         </p>
 
         {submissionResult.isDemo ? (
           <div className="inline-block bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs px-3.5 py-1.5 rounded-lg">
-            Demo Mode: Request recorded in session demo store (ID: {submissionResult.id}).
+            Demo Mode: Proposal recorded in session demo store (ID: {submissionResult.id}). Visible in Admin Command Center.
           </div>
         ) : (
           <div className="inline-block bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs px-3.5 py-1.5 rounded-lg">
-            Request ID: {submissionResult.id}
+            Proposal ID: {submissionResult.id} (Status: PENDING REVIEW)
           </div>
         )}
 
@@ -159,11 +178,12 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
               setCustomCategory('');
               setBrandPreference('');
               setModelPreference('');
+              setRequirementsSummary('');
               setExtraMessage('');
             }}
             className="text-xs font-semibold px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
           >
-            Request Another Product
+            Submit Another Proposal
           </button>
         </div>
       </div>
@@ -172,12 +192,42 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
 
   return (
     <form onSubmit={handleSubmit} className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 sm:p-8 text-white space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-        <h3 className="text-lg font-bold text-white">Request a New Group-Buy Pool</h3>
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center gap-2 pb-3 border-b border-white/15">
+        <button
+          type="button"
+          onClick={() => setRequestType('GROUP_PROPOSAL')}
+          className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all ${
+            requestType === 'GROUP_PROPOSAL'
+              ? 'bg-emerald-500 text-gray-950 shadow-xs'
+              : 'bg-white/10 text-emerald-100 hover:bg-white/15'
+          }`}
+        >
+          Start a Group Buy (Proposal)
+        </button>
+        <button
+          type="button"
+          onClick={() => setRequestType('PRODUCT_SUGGESTION')}
+          className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all ${
+            requestType === 'PRODUCT_SUGGESTION'
+              ? 'bg-emerald-500 text-gray-950 shadow-xs'
+              : 'bg-white/10 text-emerald-100 hover:bg-white/15'
+          }`}
+        >
+          Suggest a Product
+        </button>
       </div>
-      <p className="text-xs text-emerald-100/80 -mt-2 mb-3">
-        Looking for a specific vehicle, gadget, or equipment not yet listed? Request it below. We aggregate local community interest before negotiating verified dealer terms.
+
+      <div className="flex items-center gap-2 mb-1">
+        <Sparkles className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+        <h3 className="text-lg font-bold text-white">
+          {requestType === 'GROUP_PROPOSAL' ? 'Propose a Local Group Buy' : 'Suggest a Product for Your City'}
+        </h3>
+      </div>
+      <p className="text-xs text-emerald-100/80 -mt-2 mb-3 leading-relaxed">
+        {requestType === 'GROUP_PROPOSAL'
+          ? 'Visitors can propose a buying group for any product. Proposals enter admin review before publication. No customer account required.'
+          : 'Suggest a product you would like to see listed in your city. Demand is aggregated and reviewed by operators.'}
       </p>
 
       {errorMessage && (
@@ -188,10 +238,10 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Product Name */}
+        {/* Product / Group Title */}
         <div className="sm:col-span-2">
           <label htmlFor="req-product" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Product or Package Name <span className="text-emerald-400">*</span>
+            Product or Group Title <span className="text-emerald-400">*</span>
           </label>
           <input
             id="req-product"
@@ -199,7 +249,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
             required
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder="e.g. Ather 450X, 5kW Rooftop Solar, Tata Punch EV, MacBook Pro M3"
+            placeholder="e.g. 5kW Rooftop Solar Installation, Electric Scooter Bulk Deal, Whole-House Water Softener"
             className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden transition-all"
           />
         </div>
@@ -207,7 +257,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
         {/* City Selector */}
         <div>
           <label htmlFor="req-city" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Requested City <span className="text-emerald-400">*</span>
+            Target City <span className="text-emerald-400">*</span>
           </label>
           <select
             id="req-city"
@@ -221,7 +271,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
               </option>
             ))}
             <option value="__OTHER__" className="bg-gray-900 text-white">
-              + Other city (Not listed yet)
+              + Other city / town (Not in directory)
             </option>
           </select>
         </div>
@@ -244,7 +294,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
               </option>
             ))}
             <option value="__OTHER__" className="bg-gray-900 text-white">
-              + Other / Not listed
+              + Other / Free-text Category
             </option>
           </select>
         </div>
@@ -253,7 +303,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
         {selectedCity === '__OTHER__' && (
           <div className="sm:col-span-2 bg-white/5 border border-white/10 rounded-xl p-3 space-y-1.5">
             <label htmlFor="req-custom-city" className="block text-xs font-semibold text-emerald-200">
-              Enter Your City Name <span className="text-emerald-400">*</span>
+              Enter Your City / Town Name <span className="text-emerald-400">*</span>
             </label>
             <input
               id="req-custom-city"
@@ -267,7 +317,7 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
             <p className="text-[11px] text-emerald-100/70 flex items-start gap-1 mt-1">
               <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
               <span>
-                Submitting a new city registers local demand. Official pools open only after authorized dealer supply and fulfillment paths are confirmed in that city.
+                New cities are reviewed by operators. Official groups open only after local serviceability is verified.
               </span>
             </p>
           </div>
@@ -277,67 +327,93 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
         {selectedCategory === '__OTHER__' && (
           <div className="sm:col-span-2 bg-white/5 border border-white/10 rounded-xl p-3 space-y-1.5">
             <label htmlFor="req-custom-category" className="block text-xs font-semibold text-emerald-200">
-              Category or Product Type Description
+              Custom Category or Product Type
             </label>
             <input
               id="req-custom-category"
               type="text"
               value={customCategory}
               onChange={(e) => setCustomCategory(e.target.value)}
-              placeholder="e.g. Drones, Electric Bicycles, Home Gym Equipment, Dental Implants"
+              placeholder="e.g. Electric Bicycles, Inverters, Commercial Equipment"
               className="w-full text-sm px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 outline-hidden"
             />
           </div>
         )}
 
-        {/* Brand & Model Preference */}
+        {/* Target Group Size (bounded 2 - 10000) */}
         <div>
-          <label htmlFor="req-brand" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Brand Preference (Optional)
+          <label htmlFor="req-target" className="block text-xs font-semibold text-emerald-100 mb-1">
+            Target Group Size (Buyers)
           </label>
-          <input
-            id="req-brand"
-            type="text"
-            value={brandPreference}
-            onChange={(e) => setBrandPreference(e.target.value)}
-            placeholder="e.g. Apple, Ather, Tata, DJI, Sony"
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden"
+          <div className="relative">
+            <Users className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <input
+              id="req-target"
+              type="number"
+              min={2}
+              max={10000}
+              value={targetBuyersRequested}
+              onChange={(e) => setTargetBuyersRequested(Math.max(2, Math.min(10000, parseInt(e.target.value, 10) || 10)))}
+              className="w-full text-sm pl-9 pr-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
+            />
+          </div>
+        </div>
+
+        {/* Requested Timeline / Days */}
+        <div>
+          <label htmlFor="req-deadline" className="block text-xs font-semibold text-emerald-100 mb-1">
+            Desired Timeline
+          </label>
+          <div className="relative">
+            <Clock className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <select
+              id="req-deadline"
+              value={requestedDeadlineDays}
+              onChange={(e) => setRequestedDeadlineDays(parseInt(e.target.value, 10) || 30)}
+              className="w-full text-sm pl-9 pr-3.5 py-2.5 rounded-xl bg-gray-900 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
+            >
+              <option value={14} className="bg-gray-900 text-white">14 Days (Fast cohort)</option>
+              <option value={30} className="bg-gray-900 text-white">30 Days (Standard 1 Month)</option>
+              <option value={60} className="bg-gray-900 text-white">60 Days (2 Months)</option>
+              <option value={90} className="bg-gray-900 text-white">90 Days (Quarterly pool)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Short Requirements Description */}
+        <div className="sm:col-span-2">
+          <label htmlFor="req-summary" className="block text-xs font-semibold text-emerald-100 mb-1">
+            Requirements / Package Summary
+          </label>
+          <textarea
+            id="req-summary"
+            rows={2}
+            maxLength={1000}
+            value={requirementsSummary}
+            onChange={(e) => setRequirementsSummary(e.target.value)}
+            placeholder="e.g. Seeking turnkey rooftop solar installation with net-metering liaison, or TopCon bifacial kit option"
+            className="w-full text-sm px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden resize-none"
           />
         </div>
 
-        <div>
-          <label htmlFor="req-model" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Model / Variant Preference (Optional)
-          </label>
-          <input
-            id="req-model"
-            type="text"
-            value={modelPreference}
-            onChange={(e) => setModelPreference(e.target.value)}
-            placeholder="e.g. 450X 3.7kWh, M3 16GB, Fly More Combo"
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden"
-          />
-        </div>
-
-        {/* Full Name */}
+        {/* Contact Info (for proposal follow-up) */}
         <div>
           <label htmlFor="req-name" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Your Name (Optional)
+            Your Name (Organizer / Proposer)
           </label>
           <input
             id="req-name"
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Rahul Verma"
+            placeholder="e.g. Vikram Sharma"
             className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden"
           />
         </div>
 
-        {/* WhatsApp Mobile */}
         <div>
           <label htmlFor="req-phone" className="block text-xs font-semibold text-emerald-100 mb-1">
-            WhatsApp Number (Optional)
+            WhatsApp Number (For Proposal Review)
           </label>
           <input
             id="req-phone"
@@ -350,28 +426,20 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
           />
         </div>
 
-        {/* Contact info notice */}
-        <div className="sm:col-span-2 text-[11px] text-emerald-200/70 bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-2.5 flex items-start gap-2">
-          <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-          <span>
-            <strong>Privacy Guarantee:</strong> If supplied, your contact details are solely used to notify you if an official pool opens in your city. PoolBuy will never share your personal lead data with dealerships without your separate explicit consent.
-          </span>
-        </div>
-
-        {/* Extra Note */}
-        <div className="sm:col-span-2">
-          <label htmlFor="req-note" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Additional Note or Price Target (Optional)
+        {/* Proposal Consent Checkbox */}
+        <div className="sm:col-span-2 bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-3">
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              required
+              checked={contactConsent}
+              onChange={(e) => setContactConsent(e.target.checked)}
+              className="w-4 h-4 mt-0.5 rounded text-emerald-500 focus:ring-emerald-400 border-gray-400"
+            />
+            <span className="text-xs text-emerald-100/90 leading-relaxed">
+              <strong>Proposal Acknowledgement &amp; Consent:</strong> I understand that this is a proposal that will be reviewed before public listing. If provided, my contact details may be used on WhatsApp to verify or moderate this group buy proposal.
+            </span>
           </label>
-          <textarea
-            id="req-note"
-            rows={2}
-            maxLength={1000}
-            value={extraMessage}
-            onChange={(e) => setExtraMessage(e.target.value)}
-            placeholder="e.g. Have 3 colleagues ready to join; target price under ₹1.35 Lakh on-road"
-            className="w-full text-sm px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden resize-none"
-          />
         </div>
       </div>
 
@@ -383,12 +451,12 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
         {isSubmitting ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-            <span>Submitting Request...</span>
+            <span>Submitting Proposal...</span>
           </>
         ) : (
           <>
             <Send className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Submit Pool Request</span>
+            <span>{requestType === 'GROUP_PROPOSAL' ? 'Submit Group Buy Proposal' : 'Submit Product Suggestion'}</span>
           </>
         )}
       </button>
