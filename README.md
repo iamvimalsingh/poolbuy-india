@@ -141,35 +141,47 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ADMIN_PASSKEY=choose-a-strong-passkey-here
 ADMIN_SESSION_SECRET=at-least-32-random-alphanumeric-secret-key-here
 
+# Secret token for authenticating automated cron/scheduler tasks (Pool lifecycle & expiry)
+# Must match Authorization: Bearer <CRON_SECRET> header when calling /api/cron/pool-lifecycle
+CRON_SECRET=your-random-32-or-48-char-hex-secret-here
+
 # Local Development Switch (Set to true to force demo mode with banner)
 NEXT_PUBLIC_DEMO_MODE=false
 ```
 
+### Three-Tier Target Environment Architecture
+- **Local Development:** Local mock mode (`NEXT_PUBLIC_DEMO_MODE=true`) or local development Supabase project.
+- **Preview / Staging:** Dedicated staging Supabase project linked to Vercel Preview deployments.
+- **Production:** Isolated production Supabase project with production customer leads, isolated secrets, and point-in-time recovery.
+
 ---
 
-## 4. Supabase Setup & Execution
+## 4. Supabase Setup & Migration Runbook
 
-1. Open your [Supabase Dashboard](https://database.new) and create a new project.
-2. In the Supabase SQL Editor, paste the entire contents of [`supabase/schema.sql`](file:///c:/Users/iamvi/OneDrive/Documents/poolbuy-india/supabase/schema.sql) and run it.
-3. The script creates:
-   - Custom enums: `pool_category`, `pool_status`, `buying_timeline`, `lead_status`, `pool_request_status`.
-   - Tables: `pools`, `pool_leads`, `pool_requests`.
-   - Unique phone-per-pool constraint: `UNIQUE (pool_id, whatsapp_number)`.
-   - Security view: `public_pools` (deliberately excludes dealer names, token amounts, and private payment links).
-   - Atomic RPCs: `join_pool` and `submit_pool_request` with `SECURITY DEFINER` and transactional locking (`FOR UPDATE`).
-   - Row Level Security (RLS): All direct client queries to `pool_leads` and `pool_requests` are blocked; public reads are restricted to `public_pools`.
+For a fresh staging or production Supabase instance:
+1. Open your [Supabase Dashboard](https://supabase.com/dashboard) and create your project.
+2. In the Supabase SQL Editor, first paste and execute [`supabase/schema.sql`](file:///c:/Users/iamvi/OneDrive/Documents/poolbuy-india/supabase/schema.sql) (baseline tables, enums, triggers, RLS, and base RPCs).
+3. Next, execute the 6 incremental migrations in [`supabase/migrations/`](file:///c:/Users/iamvi/OneDrive/Documents/poolbuy-india/supabase/migrations/) in strict numerical order:
+   - `20261026000001_cities_and_multicity_pools.sql` (Phase B: normalized cities, foreign keys, city isolation)
+   - `20261026000002_dynamic_categories_and_pool_requests.sql` (Phase C: categories table, demand discovery RPCs)
+   - `20261026000003_fixed_kits_and_price_tiers.sql` (Phase D: fixed kits, volume tiers, quote history, V3 timelines)
+   - `20261026000004_location_directory_states_and_cities.sql` (Phase E: 28 States + 8 UTs directory schema)
+   - `20261026000005_pool_lifecycle_and_expiry.sql` (Phase F: hard delete prevention, auto-expiry RPC)
+   - `20261026000006_blog_cms.sql` (Phase H: blog posts CMS schema, public views, and RLS)
 
 ### Post-Schema Validation Queries:
 Run these verification queries in Supabase SQL Editor to confirm setup:
 
 ```sql
--- 1. Verify 6 seeded pools are created
-SELECT slug, name, city, target_buyers, current_buyers, status, price_is_verified FROM public.pools;
+-- 1. Verify tables and views exist
+SELECT table_name, table_type FROM information_schema.tables 
+WHERE table_schema = 'public' 
+ORDER BY table_name;
 
 -- 2. Verify RLS is enabled on all tables
 SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
 
--- 3. Verify public permissions (anon role can only select public_pools)
+-- 3. Verify public permissions (anon role can only select public_pools and public_blog_posts)
 SELECT grantee, table_name, privilege_type 
 FROM information_schema.role_table_grants 
 WHERE grantee = 'anon' AND table_schema = 'public';

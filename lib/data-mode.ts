@@ -9,7 +9,12 @@ export function isDemoMode(): boolean {
     return true;
   }
 
-  // If Supabase credentials are missing, we run in mock mode
+  // In production, demo mode is disabled unless explicitly enabled via NEXT_PUBLIC_DEMO_MODE=true
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+
+  // In local development, fallback to mock mode if Supabase credentials are absent
   const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const hasSupabaseKey = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY

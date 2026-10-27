@@ -10,6 +10,7 @@ export interface AppEnv {
   supabaseServiceRoleKey?: string;
   adminPasskey?: string;
   adminSessionSecret?: string;
+  cronSecret?: string;
   supportWhatsApp?: string;
   supportEmail?: string;
 }
@@ -33,12 +34,17 @@ export function getAppEnv(): AppEnv {
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     adminPasskey: process.env.ADMIN_PASSKEY,
     adminSessionSecret: process.env.ADMIN_SESSION_SECRET,
+    cronSecret: process.env.CRON_SECRET,
     supportWhatsApp: process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP,
     supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   };
 }
 
-export function assertServerEnv(keys: Array<'SUPABASE_SERVICE_ROLE_KEY' | 'ADMIN_PASSKEY' | 'ADMIN_SESSION_SECRET'>): void {
+export function assertServerEnv(
+  keys: Array<
+    'SUPABASE_SERVICE_ROLE_KEY' | 'ADMIN_PASSKEY' | 'ADMIN_SESSION_SECRET' | 'CRON_SECRET'
+  >
+): void {
   const missing = keys.filter((key) => !process.env[key]);
   if (missing.length > 0) {
     throw new Error(

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/pool-lifecycle",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
