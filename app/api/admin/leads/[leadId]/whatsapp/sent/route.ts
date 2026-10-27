@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { recordManualWhatsAppSent, getDemoLeads } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { recordWhatsAppSentSchema } from '@/lib/validation';
 import { recordAdminAudit } from '@/lib/audit';
 
@@ -63,39 +63,45 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1
+    const db = await requireD1Database();
     const noteText = notes || `Manually sent ${templateType} via WhatsApp.`;
 
-    const { data: updated, error } = await supabase
-      .from('pool_leads')
-      .update({
-        last_contact_at: now,
-        last_contact_status: 'SENT',
-        last_contact_note: noteText,
-        status: 'CONTACTED',
-      })
-      .eq('id', leadId)
-      .select()
-      .single();
+    const existing = await db
+      .prepare('SELECT id, buyer_number, full_name FROM pool_leads WHERE id = ?')
+      .bind(leadId)
+      .first<{ id: string; buyer_number: number; full_name: string }>();
 
-    if (error) {
+    if (!existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { success: false, error: { code: 'LEAD_NOT_FOUND', message: 'Lead not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    await db
+      .prepare(
+        `UPDATE pool_leads
+         SET last_contact_at = ?,
+             last_contact_status = 'SENT',
+             last_contact_note = ?,
+             status = 'CONTACTED',
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(now, noteText, now, leadId)
+      .run();
 
     await recordAdminAudit({
       action: 'WHATSAPP_MANUALLY_SENT',
       targetType: 'LEAD',
       targetId: leadId,
-      changesSummary: `Operator manually sent "${templateType}" WhatsApp message to member #${updated.buyer_number} (${updated.full_name}).`,
+      changesSummary: `Operator manually sent "${templateType}" WhatsApp message to member #${existing.buyer_number} (${existing.full_name}).`,
       details: { templateType, notes: noteText, sentAt: now },
     });
 
     return NextResponse.json(
-      { success: true, data: updated },
+      { success: true, data: { updated: true, id: leadId, lastContactStatus: 'SENT' } },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

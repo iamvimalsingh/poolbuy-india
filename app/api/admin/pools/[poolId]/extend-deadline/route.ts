@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, updateDemoPool } from '@/lib/mock-data';
+import { requireD1Database } from '@/lib/d1/db';
 import { z } from 'zod';
 import { recordAdminAudit } from '@/lib/audit';
 
@@ -94,15 +94,20 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
-    const { data: pool, error: fetchErr } = await supabase
-      .from('pools')
-      .select('deadline, status, closure_reason, slug, city_slug')
-      .eq('id', poolId)
-      .maybeSingle();
+    // Live D1 execution
+    const db = await requireD1Database();
+    const pool = await db
+      .prepare('SELECT deadline, status, closure_reason, slug, city_slug FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<{
+        deadline: string;
+        status: string;
+        closure_reason: string | null;
+        slug: string;
+        city_slug: string;
+      }>();
 
-    if (fetchErr || !pool) {
+    if (!pool) {
       return NextResponse.json(
         { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Pool not found.' } },
         { status: 404, headers: { 'Cache-Control': 'no-store' } }
@@ -110,30 +115,26 @@ export async function POST(
     }
 
     const prevDeadline = pool.deadline;
-    const updates: Record<string, unknown> = {
-      deadline: newDeadline,
-      updated_at: new Date().toISOString(),
-    };
+    const now = new Date().toISOString();
 
     if (pool.status === 'CLOSED' && pool.closure_reason === 'AUTO_POOL_EXPIRED') {
-      updates.status = 'ACTIVE';
-      updates.closure_reason = null;
-      updates.closed_at = null;
+      await db
+        .prepare(
+          "UPDATE pools SET deadline = ?, status = 'ACTIVE', closure_reason = NULL, closed_at = NULL, updated_at = ? WHERE id = ?"
+        )
+        .bind(newDeadline, now, poolId)
+        .run();
+    } else {
+      await db
+        .prepare('UPDATE pools SET deadline = ?, updated_at = ? WHERE id = ?')
+        .bind(newDeadline, now, poolId)
+        .run();
     }
 
-    const { data: updated, error: updateErr } = await supabase
-      .from('pools')
-      .update(updates)
-      .eq('id', poolId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: updateErr.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const updated = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first();
 
     await recordAdminAudit({
       action: 'DEADLINE_EXTENDED',

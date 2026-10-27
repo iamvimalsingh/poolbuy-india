@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { isDemoMode } from '@/lib/data-mode';
 import { poolRequestStatusEnum } from '@/lib/validation';
 import { updateDemoRequest } from '@/lib/mock-data';
@@ -52,51 +52,43 @@ export async function PATCH(
       );
     }
 
-    const supabase = getAdminSupabase();
-    if (!supabase) {
-      const updated = updateDemoRequest(requestId, parsed.data);
-      return NextResponse.json(
-        { success: true, data: { updated: true, request: updated } },
-        { headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const db = await requireD1Database();
+    const existing = await db
+      .prepare('SELECT id FROM pool_requests WHERE id = ?')
+      .bind(requestId)
+      .first();
 
-    const updatePayload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (parsed.data.status !== undefined) {
-      updatePayload.status = parsed.data.status;
-      if (parsed.data.status !== 'REQUESTED') {
-        updatePayload.reviewed_at = new Date().toISOString();
-      }
-    }
-    if (parsed.data.adminNotes !== undefined) {
-      updatePayload.admin_notes = parsed.data.adminNotes;
-    }
-    if (parsed.data.conversionStatus !== undefined) {
-      updatePayload.conversion_status = parsed.data.conversionStatus;
-    }
-
-    const { data, error } = await supabase
-      .from('pool_requests')
-      .update(updatePayload)
-      .eq('id', requestId)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    if (!data) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Request not found' } },
         { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    const now = new Date().toISOString();
+    const reviewedAt = parsed.data.status && parsed.data.status !== 'REQUESTED' ? now : null;
+
+    // Build update dynamically or coalesced
+    await db
+      .prepare(
+        `UPDATE pool_requests
+         SET status = COALESCE(?, status),
+             admin_notes = COALESCE(?, admin_notes),
+             conversion_status = COALESCE(?, conversion_status),
+             reviewed_at = CASE WHEN ? IS NOT NULL THEN ? ELSE reviewed_at END,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(
+        parsed.data.status ?? null,
+        parsed.data.adminNotes ?? null,
+        parsed.data.conversionStatus ?? null,
+        reviewedAt,
+        reviewedAt,
+        now,
+        requestId
+      )
+      .run();
 
     return NextResponse.json(
       { success: true, data: { updated: true } },

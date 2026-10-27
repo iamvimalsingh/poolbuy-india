@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { isDemoMode } from '@/lib/data-mode';
 import { DEMO_LEADS, MOCK_ADMIN_POOLS } from '@/lib/mock-data';
 import {
@@ -118,32 +118,36 @@ export async function POST(
       demoLead.lastContactStatus = 'LINK_GENERATED';
       demoLead.lastContactNote = `Generated ${templateType} link.`;
     } else {
-      const supabase = getAdminSupabase();
+      const db = await requireD1Database();
 
-      const { data: leadData, error: leadError } = await supabase
-        .from('pool_leads')
-        .select(`
-          id,
-          full_name,
-          whatsapp_number,
-          city,
-          pool_id,
-          buyer_number,
-          status,
-          do_not_contact,
-          pools (*)
-        `)
-        .eq('id', leadId)
-        .maybeSingle();
+      const leadData = await db
+        .prepare(
+          `SELECT l.id, l.full_name, l.whatsapp_number, l.city, l.pool_id, l.buyer_number,
+                  l.status, l.do_not_contact,
+                  p.id AS p_id, p.slug AS p_slug, p.name AS p_name, p.short_description AS p_short_description,
+                  p.long_description AS p_long_description, p.category AS p_category, p.city AS p_city,
+                  p.city_slug AS p_city_slug, p.product_brand AS p_product_brand, p.product_model AS p_product_model,
+                  p.image_url AS p_image_url, p.market_price AS p_market_price, p.group_price AS p_group_price,
+                  p.target_buyers AS p_target_buyers, p.current_buyers AS p_current_buyers, p.deadline AS p_deadline,
+                  p.status AS p_status, p.price_is_verified AS p_price_is_verified, p.price_verified_at AS p_price_verified_at,
+                  p.created_at AS p_created_at, p.updated_at AS p_updated_at, p.dealer_name AS p_dealer_name,
+                  p.token_amount AS p_token_amount, p.token_payment_url AS p_token_payment_url,
+                  p.dealer_offer_url AS p_dealer_offer_url, p.dealer_terms AS p_dealer_terms
+           FROM pool_leads l
+           LEFT JOIN pools p ON l.pool_id = p.id
+           WHERE l.id = ?`
+        )
+        .bind(leadId)
+        .first<Record<string, unknown>>();
 
-      if (leadError || !leadData) {
+      if (!leadData) {
         return NextResponse.json(
           { success: false, error: { code: 'LEAD_NOT_FOUND', message: 'Lead not found.' } },
           { status: 404, headers: { 'Cache-Control': 'no-store' } }
         );
       }
 
-      if (leadData.do_not_contact || leadData.status === 'DO_NOT_CONTACT') {
+      if (Boolean(leadData.do_not_contact) || leadData.status === 'DO_NOT_CONTACT') {
         return NextResponse.json(
           {
             success: false,
@@ -156,57 +160,59 @@ export async function POST(
         );
       }
 
-      buyerName = leadData.full_name;
-      buyerPhone = leadData.whatsapp_number;
-      cityName = leadData.city;
+      buyerName = String(leadData.full_name || 'Valued Buyer');
+      buyerPhone = String(leadData.whatsapp_number || '');
+      cityName = String(leadData.city || '');
       buyerNumber = Number(leadData.buyer_number || 1);
 
-      const p = leadData.pools as unknown as Record<string, unknown>;
-      if (p) {
-        poolName = String(p.name || '');
-        targetBuyers = Number(p.target_buyers || 10);
-        deadline = String(p.deadline || '');
-        groupPrice = Number(p.group_price || 130000);
-        feeBasis = Number(p.group_price || p.market_price || 130000);
+      if (leadData.p_id) {
+        poolName = String(leadData.p_name || '');
+        targetBuyers = Number(leadData.p_target_buyers || 10);
+        deadline = String(leadData.p_deadline || '');
+        groupPrice = Number(leadData.p_group_price || 130000);
+        feeBasis = Number(leadData.p_group_price || leadData.p_market_price || 130000);
         pool = {
-          id: String(p.id),
-          slug: String(p.slug),
-          name: String(p.name),
-          shortDescription: String(p.short_description || ''),
-          longDescription: String(p.long_description || ''),
-          category: p.category as AdminPool['category'],
-          city: String(p.city),
-          citySlug: String(p.city_slug),
-          productBrand: String(p.product_brand || ''),
-          productModel: String(p.product_model || ''),
-          imageUrl: (p.image_url as string) || null,
-          marketPrice: p.market_price ? Number(p.market_price) : null,
-          groupPrice: p.group_price ? Number(p.group_price) : null,
+          id: String(leadData.p_id),
+          slug: String(leadData.p_slug),
+          name: String(leadData.p_name),
+          shortDescription: String(leadData.p_short_description || ''),
+          longDescription: String(leadData.p_long_description || ''),
+          category: leadData.p_category as AdminPool['category'],
+          city: String(leadData.p_city),
+          citySlug: String(leadData.p_city_slug),
+          productBrand: String(leadData.p_product_brand || ''),
+          productModel: String(leadData.p_product_model || ''),
+          imageUrl: (leadData.p_image_url as string) || null,
+          marketPrice: leadData.p_market_price ? Number(leadData.p_market_price) : null,
+          groupPrice: leadData.p_group_price ? Number(leadData.p_group_price) : null,
           targetBuyers,
-          currentBuyers: Number(p.current_buyers),
+          currentBuyers: Number(leadData.p_current_buyers),
           deadline,
-          status: p.status as AdminPool['status'],
-          priceIsVerified: Boolean(p.price_is_verified),
-          priceVerifiedAt: (p.price_verified_at as string) || null,
-          createdAt: String(p.created_at),
-          updatedAt: String(p.updated_at),
-          dealerName: (p.dealer_name as string) || null,
-          tokenAmount: p.token_amount ? Number(p.token_amount) : null,
-          tokenPaymentUrl: (p.token_payment_url as string) || null,
-          dealerOfferUrl: (p.dealer_offer_url as string) || null,
-          dealerTerms: (p.dealer_terms as string) || null,
+          status: leadData.p_status as AdminPool['status'],
+          priceIsVerified: Boolean(leadData.p_price_is_verified),
+          priceVerifiedAt: (leadData.p_price_verified_at as string) || null,
+          createdAt: String(leadData.p_created_at),
+          updatedAt: String(leadData.p_updated_at),
+          dealerName: (leadData.p_dealer_name as string) || null,
+          tokenAmount: leadData.p_token_amount ? Number(leadData.p_token_amount) : null,
+          tokenPaymentUrl: (leadData.p_token_payment_url as string) || null,
+          dealerOfferUrl: (leadData.p_dealer_offer_url as string) || null,
+          dealerTerms: (leadData.p_dealer_terms as string) || null,
         };
       }
 
       // Record link generated status
-      await supabase
-        .from('pool_leads')
-        .update({
-          last_contact_at: now,
-          last_contact_status: 'LINK_GENERATED',
-          last_contact_note: `Generated ${templateType} link.`,
-        })
-        .eq('id', leadId);
+      await db
+        .prepare(
+          `UPDATE pool_leads
+           SET last_contact_at = ?,
+               last_contact_status = 'LINK_GENERATED',
+               last_contact_note = ?,
+               updated_at = ?
+           WHERE id = ?`
+        )
+        .bind(now, `Generated ${templateType} link.`, now, leadId)
+        .run();
     }
 
     let messageText = '';

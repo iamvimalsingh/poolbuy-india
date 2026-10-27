@@ -9,5 +9,21 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "observability": {
+    "enabled": true
+  },
+  "keep_vars": true,
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://groupbuying.store",
+    "NEXT_PUBLIC_DEMO_MODE": "false"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "groupbuying-prod",
+      "database_id": "a9cd4321-e07b-4244-8a9d-a610e38a9957",
+      "migrations_dir": "migrations/d1"
+    }
+  ]
 }

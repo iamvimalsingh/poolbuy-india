@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, addDemoPool } from '@/lib/mock-data';
+import { requireD1Database } from '@/lib/d1/db';
 import { AdminPool } from '@/types';
 import { z } from 'zod';
 import {
@@ -17,6 +17,105 @@ import {
 } from '@/lib/validation';
 import { slugify } from '@/lib/format';
 import { recordAdminAudit } from '@/lib/audit';
+
+interface D1AdminPoolRow {
+  id: string;
+  slug: string;
+  name: string;
+  short_description: string;
+  long_description: string;
+  category: string;
+  city: string;
+  city_slug: string;
+  product_brand: string;
+  product_model: string;
+  image_url: string | null;
+  market_price: number | null;
+  group_price: number | null;
+  target_buyers: number;
+  current_buyers: number;
+  deadline: string;
+  status: string;
+  closure_reason?: string | null;
+  closed_at?: string | null;
+  offer_valid_until?: string | null;
+  is_archived?: number;
+  deleted_at?: string | null;
+  price_is_verified: number;
+  price_verified_at: string | null;
+  dealer_name?: string | null;
+  token_amount?: number | null;
+  token_payment_url?: string | null;
+  dealer_offer_url?: string | null;
+  dealer_terms?: string | null;
+  is_published: number;
+  market_price_type: string;
+  group_price_type: string;
+  savings_display_approved: number;
+  quote_source?: string | null;
+  quote_date?: string | null;
+  quote_valid_until?: string | null;
+  quote_scope?: string | null;
+  quote_private_notes?: string | null;
+  connection_status: string;
+  payment_config_state: string;
+  connection_notes?: string | null;
+  target_reached_at?: string | null;
+  target_reached_acknowledged_at?: string | null;
+  source_request_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRowToAdminPool(row: D1AdminPoolRow): AdminPool {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    shortDescription: row.short_description || '',
+    longDescription: row.long_description || '',
+    category: row.category as AdminPool['category'],
+    city: row.city,
+    citySlug: row.city_slug,
+    productBrand: row.product_brand || '',
+    productModel: row.product_model || '',
+    imageUrl: row.image_url,
+    marketPrice: row.market_price !== null ? Number(row.market_price) : null,
+    groupPrice: row.group_price !== null ? Number(row.group_price) : null,
+    targetBuyers: Number(row.target_buyers),
+    currentBuyers: Number(row.current_buyers),
+    deadline: row.deadline,
+    status: row.status as AdminPool['status'],
+    priceIsVerified: Boolean(row.price_is_verified),
+    priceVerifiedAt: row.price_verified_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    dealerName: row.dealer_name || null,
+    tokenAmount: row.token_amount !== null && row.token_amount !== undefined ? Number(row.token_amount) : null,
+    tokenPaymentUrl: row.token_payment_url || null,
+    dealerOfferUrl: row.dealer_offer_url || null,
+    dealerTerms: row.dealer_terms || null,
+    isPublished: Boolean(row.is_published),
+    marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
+    groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
+    savingsDisplayApproved: Boolean(row.savings_display_approved),
+    quoteSource: row.quote_source || null,
+    quoteDate: row.quote_date || null,
+    quoteValidUntil: row.quote_valid_until || null,
+    quoteScope: row.quote_scope || null,
+    quotePrivateNotes: row.quote_private_notes || null,
+    connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
+    paymentConfigState: (row.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
+    connectionNotes: row.connection_notes || null,
+    targetReachedAcknowledgedAt: row.target_reached_acknowledged_at || null,
+    closureReason: (row.closure_reason as AdminPool['closureReason']) || null,
+    closedAt: row.closed_at || null,
+    offerValidUntil: row.offer_valid_until || null,
+    isArchived: Boolean(row.is_archived),
+    deletedAt: row.deleted_at || null,
+    targetReachedAt: row.target_reached_at || null,
+  };
+}
 
 const createPoolSchema = z.object({
   name: z.string().trim().min(3).max(180),
@@ -67,60 +166,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const supabase = getAdminSupabase();
-    const { data, error } = await supabase
-      .from('pools')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const db = await requireD1Database();
+    const { results } = await db
+      .prepare('SELECT * FROM pools WHERE deleted_at IS NULL ORDER BY created_at DESC')
+      .all<D1AdminPoolRow>();
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    const adminPools: AdminPool[] = (data || []).map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      shortDescription: row.short_description || '',
-      longDescription: row.long_description || '',
-      category: row.category,
-      city: row.city,
-      citySlug: row.city_slug,
-      productBrand: row.product_brand || '',
-      productModel: row.product_model || '',
-      imageUrl: row.image_url,
-      marketPrice: row.market_price !== null ? Number(row.market_price) : null,
-      groupPrice: row.group_price !== null ? Number(row.group_price) : null,
-      targetBuyers: Number(row.target_buyers),
-      currentBuyers: Number(row.current_buyers),
-      deadline: row.deadline,
-      status: row.status,
-      priceIsVerified: Boolean(row.price_is_verified),
-      priceVerifiedAt: row.price_verified_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      dealerName: row.dealer_name,
-      tokenAmount: row.token_amount !== null ? Number(row.token_amount) : null,
-      tokenPaymentUrl: row.token_payment_url,
-      dealerOfferUrl: row.dealer_offer_url,
-      dealerTerms: row.dealer_terms,
-      isPublished: row.is_published !== false,
-      marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
-      groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
-      savingsDisplayApproved: Boolean(row.savings_display_approved),
-      quoteSource: row.quote_source || null,
-      quoteDate: row.quote_date || null,
-      quoteValidUntil: row.quote_valid_until || null,
-      quoteScope: row.quote_scope || null,
-      quotePrivateNotes: row.quote_private_notes || null,
-      connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
-      paymentConfigState: (row.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
-      connectionNotes: row.connection_notes || null,
-      targetReachedAcknowledgedAt: row.target_reached_acknowledged_at || null,
-    }));
+    const adminPools = (results || []).map(mapRowToAdminPool);
 
     return NextResponse.json(
       { success: true, data: adminPools },
@@ -159,8 +210,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const val = parsed.data;
     const finalSlug = val.slug ? slugify(val.slug) : slugify(val.name);
     const finalCitySlug = val.citySlug ? slugify(val.citySlug) : slugify(val.city);
+    const now = new Date().toISOString();
 
-    // Validate payment URL if supplied
     if (val.tokenPaymentUrl && !isValidHttpsUrl(val.tokenPaymentUrl)) {
       return NextResponse.json(
         {
@@ -210,9 +261,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         deadline: val.deadline,
         status: val.status,
         priceIsVerified: val.priceIsVerified,
-        priceVerifiedAt: val.priceIsVerified ? new Date().toISOString() : null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        priceVerifiedAt: val.priceIsVerified ? now : null,
+        createdAt: now,
+        updatedAt: now,
         dealerName: val.dealerName || null,
         tokenAmount: val.tokenAmount || null,
         tokenPaymentUrl: val.tokenPaymentUrl || null,
@@ -258,110 +309,109 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const supabase = getAdminSupabase();
-    const { data, error } = await supabase
-      .from('pools')
-      .insert({
-        slug: finalSlug,
-        name: val.name,
-        short_description: val.shortDescription,
-        long_description: val.longDescription,
-        category: val.category,
-        city: val.city,
-        city_slug: finalCitySlug,
-        product_brand: val.productBrand,
-        product_model: val.productModel,
-        image_url: val.imageUrl || null,
-        market_price: val.marketPrice || null,
-        group_price: val.groupPrice || null,
-        target_buyers: val.targetBuyers,
-        current_buyers: 0,
-        deadline: val.deadline,
-        status: val.status,
-        price_is_verified: val.priceIsVerified,
-        price_verified_at: val.priceIsVerified ? new Date().toISOString() : null,
-        dealer_name: val.dealerName || null,
-        token_amount: val.tokenAmount || null,
-        token_payment_url: val.tokenPaymentUrl || null,
-        dealer_offer_url: val.dealerOfferUrl || null,
-        dealer_terms: val.dealerTerms || null,
-        is_published: val.isPublished,
-        market_price_type: val.marketPriceType,
-        group_price_type: val.groupPriceType,
-        savings_display_approved: val.savingsDisplayApproved,
-        quote_source: val.quoteSource || null,
-        quote_date: val.quoteDate || null,
-        quote_valid_until: val.quoteValidUntil || null,
-        quote_scope: val.quoteScope || null,
-        quote_private_notes: val.quotePrivateNotes || null,
-        connection_status: val.connectionStatus,
-        payment_config_state: val.paymentConfigState,
-        connection_notes: val.connectionNotes || null,
-        source_request_id: val.sourceRequestId || null,
-      })
-      .select()
-      .single();
+    // Live D1 execution
+    const db = await requireD1Database();
 
-    if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'DUPLICATE_SLUG',
-              message: `A pool with slug "${finalSlug}" already exists in ${val.city}.`,
-            },
-          },
-          { status: 409, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+    // Check duplicate slug in same city
+    const existing = await db
+      .prepare('SELECT id FROM pools WHERE city_slug = ? AND slug = ? AND deleted_at IS NULL')
+      .bind(finalCitySlug, finalSlug)
+      .first<{ id: string }>();
+
+    if (existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        {
+          success: false,
+          error: {
+            code: 'DUPLICATE_SLUG',
+            message: `A pool with slug "${finalSlug}" already exists in ${val.city}.`,
+          },
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    const created: AdminPool = {
-      id: data.id,
-      slug: data.slug,
-      name: data.name,
-      shortDescription: data.short_description || '',
-      longDescription: data.long_description || '',
-      category: data.category,
-      city: data.city,
-      citySlug: data.city_slug,
-      productBrand: data.product_brand || '',
-      productModel: data.product_model || '',
-      imageUrl: data.image_url,
-      marketPrice: data.market_price !== null ? Number(data.market_price) : null,
-      groupPrice: data.group_price !== null ? Number(data.group_price) : null,
-      targetBuyers: Number(data.target_buyers),
-      currentBuyers: Number(data.current_buyers),
-      deadline: data.deadline,
-      status: data.status,
-      priceIsVerified: Boolean(data.price_is_verified),
-      priceVerifiedAt: data.price_verified_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      dealerName: data.dealer_name,
-      tokenAmount: data.token_amount !== null ? Number(data.token_amount) : null,
-      tokenPaymentUrl: data.token_payment_url,
-      dealerOfferUrl: data.dealer_offer_url,
-      dealerTerms: data.dealer_terms,
-      isPublished: data.is_published !== false,
-      marketPriceType: (data.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
-      groupPriceType: (data.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
-      savingsDisplayApproved: Boolean(data.savings_display_approved),
-      quoteSource: data.quote_source || null,
-      quoteDate: data.quote_date || null,
-      quoteValidUntil: data.quote_valid_until || null,
-      quoteScope: data.quote_scope || null,
-      quotePrivateNotes: data.quote_private_notes || null,
-      connectionStatus: (data.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
-      paymentConfigState: (data.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
-      connectionNotes: data.connection_notes || null,
-      sourceRequestId: data.source_request_id || null,
-    };
+    const poolId = `pool-${finalCitySlug}-${finalSlug}-${Date.now().toString(36)}`;
+    const priceVerifiedAt = val.priceIsVerified ? now : null;
+
+    await db
+      .prepare(
+        `INSERT INTO pools (
+          id, slug, name, short_description, long_description, category,
+          city, city_slug, product_brand, product_model, image_url,
+          market_price, group_price, target_buyers, current_buyers,
+          deadline, status, price_is_verified, price_verified_at,
+          dealer_name, token_amount, token_payment_url, dealer_offer_url,
+          dealer_terms, is_published, market_price_type, group_price_type,
+          savings_display_approved, quote_source, quote_date, quote_valid_until,
+          quote_scope, quote_private_notes, connection_status,
+          payment_config_state, connection_notes, source_request_id,
+          created_at, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, 0,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?,
+          ?, ?
+        )`
+      )
+      .bind(
+        poolId,
+        finalSlug,
+        val.name,
+        val.shortDescription,
+        val.longDescription,
+        val.category,
+        val.city,
+        finalCitySlug,
+        val.productBrand,
+        val.productModel,
+        val.imageUrl || null,
+        val.marketPrice || null,
+        val.groupPrice || null,
+        val.targetBuyers,
+        val.deadline,
+        val.status,
+        val.priceIsVerified ? 1 : 0,
+        priceVerifiedAt,
+        val.dealerName || null,
+        val.tokenAmount || null,
+        val.tokenPaymentUrl || null,
+        val.dealerOfferUrl || null,
+        val.dealerTerms || null,
+        val.isPublished ? 1 : 0,
+        val.marketPriceType,
+        val.groupPriceType,
+        val.savingsDisplayApproved ? 1 : 0,
+        val.quoteSource || null,
+        val.quoteDate || null,
+        val.quoteValidUntil || null,
+        val.quoteScope || null,
+        val.quotePrivateNotes || null,
+        val.connectionStatus,
+        val.paymentConfigState,
+        val.connectionNotes || null,
+        val.sourceRequestId || null,
+        now,
+        now
+      )
+      .run();
+
+    const createdRow = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<D1AdminPoolRow>();
+
+    if (!createdRow) {
+      throw new Error('Failed to retrieve newly created pool from D1');
+    }
+
+    const created = mapRowToAdminPool(createdRow);
 
     await recordAdminAudit({
       action: 'POOL_CREATED',

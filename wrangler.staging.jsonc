@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "poolbuy-india-hotfix-test",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-27",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "keep_vars": true,
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev",
+    "NEXT_PUBLIC_DEMO_MODE": "false"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "groupbuying-staging",
+      "database_id": "daa09ed6-b75d-4c16-89f7-156d69cec7e5",
+      "migrations_dir": "migrations/d1"
+    }
+  ]
+}

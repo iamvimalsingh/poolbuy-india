@@ -1,6 +1,6 @@
 /**
- * Central data mode resolver for PoolBuy India.
- * Resolves whether the application runs in local mock mode or live Supabase mode.
+ * Central data mode resolver for GroupBuying / PoolBuy India.
+ * Resolves whether the application runs in local mock mode or live D1 mode.
  */
 
 export function isDemoMode(): boolean {
@@ -9,18 +9,18 @@ export function isDemoMode(): boolean {
     return true;
   }
 
-  // In production, demo mode is disabled unless explicitly enabled via NEXT_PUBLIC_DEMO_MODE=true
+  // In production or staging, demo mode is disabled unless explicitly enabled via NEXT_PUBLIC_DEMO_MODE=true
   if (process.env.NODE_ENV === 'production') {
     return false;
   }
 
-  // In local development, fallback to mock mode if Supabase credentials are absent
-  const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const hasSupabaseKey = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  // In development, if NEXT_PUBLIC_DEMO_MODE=false is specified, run in live D1 mode
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'false') {
+    return false;
+  }
 
-  return !hasSupabaseUrl || !hasSupabaseKey;
+  // Default to demo mode in local development unless NEXT_PUBLIC_DEMO_MODE=false is provided
+  return true;
 }
 
 export function getDataMode(): 'demo' | 'live' {

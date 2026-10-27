@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { getDemoOverviewMetrics } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { AdminOverviewMetrics } from '@/types';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -17,46 +17,46 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Live Supabase query
+  // Live D1 queries
   try {
-    const supabase = getAdminSupabase();
+    const db = await requireD1Database();
     const nowIso = new Date().toISOString();
 
     const [
-      { count: draftsCount },
-      { count: openCount },
-      { count: targetReachedCount },
-      { count: waitlistCount },
-      { count: quotesCount },
-      { count: responsesCount },
-      { count: feesCount },
-      { count: connectionsCount },
-      { count: completedCount },
-      { count: archivedCount },
+      draftsRow,
+      openRow,
+      targetReachedRow,
+      waitlistRow,
+      quotesRow,
+      responsesRow,
+      feesRow,
+      connectionsRow,
+      completedRow,
+      archivedRow,
     ] = await Promise.all([
-      supabase.from('pools').select('*', { count: 'exact', head: true }).eq('is_published', false).is('deleted_at', null),
-      supabase.from('pools').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE').gt('deadline', nowIso).eq('is_published', true),
-      supabase.from('pools').select('*', { count: 'exact', head: true }).or('status.eq.UNLOCKED,connection_status.eq.ADMIN_REVIEW_PENDING'),
-      supabase.from('pool_waitlist').select('*', { count: 'exact', head: true }).in('status', ['WAITING', 'INVITED']),
-      supabase.from('pool_quotations').select('*', { count: 'exact', head: true }).in('status', ['REQUESTED', 'RECEIVED']),
-      supabase.from('pool_leads').select('*', { count: 'exact', head: true }).eq('quote_response', 'AWAITING_RESPONSE'),
-      supabase.from('pool_leads').select('*', { count: 'exact', head: true }).in('fee_status', ['PAYMENT_REPORTED', 'DISCLOSED_PENDING']),
-      supabase.from('pool_leads').select('*', { count: 'exact', head: true }).in('member_connection_status', ['OPTED_IN', 'ELIGIBLE_TO_CONNECT']),
-      supabase.from('pools').select('*', { count: 'exact', head: true }).eq('connection_status', 'COMPLETED'),
-      supabase.from('pools').select('*', { count: 'exact', head: true }).eq('is_archived', true),
+      db.prepare('SELECT COUNT(*) as c FROM pools WHERE is_published = 0 AND deleted_at IS NULL').first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pools WHERE status = 'ACTIVE' AND deadline > ? AND is_published = 1 AND deleted_at IS NULL").bind(nowIso).first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pools WHERE (status = 'UNLOCKED' OR connection_status = 'ADMIN_REVIEW_PENDING') AND deleted_at IS NULL").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pool_waitlist WHERE status IN ('WAITING', 'INVITED')").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pool_quotations WHERE status IN ('REQUESTED', 'RECEIVED')").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pool_leads WHERE quote_response = 'AWAITING_RESPONSE'").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pool_leads WHERE fee_status IN ('PAYMENT_REPORTED', 'DISCLOSED_PENDING')").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pool_leads WHERE member_connection_status IN ('OPTED_IN', 'ELIGIBLE_TO_CONNECT')").first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM pools WHERE connection_status = 'COMPLETED'").first<{ c: number }>(),
+      db.prepare('SELECT COUNT(*) as c FROM pools WHERE is_archived = 1').first<{ c: number }>(),
     ]);
 
     const metrics: AdminOverviewMetrics = {
-      totalDrafts: draftsCount || 0,
-      totalOpenGroups: openCount || 0,
-      totalTargetReached: targetReachedCount || 0,
-      totalWaitlistPending: waitlistCount || 0,
-      totalQuotesAwaitingReview: quotesCount || 0,
-      totalMemberResponsesPending: responsesCount || 0,
-      totalFeesPendingVerification: feesCount || 0,
-      totalConnectionsPending: connectionsCount || 0,
-      totalCompletedGroups: completedCount || 0,
-      totalArchivedGroups: archivedCount || 0,
+      totalDrafts: Number(draftsRow?.c || 0),
+      totalOpenGroups: Number(openRow?.c || 0),
+      totalTargetReached: Number(targetReachedRow?.c || 0),
+      totalWaitlistPending: Number(waitlistRow?.c || 0),
+      totalQuotesAwaitingReview: Number(quotesRow?.c || 0),
+      totalMemberResponsesPending: Number(responsesRow?.c || 0),
+      totalFeesPendingVerification: Number(feesRow?.c || 0),
+      totalConnectionsPending: Number(connectionsRow?.c || 0),
+      totalCompletedGroups: Number(completedRow?.c || 0),
+      totalArchivedGroups: Number(archivedRow?.c || 0),
     };
 
     return NextResponse.json(
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to compute overview metrics.';
+    const message = err instanceof Error ? err.message : 'Server error fetching overview metrics.';
     return NextResponse.json(
       { success: false, error: { code: 'INTERNAL_ERROR', message } },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }

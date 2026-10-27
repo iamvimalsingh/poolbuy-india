@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { isDemoMode } from '@/lib/data-mode';
 import { convertRequestSchema } from '@/lib/validation';
 import { getCityBySlug } from '@/lib/cities';
@@ -87,33 +87,30 @@ export async function POST(
         );
       }
     } else {
-      const supabase = getAdminSupabase();
-      if (supabase) {
-        const { data: reqRow, error: reqErr } = await supabase
-          .from('pool_requests')
-          .select('*')
-          .eq('id', requestId)
-          .maybeSingle();
+      const db = await requireD1Database();
+      const reqRow = await db
+        .prepare('SELECT id, resulting_pool_id, conversion_status FROM pool_requests WHERE id = ?')
+        .bind(requestId)
+        .first<{ id: string; resulting_pool_id: string | null; conversion_status: string }>();
 
-        if (reqErr || !reqRow) {
-          return NextResponse.json(
-            { success: false, error: { code: 'REQUEST_NOT_FOUND', message: 'Demand request not found.' } },
-            { status: 404, headers: { 'Cache-Control': 'no-store' } }
-          );
-        }
+      if (!reqRow) {
+        return NextResponse.json(
+          { success: false, error: { code: 'REQUEST_NOT_FOUND', message: 'Demand request not found.' } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
 
-        if (reqRow.resulting_pool_id || reqRow.conversion_status === 'CONVERTED') {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'ALREADY_CONVERTED',
-                message: `This request has already been approved and converted into pool ID "${reqRow.resulting_pool_id}".`,
-              },
+      if (reqRow.resulting_pool_id || reqRow.conversion_status === 'CONVERTED') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'ALREADY_CONVERTED',
+              message: `This request has already been approved and converted into pool ID "${reqRow.resulting_pool_id}".`,
             },
-            { status: 409, headers: { 'Cache-Control': 'no-store' } }
-          );
-        }
+          },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } }
+        );
       }
     }
 
@@ -228,21 +225,13 @@ export async function POST(
         details: { requestId, poolId: createdPoolId, name: newAdminPool.name },
       });
     } else {
-      const supabase = getAdminSupabase();
-      if (!supabase) {
-        return NextResponse.json(
-          { success: false, error: { code: 'SERVER_ERROR', message: 'Database client unavailable.' } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+      const db = await requireD1Database();
 
       // Check composite duplicate
-      const { data: existingPool } = await supabase
-        .from('pools')
-        .select('id')
-        .eq('city_slug', city.slug)
-        .eq('slug', poolSlug)
-        .maybeSingle();
+      const existingPool = await db
+        .prepare('SELECT id FROM pools WHERE city_slug = ? AND slug = ?')
+        .bind(city.slug, poolSlug)
+        .first<{ id: string }>();
 
       if (existingPool) {
         return NextResponse.json(
@@ -257,57 +246,73 @@ export async function POST(
         );
       }
 
-      const { data: inserted, error: insertErr } = await supabase
-        .from('pools')
-        .insert({
-          slug: poolSlug,
-          name: val.productName,
-          short_description: val.shortDescription || `Exclusive group-buying deal for ${val.productName} in ${city.name}.`,
-          long_description: val.longDescription || `Community pool launched from verified buyer interest in ${city.name}.`,
-          category: mappedCategory,
-          city: city.name,
-          city_slug: city.slug,
-          product_brand: val.productBrand,
-          product_model: val.productModel,
-          market_price: val.marketPrice || null,
-          group_price: val.groupPrice || null,
-          target_buyers: val.targetBuyers,
-          current_buyers: 0,
+      createdPoolId = `pool-${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+
+      await db.batch([
+        db.prepare(
+          `INSERT INTO pools (
+            id, slug, name, short_description, long_description,
+            category, category_slug, city, city_slug,
+            product_brand, product_model, image_url,
+            market_price, group_price, target_buyers, current_buyers,
+            deadline, status, is_published, source_request_id,
+            connection_status, payment_config_state,
+            market_price_type, group_price_type, savings_display_approved,
+            price_is_verified, price_verified_at, dealer_name,
+            created_at, updated_at
+          ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, NULL,
+            ?, ?, ?, 0,
+            ?, 'ACTIVE', 0, ?,
+            'NOT_ELIGIBLE', 'DISABLED',
+            'INDICATIVE_ESTIMATE', 'INDICATIVE_ESTIMATE', 0,
+            ?, ?, ?,
+            ?, ?
+          )`
+        ).bind(
+          createdPoolId,
+          poolSlug,
+          val.productName,
+          val.shortDescription || `Exclusive group-buying deal for ${val.productName} in ${city.name}.`,
+          val.longDescription || `Community pool launched from verified buyer interest in ${city.name}.`,
+          mappedCategory,
+          val.categorySlug,
+          city.name,
+          city.slug,
+          val.productBrand || null,
+          val.productModel || null,
+          val.marketPrice || null,
+          val.groupPrice || null,
+          val.targetBuyers,
           deadline,
-          status: 'ACTIVE',
-          is_published: false,
-          source_request_id: requestId,
-          connection_status: 'NOT_ELIGIBLE',
-          payment_config_state: 'DISABLED',
-          market_price_type: 'INDICATIVE_ESTIMATE',
-          group_price_type: 'INDICATIVE_ESTIMATE',
-          savings_display_approved: false,
-          price_is_verified: Boolean(val.dealerName),
-          dealer_name: val.dealerName || null,
-        })
-        .select()
-        .single();
+          requestId,
+          val.dealerName ? 1 : 0,
+          val.dealerName ? now : null,
+          val.dealerName || null,
+          now,
+          now
+        ),
+        db.prepare(
+          `UPDATE pool_requests
+           SET status = 'APPROVED',
+               conversion_status = 'CONVERTED',
+               resulting_pool_id = ?,
+               reviewed_at = ?,
+               updated_at = ?
+           WHERE id = ?`
+        ).bind(createdPoolId, now, now, requestId),
+      ]);
 
-      if (insertErr || !inserted) {
-        return NextResponse.json(
-          { success: false, error: { code: 'DB_ERROR', message: insertErr?.message || 'Failed to create pool.' } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
-
-      createdPoolId = inserted.id;
-
-      // Link request to resulting pool
-      await supabase
-        .from('pool_requests')
-        .update({
-          status: 'APPROVED',
-          conversion_status: 'CONVERTED',
-          resulting_pool_id: createdPoolId,
-          reviewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
+      await recordAdminAudit({
+        action: 'POOL_CONVERTED',
+        targetType: 'POOL',
+        targetId: createdPoolId,
+        changesSummary: `Converted request ${requestId} into pool "${val.productName}".`,
+        details: { requestId, poolId: createdPoolId, name: val.productName },
+      });
     }
 
     // 6. Revalidate affected routes

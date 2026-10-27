@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { updateDemoLead, getDemoLeads } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { updateMemberDecisionSchema } from '@/lib/validation';
 import { recordAdminAudit } from '@/lib/audit';
 import { calculateSuggestedConnectionFee, CURRENT_FEE_RULE_VERSION } from '@/lib/fee';
@@ -40,7 +40,6 @@ export async function PATCH(
     const updates = parsed.data;
     const now = new Date().toISOString();
 
-    // Prepare enriched updates
     const enrichedUpdates: Partial<PoolLead> = {
       ...(updates.adminNotes !== undefined && { adminNotes: updates.adminNotes }),
       ...(updates.doNotContact !== undefined && { doNotContact: updates.doNotContact }),
@@ -108,73 +107,99 @@ export async function PATCH(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
-    const dbPayload: Record<string, unknown> = {};
+    // Live D1 execution
+    const db = await requireD1Database();
 
-    if (enrichedUpdates.adminNotes !== undefined) dbPayload.admin_notes = enrichedUpdates.adminNotes;
-    if (enrichedUpdates.doNotContact !== undefined) dbPayload.do_not_contact = enrichedUpdates.doNotContact;
-    if (enrichedUpdates.quoteResponse) {
-      dbPayload.quote_response = enrichedUpdates.quoteResponse;
-      dbPayload.quote_response_recorded_at = enrichedUpdates.quoteResponseRecordedAt;
-    }
-    if (enrichedUpdates.quoteResponseNotes !== undefined) dbPayload.quote_response_notes = enrichedUpdates.quoteResponseNotes;
-    if (enrichedUpdates.feeStatus) {
-      dbPayload.fee_status = enrichedUpdates.feeStatus;
-      dbPayload.fee_rule_version = enrichedUpdates.feeRuleVersion;
-    }
-    if (enrichedUpdates.feeApprovedBasis !== undefined) {
-      dbPayload.fee_approved_basis = enrichedUpdates.feeApprovedBasis;
-      dbPayload.fee_calculated_amount = enrichedUpdates.feeCalculatedAmount;
-    }
-    if (enrichedUpdates.feeDisclosedAmount !== undefined) {
-      dbPayload.fee_disclosed_amount = enrichedUpdates.feeDisclosedAmount;
-      dbPayload.fee_disclosed_at = enrichedUpdates.feeDisclosedAt;
-    }
-    if (enrichedUpdates.paymentReference !== undefined) {
-      dbPayload.payment_reference = enrichedUpdates.paymentReference;
-      dbPayload.payment_reported_at = enrichedUpdates.paymentReportedAt;
-    }
-    if (enrichedUpdates.feeStatus === 'PAID_VERIFIED') {
-      dbPayload.payment_verified_by = enrichedUpdates.paymentVerifiedBy;
-      dbPayload.payment_verified_at = enrichedUpdates.paymentVerifiedAt;
-    }
-    if (enrichedUpdates.paymentWaiverReason !== undefined) dbPayload.payment_waiver_reason = enrichedUpdates.paymentWaiverReason;
-    if (enrichedUpdates.connectionStatus) dbPayload.member_connection_status = enrichedUpdates.connectionStatus;
-    if (enrichedUpdates.connectionStatus === 'CONNECTED') {
-      dbPayload.connection_date = enrichedUpdates.connectionDate;
-      dbPayload.connection_method = enrichedUpdates.connectionMethod;
-    }
-    if (enrichedUpdates.connectionStatus === 'EXCLUDED') {
-      dbPayload.exclusion_reason = enrichedUpdates.exclusionReason;
-      dbPayload.excluded_at = enrichedUpdates.excludedAt;
-    }
+    const existing = await db
+      .prepare('SELECT buyer_number, full_name FROM pool_leads WHERE id = ? AND pool_id = ?')
+      .bind(leadId, poolId)
+      .first<{ buyer_number: number; full_name: string }>();
 
-    const { data, error } = await supabase
-      .from('pool_leads')
-      .update(dbPayload)
-      .eq('id', leadId)
-      .eq('pool_id', poolId)
-      .select()
-      .single();
-
-    if (error) {
+    if (!existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { success: false, error: { code: 'MEMBER_NOT_FOUND', message: 'Member not found in pool.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: unknown[] = [now];
+
+    if (enrichedUpdates.adminNotes !== undefined) {
+      setClauses.push('admin_notes = ?');
+      values.push(enrichedUpdates.adminNotes);
+    }
+    if (enrichedUpdates.doNotContact !== undefined) {
+      setClauses.push('do_not_contact = ?');
+      values.push(enrichedUpdates.doNotContact ? 1 : 0);
+    }
+    if (enrichedUpdates.quoteResponse) {
+      setClauses.push('quote_response = ?', 'quote_response_recorded_at = ?');
+      values.push(enrichedUpdates.quoteResponse, enrichedUpdates.quoteResponseRecordedAt);
+    }
+    if (enrichedUpdates.quoteResponseNotes !== undefined) {
+      setClauses.push('quote_response_notes = ?');
+      values.push(enrichedUpdates.quoteResponseNotes);
+    }
+    if (enrichedUpdates.feeStatus) {
+      setClauses.push('fee_status = ?', 'fee_rule_version = ?');
+      values.push(enrichedUpdates.feeStatus, enrichedUpdates.feeRuleVersion);
+    }
+    if (enrichedUpdates.feeApprovedBasis !== undefined) {
+      setClauses.push('fee_approved_basis = ?', 'fee_calculated_amount = ?');
+      values.push(enrichedUpdates.feeApprovedBasis, enrichedUpdates.feeCalculatedAmount);
+    }
+    if (enrichedUpdates.feeDisclosedAmount !== undefined) {
+      setClauses.push('fee_disclosed_amount = ?', 'fee_disclosed_at = ?');
+      values.push(enrichedUpdates.feeDisclosedAmount, enrichedUpdates.feeDisclosedAt);
+    }
+    if (enrichedUpdates.paymentReference !== undefined) {
+      setClauses.push('payment_reference = ?', 'payment_reported_at = ?');
+      values.push(enrichedUpdates.paymentReference, enrichedUpdates.paymentReportedAt);
+    }
+    if (enrichedUpdates.feeStatus === 'PAID_VERIFIED') {
+      setClauses.push('payment_verified_by = ?', 'payment_verified_at = ?');
+      values.push(enrichedUpdates.paymentVerifiedBy, enrichedUpdates.paymentVerifiedAt);
+    }
+    if (enrichedUpdates.paymentWaiverReason !== undefined) {
+      setClauses.push('payment_waiver_reason = ?');
+      values.push(enrichedUpdates.paymentWaiverReason);
+    }
+    if (enrichedUpdates.connectionStatus) {
+      setClauses.push('member_connection_status = ?');
+      values.push(enrichedUpdates.connectionStatus);
+    }
+    if (enrichedUpdates.connectionStatus === 'CONNECTED') {
+      setClauses.push('connection_date = ?', 'connection_method = ?');
+      values.push(enrichedUpdates.connectionDate, enrichedUpdates.connectionMethod);
+    }
+    if (enrichedUpdates.connectionStatus === 'EXCLUDED') {
+      setClauses.push('exclusion_reason = ?', 'excluded_at = ?');
+      values.push(enrichedUpdates.exclusionReason, enrichedUpdates.excludedAt);
+    }
+
+    values.push(leadId, poolId);
+
+    await db
+      .prepare(`UPDATE pool_leads SET ${setClauses.join(', ')} WHERE id = ? AND pool_id = ?`)
+      .bind(...values)
+      .run();
+
+    const updatedRow = await db
+      .prepare('SELECT * FROM pool_leads WHERE id = ? AND pool_id = ?')
+      .bind(leadId, poolId)
+      .first();
 
     await recordAdminAudit({
       action: 'MEMBER_DECISION_UPDATED',
       targetType: 'LEAD',
       targetId: leadId,
-      changesSummary: `Updated member #${data.buyer_number} (${data.full_name}) in pool ${poolId}.`,
-      details: dbPayload,
+      changesSummary: `Updated member #${existing.buyer_number} (${existing.full_name}) in pool ${poolId}.`,
+      details: enrichedUpdates as Record<string, unknown>,
     });
 
     return NextResponse.json(
-      { success: true, data },
+      { success: true, data: updatedRow },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

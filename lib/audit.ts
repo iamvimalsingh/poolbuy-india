@@ -1,5 +1,5 @@
 import { isDemoMode } from './data-mode';
-import { getAdminSupabase } from './supabase/admin';
+import { getD1Database } from './d1/db';
 
 export interface AuditLogEntry {
   id: string;
@@ -66,18 +66,69 @@ export async function recordAdminAudit(entry: {
   }
 
   try {
-    const supabase = getAdminSupabase();
-    await supabase.from('admin_audit_logs').insert({
-      id,
-      action: entry.action,
-      target_type: entry.targetType,
-      target_id: entry.targetId,
-      admin_identifier: adminIdentifier,
-      changes_summary: entry.changesSummary,
-      details: entry.details || null,
-      created_at: timestamp,
-    });
+    const db = await getD1Database();
+    if (!db) {
+      console.warn('D1 database not available to record audit log');
+      return;
+    }
+
+    const detailsJson = entry.details ? JSON.stringify(entry.details) : null;
+    await db
+      .prepare(
+        'INSERT INTO admin_audit_logs (id, action, target_type, target_id, admin_identifier, changes_summary, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        id,
+        entry.action,
+        entry.targetType,
+        entry.targetId,
+        adminIdentifier,
+        entry.changesSummary,
+        detailsJson,
+        timestamp
+      )
+      .run();
   } catch (err) {
-    console.warn('Failed to persist admin audit log:', err);
+    console.warn('Failed to persist admin audit log in D1:', err);
+  }
+}
+
+export async function getAuditLogs(limit: number = 200): Promise<AuditLogEntry[]> {
+  if (isDemoMode()) {
+    return getDemoAuditLogs();
+  }
+
+  const db = await getD1Database();
+  if (!db) return [];
+
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT ?')
+      .bind(limit)
+      .all<{
+        id: string;
+        action: string;
+        target_type: string;
+        target_id: string;
+        admin_identifier: string;
+        changes_summary: string;
+        details: string | null;
+        created_at: string;
+      }>();
+
+    type AuditRow = NonNullable<typeof results>[number];
+    return (results || []).map((row: AuditRow) => ({
+      id: row.id,
+      action: row.action,
+      targetType: row.target_type as AuditLogEntry['targetType'],
+      targetId: row.target_id,
+      adminIdentifier: row.admin_identifier,
+      changesSummary: row.changes_summary,
+      details: row.details ? JSON.parse(row.details) : null,
+      createdAt: row.created_at,
+    }));
+  } catch (err) {
+    console.error('Failed to load audit logs from D1:', err);
+    return [];
   }
 }

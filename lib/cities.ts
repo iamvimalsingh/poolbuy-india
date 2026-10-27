@@ -1,21 +1,20 @@
 import { City } from '@/types';
 import { isDemoMode } from './data-mode';
-import { getDemoCities, addDemoCity, updateDemoCity } from './mock-data';
-import { getPublicSupabase } from './supabase/public';
-import { getAdminSupabase } from './supabase/admin';
+import { getDemoCities, addDemoCity, updateDemoCity as updateMockCity } from './mock-data';
+import { getD1Database, requireD1Database } from './d1/db';
 import { slugify } from './format';
 
-interface SupabaseCityRow {
+interface D1CityRow {
   id: string;
   name: string;
   slug: string;
   state: string;
-  is_active: boolean;
+  is_active: number;
   created_at: string;
   updated_at: string;
 }
 
-function mapRowToCity(row: SupabaseCityRow): City {
+function mapRowToCity(row: D1CityRow): City {
   return {
     id: row.id,
     name: row.name,
@@ -36,25 +35,23 @@ export async function getOperationalCities(): Promise<City[]> {
     return cities.filter((c) => c.isActive);
   }
 
-  const supabase = getPublicSupabase();
-  if (!supabase) {
-    const cities = getDemoCities();
-    return cities.filter((c) => c.isActive);
+  const db = await getD1Database();
+  if (!db) {
+    // Fail-closed in live production if D1 is unavailable
+    console.error('getOperationalCities: D1 database unavailable');
+    return [];
   }
 
-  const { data, error } = await supabase
-    .from('cities')
-    .select('*')
-    .eq('is_active', true)
-    .order('name', { ascending: true });
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM cities WHERE is_active = 1 ORDER BY name ASC')
+      .all<D1CityRow>();
 
-  if (error) {
-    console.warn('Error fetching cities from Supabase, falling back to mock cities:', error.message);
-    const cities = getDemoCities();
-    return cities.filter((c) => c.isActive);
+    return (results || []).map(mapRowToCity);
+  } catch (error: unknown) {
+    console.error('Error fetching operational cities from D1:', error);
+    return [];
   }
-
-  return (data || []).map((row) => mapRowToCity(row as SupabaseCityRow));
 }
 
 /**
@@ -65,18 +62,17 @@ export async function getAllCities(): Promise<City[]> {
     return getDemoCities();
   }
 
-  const supabase = getAdminSupabase();
-  const { data, error } = await supabase
-    .from('cities')
-    .select('*')
-    .order('name', { ascending: true });
+  const db = await requireD1Database();
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM cities ORDER BY name ASC')
+      .all<D1CityRow>();
 
-  if (error) {
-    console.warn('Error fetching all cities from Supabase, falling back to mock cities:', error.message);
-    return getDemoCities();
+    return (results || []).map(mapRowToCity);
+  } catch (error: unknown) {
+    console.error('Error fetching all cities from D1:', error);
+    throw error;
   }
-
-  return (data || []).map((row) => mapRowToCity(row as SupabaseCityRow));
 }
 
 /**
@@ -90,23 +86,21 @@ export async function getCityBySlug(slug: string): Promise<City | null> {
     return found || null;
   }
 
-  const supabase = getPublicSupabase();
-  if (!supabase) {
-    const found = getDemoCities().find((c) => c.slug === normalizedSlug);
-    return found || null;
-  }
+  const db = await getD1Database();
+  if (!db) return null;
 
-  const { data, error } = await supabase
-    .from('cities')
-    .select('*')
-    .eq('slug', normalizedSlug)
-    .maybeSingle();
+  try {
+    const row = await db
+      .prepare('SELECT * FROM cities WHERE slug = ?')
+      .bind(normalizedSlug)
+      .first<D1CityRow>();
 
-  if (error || !data) {
+    if (!row) return null;
+    return mapRowToCity(row);
+  } catch (error: unknown) {
+    console.error('Error looking up city by slug in D1:', error);
     return null;
   }
-
-  return mapRowToCity(data as SupabaseCityRow);
 }
 
 /**
@@ -120,38 +114,41 @@ export async function createCity(input: {
   const trimmedName = input.name.trim();
   const trimmedState = input.state.trim();
   const citySlug = input.slug ? slugify(input.slug) : slugify(trimmedName);
+  const now = new Date().toISOString();
+  const id = `city-${citySlug}-${Date.now()}`;
 
   if (isDemoMode()) {
     const newCity: City = {
-      id: `city-demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id,
       name: trimmedName,
       slug: citySlug,
       state: trimmedState,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
     addDemoCity(newCity);
     return newCity;
   }
 
-  const supabase = getAdminSupabase();
-  const { data, error } = await supabase
-    .from('cities')
-    .insert({
-      name: trimmedName,
-      slug: citySlug,
-      state: trimmedState,
-      is_active: true,
-    })
-    .select()
-    .single();
+  const db = await requireD1Database();
+  await db
+    .prepare(
+      'INSERT INTO cities (id, name, slug, state, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
+    )
+    .bind(id, trimmedName, citySlug, trimmedState, now, now)
+    .run();
 
-  if (error) {
-    throw new Error(`Failed to create city: ${error.message}`);
+  const created = await db
+    .prepare('SELECT * FROM cities WHERE id = ?')
+    .bind(id)
+    .first<D1CityRow>();
+
+  if (!created) {
+    throw new Error('Failed to retrieve newly created city from D1');
   }
 
-  return mapRowToCity(data as SupabaseCityRow);
+  return mapRowToCity(created);
 }
 
 /**
@@ -162,27 +159,38 @@ export async function updateCity(
   updates: Partial<Pick<City, 'name' | 'state' | 'isActive'>>
 ): Promise<City | null> {
   if (isDemoMode()) {
-    return updateDemoCity(cityId, updates);
+    return updateMockCity(cityId, updates);
   }
 
-  const supabase = getAdminSupabase();
-  const payload: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (updates.name !== undefined) payload.name = updates.name.trim();
-  if (updates.state !== undefined) payload.state = updates.state.trim();
-  if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+  const db = await requireD1Database();
+  const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('cities')
-    .update(payload)
-    .eq('id', cityId)
-    .select()
-    .single();
+  const setClauses: string[] = ['updated_at = ?'];
+  const values: unknown[] = [now];
 
-  if (error || !data) {
-    return null;
+  if (updates.name !== undefined) {
+    setClauses.push('name = ?');
+    values.push(updates.name.trim());
+  }
+  if (updates.state !== undefined) {
+    setClauses.push('state = ?');
+    values.push(updates.state.trim());
+  }
+  if (updates.isActive !== undefined) {
+    setClauses.push('is_active = ?');
+    values.push(updates.isActive ? 1 : 0);
   }
 
-  return mapRowToCity(data as SupabaseCityRow);
+  values.push(cityId);
+
+  const query = `UPDATE cities SET ${setClauses.join(', ')} WHERE id = ?`;
+  await db.prepare(query).bind(...values).run();
+
+  const row = await db
+    .prepare('SELECT * FROM cities WHERE id = ?')
+    .bind(cityId)
+    .first<D1CityRow>();
+
+  if (!row) return null;
+  return mapRowToCity(row);
 }

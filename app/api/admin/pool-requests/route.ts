@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
-import { isDemoMode } from '@/lib/data-mode';
-import { PoolRequest } from '@/types';
-import { getDemoRequests } from '@/lib/mock-data';
+import { getAllPoolRequests } from '@/lib/requests';
 
 function computeSimilarityKey(productName: string, city: string): string {
   const normCity = city.trim().toLowerCase();
@@ -24,47 +21,7 @@ export async function GET(
   if (authError) return authError;
 
   try {
-    let requests: PoolRequest[] = [];
-
-    if (isDemoMode()) {
-      requests = getDemoRequests();
-    } else {
-      const supabase = getAdminSupabase();
-      if (!supabase) {
-        requests = getDemoRequests();
-      } else {
-        const { data, error } = await supabase
-          .from('pool_requests')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          return NextResponse.json(
-            { success: false, error: { code: 'DB_ERROR', message: error.message } },
-            { status: 500, headers: { 'Cache-Control': 'no-store' } }
-          );
-        }
-
-        requests = (data || []).map((row) => ({
-          id: row.id,
-          productName: row.product_name,
-          category: row.category,
-          categoryName: row.category_name,
-          brandPreference: row.brand_preference,
-          modelPreference: row.model_preference,
-          city: row.city,
-          fullName: row.full_name,
-          whatsappNumber: row.whatsapp_number,
-          extraMessage: row.extra_message || '',
-          status: row.status,
-          adminNotes: row.admin_notes || '',
-          resultingPoolId: row.resulting_pool_id,
-          conversionStatus: row.conversion_status || 'PENDING',
-          createdAt: row.created_at,
-          reviewedAt: row.reviewed_at,
-        }));
-      }
-    }
+    const requests = await getAllPoolRequests();
 
     // Compute frequency counts for product/city clusters
     const clusterCounts = new Map<string, number>();

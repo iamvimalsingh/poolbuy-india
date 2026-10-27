@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { getDemoWaitlist, addDemoWaitlistEntry } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { createWaitlistSchema } from '@/lib/validation';
 import { recordAdminAudit } from '@/lib/audit';
 
@@ -28,22 +28,14 @@ export async function GET(
       );
     }
 
-    const supabase = getAdminSupabase();
-    const { data, error } = await supabase
-      .from('pool_waitlist')
-      .select('*')
-      .eq('pool_id', poolId)
-      .order('sequence_number', { ascending: true });
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const db = await requireD1Database();
+    const { results } = await db
+      .prepare('SELECT * FROM pool_waitlist WHERE pool_id = ? ORDER BY sequence_number ASC')
+      .bind(poolId)
+      .all();
 
     return NextResponse.json(
-      { success: true, data: data || [] },
+      { success: true, data: results || [] },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {
@@ -81,6 +73,7 @@ export async function POST(
     }
 
     const input = parsed.data;
+    const now = new Date().toISOString();
 
     if (isDemoMode()) {
       const entry = addDemoWaitlistEntry(poolId, input);
@@ -99,50 +92,55 @@ export async function POST(
       );
     }
 
-    const supabase = getAdminSupabase();
+    const db = await requireD1Database();
 
-    // Get current max sequence number
-    const { count } = await supabase
-      .from('pool_waitlist')
-      .select('*', { count: 'exact', head: true })
-      .eq('pool_id', poolId);
+    const countRow = await db
+      .prepare('SELECT COUNT(*) as total FROM pool_waitlist WHERE pool_id = ?')
+      .bind(poolId)
+      .first<{ total: number }>();
 
-    const nextSeq = (count || 0) + 1;
+    const nextSeq = (countRow?.total || 0) + 1;
+    const waitlistId = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    const { data, error } = await supabase
-      .from('pool_waitlist')
-      .insert({
-        pool_id: poolId,
-        sequence_number: nextSeq,
-        full_name: input.fullName,
-        whatsapp_number: input.whatsappNumber,
-        city: input.city,
-        buying_timeline: input.buyingTimeline,
-        locality: input.locality,
-        pin_code: input.pinCode,
-        notes: input.notes,
-        status: 'WAITING',
-      })
-      .select()
-      .single();
+    await db
+      .prepare(
+        `INSERT INTO pool_waitlist (
+          id, pool_id, sequence_number, full_name, whatsapp_number,
+          city, buying_timeline, locality, pin_code, notes, status,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)`
+      )
+      .bind(
+        waitlistId,
+        poolId,
+        nextSeq,
+        input.fullName.trim(),
+        input.whatsappNumber,
+        input.city,
+        input.buyingTimeline || null,
+        input.locality || null,
+        input.pinCode || null,
+        input.notes || null,
+        now,
+        now
+      )
+      .run();
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const created = await db
+      .prepare('SELECT * FROM pool_waitlist WHERE id = ?')
+      .bind(waitlistId)
+      .first();
 
     await recordAdminAudit({
       action: 'WAITLIST_ENTRY_ADDED',
       targetType: 'LEAD',
-      targetId: data.id,
-      changesSummary: `Added ${data.full_name} to waitlist position #${data.sequence_number} in pool ${poolId}.`,
-      details: data,
+      targetId: waitlistId,
+      changesSummary: `Added ${input.fullName} to waitlist position #${nextSeq} in pool ${poolId}.`,
+      details: created as Record<string, unknown>,
     });
 
     return NextResponse.json(
-      { success: true, data },
+      { success: true, data: created },
       { status: 201, headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

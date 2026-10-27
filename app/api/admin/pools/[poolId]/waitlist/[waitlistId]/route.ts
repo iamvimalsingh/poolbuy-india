@@ -2,13 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { updateDemoWaitlistEntry, promoteDemoWaitlistEntry, getDemoWaitlist } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { updateWaitlistSchema } from '@/lib/validation';
 import { recordAdminAudit } from '@/lib/audit';
 
 type RouteContext = {
   params: Promise<{ poolId: string; waitlistId: string }>;
 };
+
+interface D1WaitlistRow {
+  id: string;
+  pool_id: string;
+  sequence_number: number;
+  full_name: string;
+  whatsapp_number: string;
+  city: string;
+  buying_timeline: string | null;
+  locality: string | null;
+  pin_code: string | null;
+  status: string;
+  invited_at: string | null;
+  invitation_expires_at: string | null;
+  response_at: string | null;
+  promoted_at: string | null;
+  promoted_lead_id: string | null;
+  removal_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -99,146 +121,137 @@ export async function PATCH(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1 execution
+    const db = await requireD1Database();
+
+    const wl = await db
+      .prepare('SELECT * FROM pool_waitlist WHERE id = ? AND pool_id = ?')
+      .bind(waitlistId, poolId)
+      .first<D1WaitlistRow>();
+
+    if (!wl) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Waitlist entry not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
     if (updates.status === 'PROMOTED') {
-      // Find waitlist entry
-      const { data: wl, error: wlErr } = await supabase
-        .from('pool_waitlist')
-        .select('*')
-        .eq('id', waitlistId)
-        .eq('pool_id', poolId)
-        .single();
-
-      if (wlErr || !wl) {
-        return NextResponse.json(
-          { success: false, error: { code: 'NOT_FOUND', message: 'Waitlist entry not found.' } },
-          { status: 404, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
-
-      // Lock pool and increment current_buyers
-      const { data: poolRow, error: pErr } = await supabase
-        .from('pools')
-        .select('current_buyers')
-        .eq('id', poolId)
-        .single();
-
-      if (pErr) {
-        return NextResponse.json(
-          { success: false, error: { code: 'DB_ERROR', message: pErr.message } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+      const poolRow = await db
+        .prepare('SELECT current_buyers, target_buyers FROM pools WHERE id = ?')
+        .bind(poolId)
+        .first<{ current_buyers: number; target_buyers: number }>();
 
       const nextCount = (poolRow?.current_buyers || 0) + 1;
+      const newLeadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // Insert new lead
-      const { data: leadData, error: leadErr } = await supabase
-        .from('pool_leads')
-        .insert({
-          pool_id: poolId,
-          full_name: wl.full_name,
-          whatsapp_number: wl.whatsapp_number,
-          city: wl.city,
-          buying_timeline: wl.buying_timeline || 'THIS_MONTH',
-          buyer_number: nextCount,
-          status: 'NEW',
-          locality: wl.locality,
-          pin_code: wl.pin_code,
-          admin_notes: `Promoted from waitlist position #${wl.sequence_number}`,
-        })
-        .select()
-        .single();
+      // Execute promotional transaction batch
+      await db.batch([
+        db.prepare(
+          `INSERT INTO pool_leads (
+            id, pool_id, buyer_number, full_name, whatsapp_number, city,
+            buying_timeline, status, locality, pin_code, admin_notes,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?)`
+        ).bind(
+          newLeadId,
+          poolId,
+          nextCount,
+          wl.full_name,
+          wl.whatsapp_number,
+          wl.city,
+          wl.buying_timeline || 'THIS_MONTH',
+          wl.locality || null,
+          wl.pin_code || null,
+          `Promoted from waitlist position #${wl.sequence_number}`,
+          now,
+          now
+        ),
+        db.prepare(
+          'UPDATE pools SET current_buyers = ?, updated_at = ? WHERE id = ?'
+        ).bind(nextCount, now, poolId),
+        db.prepare(
+          'UPDATE pool_waitlist SET status = ?, promoted_at = ?, promoted_lead_id = ?, updated_at = ? WHERE id = ?'
+        ).bind('PROMOTED', now, newLeadId, now, waitlistId),
+      ]);
 
-      if (leadErr) {
-        return NextResponse.json(
-          { success: false, error: { code: 'DB_ERROR', message: leadErr.message } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+      const updatedWl = await db
+        .prepare('SELECT * FROM pool_waitlist WHERE id = ?')
+        .bind(waitlistId)
+        .first();
 
-      // Update pool current_buyers
-      await supabase
-        .from('pools')
-        .update({ current_buyers: nextCount, updated_at: now })
-        .eq('id', poolId);
-
-      // Update waitlist entry
-      const { data: updatedWl, error: upErr } = await supabase
-        .from('pool_waitlist')
-        .update({
-          status: 'PROMOTED',
-          promoted_at: now,
-          promoted_lead_id: leadData.id,
-          updated_at: now,
-        })
-        .eq('id', waitlistId)
-        .select()
-        .single();
-
-      if (upErr) {
-        return NextResponse.json(
-          { success: false, error: { code: 'DB_ERROR', message: upErr.message } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+      const createdLead = await db
+        .prepare('SELECT * FROM pool_leads WHERE id = ?')
+        .bind(newLeadId)
+        .first();
 
       await recordAdminAudit({
         action: 'WAITLIST_ENTRY_PROMOTED',
         targetType: 'LEAD',
-        targetId: leadData.id,
+        targetId: newLeadId,
         changesSummary: `Promoted ${wl.full_name} from waitlist to active Buyer #${nextCount} in pool ${poolId}.`,
-        details: { waitlistId, leadId: leadData.id, buyerNumber: nextCount },
+        details: { waitlistId, leadId: newLeadId, buyerNumber: nextCount },
       });
 
       return NextResponse.json(
-        { success: true, data: { lead: leadData, waitlist: updatedWl } },
+        {
+          success: true,
+          data: {
+            waitlist: updatedWl,
+            lead: createdLead,
+          },
+        },
         { headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    // Standard waitlist update
-    const dbPayload: Record<string, unknown> = {
-      updated_at: now,
-      ...(updates.status && { status: updates.status }),
-      ...(updates.notes !== undefined && { notes: updates.notes }),
-      ...(updates.removalReason !== undefined && { removal_reason: updates.removalReason }),
-    };
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: unknown[] = [now];
 
-    if (updates.status === 'INVITED') {
-      dbPayload.invited_at = now;
-      dbPayload.invitation_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    } else if (updates.status === 'DECLINED') {
-      dbPayload.response_at = now;
+    if (updates.status) {
+      setClauses.push('status = ?');
+      values.push(updates.status);
+
+      if (updates.status === 'INVITED') {
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        setClauses.push('invited_at = ?', 'invitation_expires_at = ?');
+        values.push(now, expiresAt);
+      } else if (updates.status === 'DECLINED') {
+        setClauses.push('response_at = ?');
+        values.push(now);
+      }
+    }
+    if (updates.notes !== undefined) {
+      setClauses.push('notes = ?');
+      values.push(updates.notes);
+    }
+    if (updates.removalReason !== undefined) {
+      setClauses.push('removal_reason = ?');
+      values.push(updates.removalReason);
     }
 
-    const { data: updated, error } = await supabase
-      .from('pool_waitlist')
-      .update(dbPayload)
-      .eq('id', waitlistId)
-      .eq('pool_id', poolId)
-      .select()
-      .single();
+    values.push(waitlistId, poolId);
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    await db
+      .prepare(`UPDATE pool_waitlist SET ${setClauses.join(', ')} WHERE id = ? AND pool_id = ?`)
+      .bind(...values)
+      .run();
+
+    const updatedRow = await db
+      .prepare('SELECT * FROM pool_waitlist WHERE id = ? AND pool_id = ?')
+      .bind(waitlistId, poolId)
+      .first();
 
     await recordAdminAudit({
       action: 'WAITLIST_ENTRY_UPDATED',
       targetType: 'LEAD',
       targetId: waitlistId,
-      changesSummary: `Updated waitlist entry #${updated.sequence_number} status to ${updates.status || 'updated'}.`,
-      details: dbPayload,
+      changesSummary: `Updated waitlist entry #${wl.sequence_number} (${wl.full_name}) status to ${updates.status || 'notes'}.`,
+      details: updates as Record<string, unknown>,
     });
 
     return NextResponse.json(
-      { success: true, data: updated },
+      { success: true, data: updatedRow },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

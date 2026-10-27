@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { restoreDemoPool, MOCK_ADMIN_POOLS } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { recordAdminAudit } from '@/lib/audit';
 
 type RouteContext = {
@@ -43,34 +43,39 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1 execution
+    const db = await requireD1Database();
     const now = new Date().toISOString();
 
-    const { data: updated, error } = await supabase
-      .from('pools')
-      .update({
-        is_archived: false,
-        deleted_at: null,
-        is_published: false, // Strict requirement: Restore does NOT automatically republish
-        updated_at: now,
-      })
-      .eq('id', poolId)
-      .select()
-      .single();
+    const existing = await db
+      .prepare('SELECT name FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<{ name: string }>();
 
-    if (error) {
+    if (!existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { success: false, error: { code: 'NOT_FOUND', message: 'Pool not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    await db
+      .prepare(
+        'UPDATE pools SET is_archived = 0, deleted_at = NULL, is_published = 0, updated_at = ? WHERE id = ?'
+      )
+      .bind(now, poolId)
+      .run();
+
+    const updated = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first();
 
     await recordAdminAudit({
       action: 'POOL_RESTORED',
       targetType: 'POOL',
       targetId: poolId,
-      changesSummary: `Restored group "${updated.name}" from archive/soft-delete (retains unpublished status).`,
+      changesSummary: `Restored group "${existing.name}" from archive/soft-delete (retains unpublished status).`,
     });
 
     return NextResponse.json(

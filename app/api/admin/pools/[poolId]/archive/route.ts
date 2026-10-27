@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { archiveDemoPool, MOCK_ADMIN_POOLS } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { recordAdminAudit } from '@/lib/audit';
 
 type RouteContext = {
@@ -49,38 +49,44 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1 execution
+    const db = await requireD1Database();
     const now = new Date().toISOString();
 
-    const { data: updated, error } = await supabase
-      .from('pools')
-      .update({
-        is_archived: true,
-        is_published: false,
-        updated_at: now,
-      })
-      .eq('id', poolId)
-      .select()
-      .single();
+    const existing = await db
+      .prepare('SELECT name, city_slug FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<{ name: string; city_slug: string }>();
 
-    if (error) {
+    if (!existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { success: false, error: { code: 'NOT_FOUND', message: 'Pool not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    await db
+      .prepare(
+        'UPDATE pools SET is_archived = 1, is_published = 0, updated_at = ? WHERE id = ?'
+      )
+      .bind(now, poolId)
+      .run();
+
+    const updated = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first();
 
     await recordAdminAudit({
       action: 'POOL_ARCHIVED',
       targetType: 'POOL',
       targetId: poolId,
-      changesSummary: `Archived group "${updated.name}". Moved to historical records.`,
+      changesSummary: `Archived group "${existing.name}". Moved to historical records.`,
     });
 
     try {
       revalidatePath('/');
-      revalidatePath(`/city/${updated.city_slug}`);
+      revalidatePath(`/city/${existing.city_slug}`);
     } catch {}
 
     return NextResponse.json(

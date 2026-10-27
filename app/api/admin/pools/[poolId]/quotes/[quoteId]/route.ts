@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { updateDemoQuotation, getDemoQuotations } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { updateQuoteSchema } from '@/lib/validation';
 import { recordAdminAudit } from '@/lib/audit';
 
@@ -64,72 +64,98 @@ export async function PATCH(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1 execution
+    const db = await requireD1Database();
     const now = new Date().toISOString();
 
-    if (updates.isCurrentPublished) {
-      // Unpublish existing quotes for this pool
-      await supabase
-        .from('pool_quotations')
-        .update({ is_current_published: false, updated_at: now })
-        .eq('pool_id', poolId);
-    }
+    const existing = await db
+      .prepare('SELECT * FROM pool_quotations WHERE id = ? AND pool_id = ?')
+      .bind(quoteId, poolId)
+      .first<{ vendor_name: string; quoted_amount: number }>();
 
-    const dbPayload: Record<string, unknown> = {
-      updated_at: now,
-      ...(updates.quotedAmount !== undefined && { quoted_amount: updates.quotedAmount }),
-      ...(updates.validUntil !== undefined && { valid_until: updates.validUntil }),
-      ...(updates.scope !== undefined && { scope: updates.scope }),
-      ...(updates.inclusions !== undefined && { inclusions: updates.inclusions }),
-      ...(updates.exclusions !== undefined && { exclusions: updates.exclusions }),
-      ...(updates.deliveryTerms !== undefined && { delivery_terms: updates.deliveryTerms }),
-      ...(updates.quantityCondition !== undefined && { quantity_condition: updates.quantityCondition }),
-      ...(updates.status !== undefined && { status: updates.status }),
-      ...(updates.isCurrentPublished !== undefined && { is_current_published: updates.isCurrentPublished }),
-      ...(updates.internalNotes !== undefined && { internal_notes: updates.internalNotes }),
-    };
-
-    const { data: quoteRow, error } = await supabase
-      .from('pool_quotations')
-      .update(dbPayload)
-      .eq('id', quoteId)
-      .eq('pool_id', poolId)
-      .select()
-      .single();
-
-    if (error) {
+    if (!existing) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { success: false, error: { code: 'NOT_FOUND', message: 'Quotation not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
     if (updates.isCurrentPublished) {
-      // Sync pool groupPrice
-      await supabase
-        .from('pools')
-        .update({
-          group_price: quoteRow.quoted_amount,
-          group_price_type: quoteRow.price_type === 'VENDOR_QUOTED' ? 'VENDOR_QUOTED' : 'INDICATIVE_ESTIMATE',
-          dealer_name: quoteRow.vendor_name,
-          updated_at: now,
-        })
-        .eq('id', poolId);
+      // Unpublish all other quotes for this pool
+      await db
+        .prepare('UPDATE pool_quotations SET is_current_published = 0, updated_at = ? WHERE pool_id = ?')
+        .bind(now, poolId)
+        .run();
     }
+
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: unknown[] = [now];
+
+    if (updates.quotedAmount !== undefined) {
+      setClauses.push('quoted_amount = ?');
+      values.push(updates.quotedAmount);
+    }
+    if (updates.validUntil !== undefined) {
+      setClauses.push('valid_until = ?');
+      values.push(updates.validUntil);
+    }
+    if (updates.scope !== undefined) {
+      setClauses.push('scope = ?');
+      values.push(updates.scope);
+    }
+    if (updates.inclusions !== undefined) {
+      setClauses.push('inclusions = ?');
+      values.push(JSON.stringify(updates.inclusions));
+    }
+    if (updates.exclusions !== undefined) {
+      setClauses.push('exclusions = ?');
+      values.push(JSON.stringify(updates.exclusions));
+    }
+    if (updates.deliveryTerms !== undefined) {
+      setClauses.push('delivery_terms = ?');
+      values.push(updates.deliveryTerms);
+    }
+    if (updates.quantityCondition !== undefined) {
+      setClauses.push('quantity_condition = ?');
+      values.push(updates.quantityCondition);
+    }
+    if (updates.status !== undefined) {
+      setClauses.push('status = ?');
+      values.push(updates.status);
+    }
+    if (updates.isCurrentPublished !== undefined) {
+      setClauses.push('is_current_published = ?');
+      values.push(updates.isCurrentPublished ? 1 : 0);
+    }
+    if (updates.internalNotes !== undefined) {
+      setClauses.push('internal_notes = ?');
+      values.push(updates.internalNotes);
+    }
+
+    values.push(quoteId, poolId);
+
+    await db
+      .prepare(`UPDATE pool_quotations SET ${setClauses.join(', ')} WHERE id = ? AND pool_id = ?`)
+      .bind(...values)
+      .run();
+
+    const updatedRow = await db
+      .prepare('SELECT * FROM pool_quotations WHERE id = ? AND pool_id = ?')
+      .bind(quoteId, poolId)
+      .first();
 
     await recordAdminAudit({
       action: updates.isCurrentPublished ? 'QUOTATION_PUBLISHED' : 'QUOTATION_UPDATED',
       targetType: 'QUOTE',
       targetId: quoteId,
       changesSummary: updates.isCurrentPublished
-        ? `Published quote from "${quoteRow.vendor_name}" (₹${Number(quoteRow.quoted_amount).toLocaleString('en-IN')}) for pool ${poolId}.`
-        : `Updated quote ${quoteId} from "${quoteRow.vendor_name}".`,
-      details: dbPayload,
+        ? `Published quote from "${existing.vendor_name}" (₹${existing.quoted_amount.toLocaleString('en-IN')}) for pool ${poolId}.`
+        : `Updated quote ${quoteId} from "${existing.vendor_name}".`,
+      details: updates as Record<string, unknown>,
     });
 
     return NextResponse.json(
-      { success: true, data: quoteRow },
+      { success: true, data: updatedRow },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

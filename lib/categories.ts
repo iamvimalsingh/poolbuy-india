@@ -5,8 +5,31 @@ import {
   addDemoCategory,
   updateDemoCategory as updateMockCategory,
 } from './mock-data';
-import { getPublicSupabase } from './supabase/public';
-import { getAdminSupabase } from './supabase/admin';
+import { getD1Database, requireD1Database } from './d1/db';
+
+interface D1CategoryRow {
+  id: string;
+  slug: string;
+  label: string;
+  description: string;
+  is_active: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRowToCategory(row: D1CategoryRow): Category {
+  return {
+    id: row.id,
+    slug: row.slug,
+    label: row.label,
+    description: row.description || '',
+    isActive: Boolean(row.is_active),
+    sortOrder: Number(row.sort_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 /**
  * Returns all active, operational categories for public discovery, navigation, and form dropdowns.
@@ -18,36 +41,22 @@ export async function getOperationalCategories(): Promise<Category[]> {
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  const supabase = getPublicSupabase();
-  if (!supabase) {
-    return getDemoCategories()
-      .filter((c) => c.isActive)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+  const db = await getD1Database();
+  if (!db) {
+    console.error('getOperationalCategories: D1 database unavailable');
+    return [];
   }
 
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC')
+      .all<D1CategoryRow>();
 
-  if (error || !data) {
-    console.error('Error fetching operational categories from Supabase:', error?.message);
-    return getDemoCategories()
-      .filter((c) => c.isActive)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return (results || []).map(mapRowToCategory);
+  } catch (error: unknown) {
+    console.error('Error fetching operational categories from D1:', error);
+    return [];
   }
-
-  return data.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    label: row.label,
-    description: row.description || '',
-    isActive: row.is_active,
-    sortOrder: row.sort_order ?? 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
 }
 
 /**
@@ -58,31 +67,17 @@ export async function getAllCategories(): Promise<Category[]> {
     return getDemoCategories().sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  const supabase = getAdminSupabase();
-  if (!supabase) {
-    return getDemoCategories().sort((a, b) => a.sortOrder - b.sortOrder);
+  const db = await requireD1Database();
+  try {
+    const { results } = await db
+      .prepare('SELECT * FROM categories ORDER BY sort_order ASC')
+      .all<D1CategoryRow>();
+
+    return (results || []).map(mapRowToCategory);
+  } catch (error: unknown) {
+    console.error('Error fetching all categories from D1:', error);
+    throw error;
   }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('sort_order', { ascending: true });
-
-  if (error || !data) {
-    console.error('Error fetching all categories from Supabase:', error?.message);
-    return getDemoCategories().sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-
-  return data.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    label: row.label,
-    description: row.description || '',
-    isActive: row.is_active,
-    sortOrder: row.sort_order ?? 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
 }
 
 /**
@@ -94,37 +89,25 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
     return found || null;
   }
 
-  const supabase = getPublicSupabase();
-  if (!supabase) {
-    const found = getDemoCategories().find((c) => c.slug === slug);
-    return found || null;
+  const db = await getD1Database();
+  if (!db) return null;
+
+  try {
+    const row = await db
+      .prepare('SELECT * FROM categories WHERE slug = ?')
+      .bind(slug)
+      .first<D1CategoryRow>();
+
+    if (!row) return null;
+    return mapRowToCategory(row);
+  } catch (error: unknown) {
+    console.error('Error looking up category by slug in D1:', error);
+    return null;
   }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('slug', slug)
-    .maybeSingle();
-
-  if (error || !data) {
-    const found = getDemoCategories().find((c) => c.slug === slug);
-    return found || null;
-  }
-
-  return {
-    id: data.id,
-    slug: data.slug,
-    label: data.label,
-    description: data.description || '',
-    isActive: data.is_active,
-    sortOrder: data.sort_order ?? 0,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
 }
 
 /**
- * Creates a new category in Supabase or demo store.
+ * Creates a new category in D1 or demo store.
  */
 export async function createCategory(input: {
   label: string;
@@ -133,59 +116,55 @@ export async function createCategory(input: {
   isActive?: boolean;
   sortOrder?: number;
 }): Promise<Category> {
-  const newCategory: Category = {
-    id: `cat-${input.slug}-${Date.now().toString(36)}`,
-    slug: input.slug,
-    label: input.label,
-    description: input.description || '',
-    isActive: input.isActive ?? true,
-    sortOrder: input.sortOrder ?? 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
+  const id = `cat-${input.slug}-${Date.now().toString(36)}`;
 
   if (isDemoMode()) {
-    addDemoCategory(newCategory);
-    return newCategory;
-  }
-
-  const supabase = getAdminSupabase();
-  if (!supabase) {
-    addDemoCategory(newCategory);
-    return newCategory;
-  }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .insert({
-      label: input.label,
+    const newCategory: Category = {
+      id,
       slug: input.slug,
+      label: input.label,
       description: input.description || '',
-      is_active: input.isActive ?? true,
-      sort_order: input.sortOrder ?? 0,
-    })
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error('Error creating category in Supabase:', error?.message);
-    throw new Error(error?.message || 'Failed to create category');
+      isActive: input.isActive ?? true,
+      sortOrder: input.sortOrder ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    addDemoCategory(newCategory);
+    return newCategory;
   }
 
-  return {
-    id: data.id,
-    slug: data.slug,
-    label: data.label,
-    description: data.description || '',
-    isActive: data.is_active,
-    sortOrder: data.sort_order ?? 0,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
+  const db = await requireD1Database();
+  await db
+    .prepare(
+      'INSERT INTO categories (id, slug, label, description, is_active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      id,
+      input.slug,
+      input.label,
+      input.description || '',
+      input.isActive ?? true ? 1 : 0,
+      input.sortOrder ?? 0,
+      now,
+      now
+    )
+    .run();
+
+  const created = await db
+    .prepare('SELECT * FROM categories WHERE id = ?')
+    .bind(id)
+    .first<D1CategoryRow>();
+
+  if (!created) {
+    throw new Error('Failed to retrieve newly created category from D1');
+  }
+
+  return mapRowToCategory(created);
 }
 
 /**
- * Updates a category in Supabase or demo store.
+ * Updates a category in D1 or demo store.
  */
 export async function updateCategory(
   categoryId: string,
@@ -195,40 +174,45 @@ export async function updateCategory(
     return updateMockCategory(categoryId, updates);
   }
 
-  const supabase = getAdminSupabase();
-  if (!supabase) {
-    return updateMockCategory(categoryId, updates);
+  const db = await requireD1Database();
+  const now = new Date().toISOString();
+
+  const setClauses: string[] = ['updated_at = ?'];
+  const values: unknown[] = [now];
+
+  if (updates.label !== undefined) {
+    setClauses.push('label = ?');
+    values.push(updates.label);
+  }
+  if (updates.slug !== undefined) {
+    setClauses.push('slug = ?');
+    values.push(updates.slug);
+  }
+  if (updates.description !== undefined) {
+    setClauses.push('description = ?');
+    values.push(updates.description);
+  }
+  if (updates.isActive !== undefined) {
+    setClauses.push('is_active = ?');
+    values.push(updates.isActive ? 1 : 0);
+  }
+  if (updates.sortOrder !== undefined) {
+    setClauses.push('sort_order = ?');
+    values.push(updates.sortOrder);
   }
 
-  const updatePayload: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (updates.label !== undefined) updatePayload.label = updates.label;
-  if (updates.slug !== undefined) updatePayload.slug = updates.slug;
-  if (updates.description !== undefined) updatePayload.description = updates.description;
-  if (updates.isActive !== undefined) updatePayload.is_active = updates.isActive;
-  if (updates.sortOrder !== undefined) updatePayload.sort_order = updates.sortOrder;
+  values.push(categoryId);
 
-  const { data, error } = await supabase
-    .from('categories')
-    .update(updatePayload)
-    .eq('id', categoryId)
-    .select()
-    .single();
+  await db
+    .prepare(`UPDATE categories SET ${setClauses.join(', ')} WHERE id = ?`)
+    .bind(...values)
+    .run();
 
-  if (error || !data) {
-    console.error('Error updating category in Supabase:', error?.message);
-    return updateMockCategory(categoryId, updates);
-  }
+  const row = await db
+    .prepare('SELECT * FROM categories WHERE id = ?')
+    .bind(categoryId)
+    .first<D1CategoryRow>();
 
-  return {
-    id: data.id,
-    slug: data.slug,
-    label: data.label,
-    description: data.description || '',
-    isActive: data.is_active,
-    sortOrder: data.sort_order ?? 0,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
+  if (!row) return null;
+  return mapRowToCategory(row);
 }

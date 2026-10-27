@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { joinPoolSchema } from '@/lib/validation';
 import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_POOLS, addDemoWaitlistEntry } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 
 type RouteContext = {
   params: Promise<{ poolId: string }>;
@@ -64,60 +64,84 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
+    // Live D1 Execution
+    const db = await requireD1Database();
+    const now = new Date().toISOString();
 
-    const { count } = await supabase
-      .from('pool_waitlist')
-      .select('*', { count: 'exact', head: true })
-      .eq('pool_id', poolId);
+    // Check pool existence
+    const pool = await db
+      .prepare('SELECT id, name FROM pools WHERE id = ? AND deleted_at IS NULL')
+      .bind(poolId)
+      .first<{ id: string; name: string }>();
 
-    const nextSeq = (count || 0) + 1;
-
-    const { data, error } = await supabase
-      .from('pool_waitlist')
-      .insert({
-        pool_id: poolId,
-        sequence_number: nextSeq,
-        full_name: input.fullName,
-        whatsapp_number: input.whatsappNumber,
-        city: input.city || 'National',
-        buying_timeline: input.buyingTimeline,
-        locality: input.locality,
-        pin_code: input.pinCode,
-        notes: input.extraMessage,
-        status: 'WAITING',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === '23505') {
-        // Unique violation: buyer already on waitlist
-        return NextResponse.json(
-          {
-            success: true,
-            data: {
-              alreadyOnWaitlist: true,
-              message: 'You are already registered on the waitlist for this group.',
-            },
-          },
-          { status: 200 }
-        );
-      }
+    if (!pool) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500 }
+        { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Pool not found.' } },
+        { status: 404 }
       );
     }
+
+    // Check unique waitlist registration
+    const existing = await db
+      .prepare('SELECT id, sequence_number FROM pool_waitlist WHERE pool_id = ? AND whatsapp_number = ?')
+      .bind(poolId, input.whatsappNumber)
+      .first<{ id: string; sequence_number: number }>();
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            alreadyOnWaitlist: true,
+            waitlistId: existing.id,
+            sequenceNumber: existing.sequence_number,
+            message: 'You are already registered on the waitlist for this group.',
+          },
+        },
+        { status: 200 }
+      );
+    }
+
+    // Calculate next FIFO sequence number
+    const countRow = await db
+      .prepare('SELECT COUNT(*) as total FROM pool_waitlist WHERE pool_id = ?')
+      .bind(poolId)
+      .first<{ total: number }>();
+
+    const nextSeq = (countRow?.total || 0) + 1;
+    const waitlistId = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    await db
+      .prepare(
+        `INSERT INTO pool_waitlist (
+          id, pool_id, sequence_number, full_name, whatsapp_number,
+          city, buying_timeline, locality, pin_code, status, notes,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)`
+      )
+      .bind(
+        waitlistId,
+        poolId,
+        nextSeq,
+        input.fullName.trim(),
+        input.whatsappNumber,
+        input.city || 'National',
+        input.buyingTimeline || 'THIS_MONTH',
+        input.locality?.trim() || null,
+        input.pinCode?.trim() || null,
+        input.extraMessage?.trim() || null,
+        now,
+        now
+      )
+      .run();
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          waitlistId: data.id,
-          sequenceNumber: data.sequence_number,
-          message: `You are #${data.sequence_number} on the waitlist. We will notify you if a slot opens.`,
+          waitlistId,
+          sequenceNumber: nextSeq,
+          message: `You are #${nextSeq} on the waitlist. We will notify you if a slot opens.`,
         },
       },
       { status: 201 }

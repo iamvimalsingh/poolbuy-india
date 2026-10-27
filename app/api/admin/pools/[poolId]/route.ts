@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, updateDemoPool, deleteDemoPool } from '@/lib/mock-data';
+import { requireD1Database } from '@/lib/d1/db';
 import { AdminPool, PoolClosureReason } from '@/types';
 import { z } from 'zod';
 import {
@@ -21,6 +21,105 @@ import { recordAdminAudit } from '@/lib/audit';
 type RouteContext = {
   params: Promise<{ poolId: string }>;
 };
+
+interface D1AdminPoolRow {
+  id: string;
+  slug: string;
+  name: string;
+  short_description: string;
+  long_description: string;
+  category: string;
+  city: string;
+  city_slug: string;
+  product_brand: string;
+  product_model: string;
+  image_url: string | null;
+  market_price: number | null;
+  group_price: number | null;
+  target_buyers: number;
+  current_buyers: number;
+  deadline: string;
+  status: string;
+  closure_reason?: string | null;
+  closed_at?: string | null;
+  offer_valid_until?: string | null;
+  is_archived?: number;
+  deleted_at?: string | null;
+  price_is_verified: number;
+  price_verified_at: string | null;
+  dealer_name?: string | null;
+  token_amount?: number | null;
+  token_payment_url?: string | null;
+  dealer_offer_url?: string | null;
+  dealer_terms?: string | null;
+  is_published: number;
+  market_price_type: string;
+  group_price_type: string;
+  savings_display_approved: number;
+  quote_source?: string | null;
+  quote_date?: string | null;
+  quote_valid_until?: string | null;
+  quote_scope?: string | null;
+  quote_private_notes?: string | null;
+  connection_status: string;
+  payment_config_state: string;
+  connection_notes?: string | null;
+  target_reached_at?: string | null;
+  target_reached_acknowledged_at?: string | null;
+  source_request_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRowToAdminPool(row: D1AdminPoolRow): AdminPool {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    shortDescription: row.short_description || '',
+    longDescription: row.long_description || '',
+    category: row.category as AdminPool['category'],
+    city: row.city,
+    citySlug: row.city_slug,
+    productBrand: row.product_brand || '',
+    productModel: row.product_model || '',
+    imageUrl: row.image_url,
+    marketPrice: row.market_price !== null ? Number(row.market_price) : null,
+    groupPrice: row.group_price !== null ? Number(row.group_price) : null,
+    targetBuyers: Number(row.target_buyers),
+    currentBuyers: Number(row.current_buyers),
+    deadline: row.deadline,
+    status: row.status as AdminPool['status'],
+    priceIsVerified: Boolean(row.price_is_verified),
+    priceVerifiedAt: row.price_verified_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    dealerName: row.dealer_name || null,
+    tokenAmount: row.token_amount !== null && row.token_amount !== undefined ? Number(row.token_amount) : null,
+    tokenPaymentUrl: row.token_payment_url || null,
+    dealerOfferUrl: row.dealer_offer_url || null,
+    dealerTerms: row.dealer_terms || null,
+    isPublished: Boolean(row.is_published),
+    marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
+    groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
+    savingsDisplayApproved: Boolean(row.savings_display_approved),
+    quoteSource: row.quote_source || null,
+    quoteDate: row.quote_date || null,
+    quoteValidUntil: row.quote_valid_until || null,
+    quoteScope: row.quote_scope || null,
+    quotePrivateNotes: row.quote_private_notes || null,
+    connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
+    paymentConfigState: (row.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
+    connectionNotes: row.connection_notes || null,
+    targetReachedAcknowledgedAt: row.target_reached_acknowledged_at || null,
+    closureReason: (row.closure_reason as PoolClosureReason) || null,
+    closedAt: row.closed_at || null,
+    offerValidUntil: row.offer_valid_until || null,
+    isArchived: Boolean(row.is_archived),
+    deletedAt: row.deleted_at || null,
+    targetReachedAt: row.target_reached_at || null,
+  };
+}
 
 const updatePoolSchema = z.object({
   name: z.string().trim().min(3).max(180).optional(),
@@ -71,6 +170,56 @@ const updatePoolSchema = z.object({
   connectionNotes: z.string().trim().max(5000).nullable().optional(),
   targetReachedAcknowledgedAt: z.string().nullable().optional(),
 });
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request);
+  if (authError) return authError;
+
+  try {
+    const { poolId } = await context.params;
+
+    if (isDemoMode()) {
+      const pool = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
+      if (!pool) {
+        return NextResponse.json(
+          { success: false, error: { code: 'NOT_FOUND', message: 'Pool not found.' } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+      return NextResponse.json(
+        { success: true, data: pool },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const db = await requireD1Database();
+    const row = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<D1AdminPoolRow>();
+
+    if (!row) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Pool not found.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, data: mapRowToAdminPool(row) },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message: e.message || 'Server error.' } },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -191,17 +340,15 @@ export async function PATCH(
       );
     }
 
-    // Live Supabase update
-    const supabase = getAdminSupabase();
+    // Live D1 update
+    const db = await requireD1Database();
 
-    // First fetch existing pool to check conditions
-    const { data: existing, error: fetchError } = await supabase
-      .from('pools')
-      .select('*')
-      .eq('id', poolId)
-      .maybeSingle();
+    const existing = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<D1AdminPoolRow>();
 
-    if (fetchError || !existing) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Pool not found.' } },
         { status: 404, headers: { 'Cache-Control': 'no-store' } }
@@ -209,7 +356,7 @@ export async function PATCH(
     }
 
     if (updates.status === 'UNLOCKED') {
-      const nextPriceVerified = updates.priceIsVerified ?? existing.price_is_verified;
+      const nextPriceVerified = updates.priceIsVerified ?? Boolean(existing.price_is_verified);
       const nextDealerName = updates.dealerName ?? existing.dealer_name;
       const nextDealerTerms = updates.dealerTerms ?? existing.dealer_terms;
       const nextTokenUrl = updates.tokenPaymentUrl ?? existing.token_payment_url;
@@ -251,115 +398,182 @@ export async function PATCH(
       }
     }
 
-    const dbPayload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (updates.name !== undefined) dbPayload.name = updates.name;
-    if (updates.shortDescription !== undefined) dbPayload.short_description = updates.shortDescription;
-    if (updates.longDescription !== undefined) dbPayload.long_description = updates.longDescription;
-    if (updates.category !== undefined) dbPayload.category = updates.category;
-    if (updates.city !== undefined) {
-      dbPayload.city = updates.city;
-      dbPayload.city_slug = slugify(updates.city);
+    const now = new Date().toISOString();
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: unknown[] = [now];
+
+    if (updates.name !== undefined) {
+      setClauses.push('name = ?');
+      values.push(updates.name);
     }
-    if (updates.productBrand !== undefined) dbPayload.product_brand = updates.productBrand;
-    if (updates.productModel !== undefined) dbPayload.product_model = updates.productModel;
-    if (updates.imageUrl !== undefined) dbPayload.image_url = updates.imageUrl;
-    if (updates.marketPrice !== undefined) dbPayload.market_price = updates.marketPrice;
-    if (updates.groupPrice !== undefined) dbPayload.group_price = updates.groupPrice;
-    if (updates.targetBuyers !== undefined) dbPayload.target_buyers = updates.targetBuyers;
-    if (updates.deadline !== undefined) dbPayload.deadline = updates.deadline;
-    if (updates.status !== undefined) dbPayload.status = updates.status;
-    if (updates.closureReason !== undefined) dbPayload.closure_reason = updates.closureReason;
-    if (updates.closedAt !== undefined) dbPayload.closed_at = updates.closedAt;
-    if (updates.offerValidUntil !== undefined) dbPayload.offer_valid_until = updates.offerValidUntil;
-    if (updates.isArchived !== undefined) dbPayload.is_archived = updates.isArchived;
-    if (updates.deletedAt !== undefined) dbPayload.deleted_at = updates.deletedAt;
+    if (updates.shortDescription !== undefined) {
+      setClauses.push('short_description = ?');
+      values.push(updates.shortDescription);
+    }
+    if (updates.longDescription !== undefined) {
+      setClauses.push('long_description = ?');
+      values.push(updates.longDescription);
+    }
+    if (updates.category !== undefined) {
+      setClauses.push('category = ?');
+      values.push(updates.category);
+    }
+    if (updates.city !== undefined) {
+      setClauses.push('city = ?');
+      values.push(updates.city);
+      setClauses.push('city_slug = ?');
+      values.push(slugify(updates.city));
+    }
+    if (updates.productBrand !== undefined) {
+      setClauses.push('product_brand = ?');
+      values.push(updates.productBrand);
+    }
+    if (updates.productModel !== undefined) {
+      setClauses.push('product_model = ?');
+      values.push(updates.productModel);
+    }
+    if (updates.imageUrl !== undefined) {
+      setClauses.push('image_url = ?');
+      values.push(updates.imageUrl);
+    }
+    if (updates.marketPrice !== undefined) {
+      setClauses.push('market_price = ?');
+      values.push(updates.marketPrice);
+    }
+    if (updates.groupPrice !== undefined) {
+      setClauses.push('group_price = ?');
+      values.push(updates.groupPrice);
+    }
+    if (updates.targetBuyers !== undefined) {
+      setClauses.push('target_buyers = ?');
+      values.push(updates.targetBuyers);
+    }
+    if (updates.deadline !== undefined) {
+      setClauses.push('deadline = ?');
+      values.push(updates.deadline);
+    }
+    if (updates.status !== undefined) {
+      setClauses.push('status = ?');
+      values.push(updates.status);
+    }
+    if (updates.closureReason !== undefined) {
+      setClauses.push('closure_reason = ?');
+      values.push(updates.closureReason);
+    }
+    if (updates.closedAt !== undefined) {
+      setClauses.push('closed_at = ?');
+      values.push(updates.closedAt);
+    }
+    if (updates.offerValidUntil !== undefined) {
+      setClauses.push('offer_valid_until = ?');
+      values.push(updates.offerValidUntil);
+    }
+    if (updates.isArchived !== undefined) {
+      setClauses.push('is_archived = ?');
+      values.push(updates.isArchived ? 1 : 0);
+    }
+    if (updates.deletedAt !== undefined) {
+      setClauses.push('deleted_at = ?');
+      values.push(updates.deletedAt);
+    }
     if (updates.priceIsVerified !== undefined) {
-      dbPayload.price_is_verified = updates.priceIsVerified;
+      setClauses.push('price_is_verified = ?');
+      values.push(updates.priceIsVerified ? 1 : 0);
       if (updates.priceIsVerified && !existing.price_verified_at) {
-        dbPayload.price_verified_at = new Date().toISOString();
+        setClauses.push('price_verified_at = ?');
+        values.push(now);
       }
     }
-    if (updates.dealerName !== undefined) dbPayload.dealer_name = updates.dealerName;
-    if (updates.tokenAmount !== undefined) dbPayload.token_amount = updates.tokenAmount;
-    if (updates.tokenPaymentUrl !== undefined) dbPayload.token_payment_url = updates.tokenPaymentUrl;
-    if (updates.dealerOfferUrl !== undefined) dbPayload.dealer_offer_url = updates.dealerOfferUrl;
-    if (updates.dealerTerms !== undefined) dbPayload.dealer_terms = updates.dealerTerms;
-    if (updates.isPublished !== undefined) dbPayload.is_published = updates.isPublished;
-    if (updates.marketPriceType !== undefined) dbPayload.market_price_type = updates.marketPriceType;
-    if (updates.groupPriceType !== undefined) dbPayload.group_price_type = updates.groupPriceType;
-    if (updates.savingsDisplayApproved !== undefined) dbPayload.savings_display_approved = updates.savingsDisplayApproved;
-    if (updates.quoteSource !== undefined) dbPayload.quote_source = updates.quoteSource;
-    if (updates.quoteDate !== undefined) dbPayload.quote_date = updates.quoteDate;
-    if (updates.quoteValidUntil !== undefined) dbPayload.quote_valid_until = updates.quoteValidUntil;
-    if (updates.quoteScope !== undefined) dbPayload.quote_scope = updates.quoteScope;
-    if (updates.quotePrivateNotes !== undefined) dbPayload.quote_private_notes = updates.quotePrivateNotes;
-    if (updates.connectionStatus !== undefined) dbPayload.connection_status = updates.connectionStatus;
-    if (updates.paymentConfigState !== undefined) dbPayload.payment_config_state = updates.paymentConfigState;
-    if (updates.connectionNotes !== undefined) dbPayload.connection_notes = updates.connectionNotes;
-    if (updates.targetReachedAcknowledgedAt !== undefined) dbPayload.target_reached_acknowledged_at = updates.targetReachedAcknowledgedAt;
-
-    const { data: updated, error: updateError } = await supabase
-      .from('pools')
-      .update(dbPayload)
-      .eq('id', poolId)
-      .select()
-      .single();
-
-    if (updateError) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: updateError.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
+    if (updates.dealerName !== undefined) {
+      setClauses.push('dealer_name = ?');
+      values.push(updates.dealerName);
+    }
+    if (updates.tokenAmount !== undefined) {
+      setClauses.push('token_amount = ?');
+      values.push(updates.tokenAmount);
+    }
+    if (updates.tokenPaymentUrl !== undefined) {
+      setClauses.push('token_payment_url = ?');
+      values.push(updates.tokenPaymentUrl);
+    }
+    if (updates.dealerOfferUrl !== undefined) {
+      setClauses.push('dealer_offer_url = ?');
+      values.push(updates.dealerOfferUrl);
+    }
+    if (updates.dealerTerms !== undefined) {
+      setClauses.push('dealer_terms = ?');
+      values.push(updates.dealerTerms);
+    }
+    if (updates.isPublished !== undefined) {
+      setClauses.push('is_published = ?');
+      values.push(updates.isPublished ? 1 : 0);
+    }
+    if (updates.marketPriceType !== undefined) {
+      setClauses.push('market_price_type = ?');
+      values.push(updates.marketPriceType);
+    }
+    if (updates.groupPriceType !== undefined) {
+      setClauses.push('group_price_type = ?');
+      values.push(updates.groupPriceType);
+    }
+    if (updates.savingsDisplayApproved !== undefined) {
+      setClauses.push('savings_display_approved = ?');
+      values.push(updates.savingsDisplayApproved ? 1 : 0);
+    }
+    if (updates.quoteSource !== undefined) {
+      setClauses.push('quote_source = ?');
+      values.push(updates.quoteSource);
+    }
+    if (updates.quoteDate !== undefined) {
+      setClauses.push('quote_date = ?');
+      values.push(updates.quoteDate);
+    }
+    if (updates.quoteValidUntil !== undefined) {
+      setClauses.push('quote_valid_until = ?');
+      values.push(updates.quoteValidUntil);
+    }
+    if (updates.quoteScope !== undefined) {
+      setClauses.push('quote_scope = ?');
+      values.push(updates.quoteScope);
+    }
+    if (updates.quotePrivateNotes !== undefined) {
+      setClauses.push('quote_private_notes = ?');
+      values.push(updates.quotePrivateNotes);
+    }
+    if (updates.connectionStatus !== undefined) {
+      setClauses.push('connection_status = ?');
+      values.push(updates.connectionStatus);
+    }
+    if (updates.paymentConfigState !== undefined) {
+      setClauses.push('payment_config_state = ?');
+      values.push(updates.paymentConfigState);
+    }
+    if (updates.connectionNotes !== undefined) {
+      setClauses.push('connection_notes = ?');
+      values.push(updates.connectionNotes);
+    }
+    if (updates.targetReachedAcknowledgedAt !== undefined) {
+      setClauses.push('target_reached_acknowledged_at = ?');
+      values.push(updates.targetReachedAcknowledgedAt);
     }
 
-    const resultPool: AdminPool = {
-      id: updated.id,
-      slug: updated.slug,
-      name: updated.name,
-      shortDescription: updated.short_description || '',
-      longDescription: updated.long_description || '',
-      category: updated.category,
-      city: updated.city,
-      citySlug: updated.city_slug,
-      productBrand: updated.product_brand || '',
-      productModel: updated.product_model || '',
-      imageUrl: updated.image_url,
-      marketPrice: updated.market_price !== null ? Number(updated.market_price) : null,
-      groupPrice: updated.group_price !== null ? Number(updated.group_price) : null,
-      targetBuyers: Number(updated.target_buyers),
-      currentBuyers: Number(updated.current_buyers),
-      deadline: updated.deadline,
-      status: updated.status,
-      closureReason: (updated.closure_reason as PoolClosureReason) || null,
-      closedAt: updated.closed_at || null,
-      offerValidUntil: updated.offer_valid_until || null,
-      isArchived: Boolean(updated.is_archived),
-      deletedAt: updated.deleted_at || null,
-      priceIsVerified: Boolean(updated.price_is_verified),
-      priceVerifiedAt: updated.price_verified_at,
-      createdAt: updated.created_at,
-      updatedAt: updated.updated_at,
-      dealerName: updated.dealer_name,
-      tokenAmount: updated.token_amount !== null ? Number(updated.token_amount) : null,
-      tokenPaymentUrl: updated.token_payment_url,
-      dealerOfferUrl: updated.dealer_offer_url,
-      dealerTerms: updated.dealer_terms,
-      isPublished: updated.is_published !== false,
-      marketPriceType: (updated.market_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['marketPriceType'],
-      groupPriceType: (updated.group_price_type || 'INDICATIVE_ESTIMATE') as AdminPool['groupPriceType'],
-      savingsDisplayApproved: Boolean(updated.savings_display_approved),
-      quoteSource: updated.quote_source || null,
-      quoteDate: updated.quote_date || null,
-      quoteValidUntil: updated.quote_valid_until || null,
-      quoteScope: updated.quote_scope || null,
-      quotePrivateNotes: updated.quote_private_notes || null,
-      connectionStatus: (updated.connection_status || 'NOT_ELIGIBLE') as AdminPool['connectionStatus'],
-      paymentConfigState: (updated.payment_config_state || 'DISABLED') as AdminPool['paymentConfigState'],
-      connectionNotes: updated.connection_notes || null,
-      targetReachedAcknowledgedAt: updated.target_reached_acknowledged_at || null,
-    };
+    values.push(poolId);
+
+    await db
+      .prepare(`UPDATE pools SET ${setClauses.join(', ')} WHERE id = ?`)
+      .bind(...values)
+      .run();
+
+    const updatedRow = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<D1AdminPoolRow>();
+
+    if (!updatedRow) {
+      throw new Error('Failed to retrieve updated pool from D1');
+    }
+
+    const resultPool = mapRowToAdminPool(updatedRow);
 
     await recordAdminAudit({
       action: 'POOL_UPDATED',
@@ -433,56 +647,46 @@ export async function DELETE(
       }
     }
 
-    // Live Supabase Delete / Soft-Delete
-    const supabase = getAdminSupabase();
+    // Live D1 Delete / Soft-Delete
+    const db = await requireD1Database();
 
-    // Verify leads count
-    const { count: leadCount, error: countErr } = await supabase
-      .from('pool_leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('pool_id', poolId);
+    // Check leads dependency count
+    const leadCountRow = await db
+      .prepare('SELECT COUNT(*) as c FROM pool_leads WHERE pool_id = ?')
+      .bind(poolId)
+      .first<{ c: number }>();
+    const leadCount = Number(leadCountRow?.c || 0);
 
-    if (countErr) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: countErr.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    // Check waitlist dependency count
+    const waitlistCountRow = await db
+      .prepare('SELECT COUNT(*) as c FROM pool_waitlist WHERE pool_id = ?')
+      .bind(poolId)
+      .first<{ c: number }>();
+    const waitlistCount = Number(waitlistCountRow?.c || 0);
 
-    // Check price history dependencies
-    const { count: priceCount } = await supabase
-      .from('price_history')
-      .select('*', { count: 'exact', head: true })
-      .eq('pool_id', poolId);
-
-    // Check request dependencies
-    const { count: requestCount } = await supabase
-      .from('pool_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('resulting_pool_id', poolId);
+    // Check request dependency count
+    const requestCountRow = await db
+      .prepare('SELECT COUNT(*) as c FROM pool_requests WHERE resulting_pool_id = ?')
+      .bind(poolId)
+      .first<{ c: number }>();
+    const requestCount = Number(requestCountRow?.c || 0);
 
     if (hardDelete) {
-      const hasDependencies = (leadCount ?? 0) > 0 || (priceCount ?? 0) > 0 || (requestCount ?? 0) > 0;
+      const hasDependencies = leadCount > 0 || waitlistCount > 0 || requestCount > 0;
       if (hasDependencies) {
         return NextResponse.json(
           {
             success: false,
             error: {
               code: 'CANNOT_HARD_DELETE',
-              message: `Cannot hard delete pool with dependencies (${leadCount ?? 0} leads, ${priceCount ?? 0} price entries, ${requestCount ?? 0} proposal requests). Soft-delete / archive instead.`,
+              message: `Cannot hard delete pool with dependencies (${leadCount} leads, ${waitlistCount} waitlist, ${requestCount} proposal requests). Soft-delete / archive instead.`,
             },
           },
           { status: 400, headers: { 'Cache-Control': 'no-store' } }
         );
       }
 
-      const { error: delErr } = await supabase.from('pools').delete().eq('id', poolId);
-      if (delErr) {
-        return NextResponse.json(
-          { success: false, error: { code: 'DB_ERROR', message: delErr.message } },
-          { status: 500, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
+      await db.prepare('DELETE FROM pools WHERE id = ?').bind(poolId).run();
 
       await recordAdminAudit({
         action: 'POOL_HARD_DELETED',
@@ -499,26 +703,24 @@ export async function DELETE(
 
     // Default: Soft Delete
     const now = new Date().toISOString();
-    const { data: updated, error: softErr } = await supabase
-      .from('pools')
-      .update({
-        deleted_at: now,
-        is_published: false,
-        status: 'CLOSED',
-        closure_reason: 'MANUAL_CLOSE',
-        closed_at: now,
-        updated_at: now,
-      })
-      .eq('id', poolId)
-      .select()
-      .single();
+    await db
+      .prepare(
+        `UPDATE pools
+            SET deleted_at = ?,
+                is_published = 0,
+                status = 'CLOSED',
+                closure_reason = 'MANUAL_CLOSE',
+                closed_at = ?,
+                updated_at = ?
+          WHERE id = ?`
+      )
+      .bind(now, now, now, poolId)
+      .run();
 
-    if (softErr) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: softErr.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const updatedRow = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<D1AdminPoolRow>();
 
     await recordAdminAudit({
       action: 'POOL_SOFT_DELETED',
@@ -528,7 +730,7 @@ export async function DELETE(
     });
 
     return NextResponse.json(
-      { success: true, data: { action: 'soft_deleted', pool: updated } },
+      { success: true, data: { action: 'soft_deleted', pool: updatedRow ? mapRowToAdminPool(updatedRow) : null } },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err: unknown) {

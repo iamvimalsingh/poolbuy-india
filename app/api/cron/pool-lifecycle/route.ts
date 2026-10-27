@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { isDemoMode } from '@/lib/data-mode';
 import { expireDemoPools } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { isAuthenticatedAdmin } from '@/lib/admin-auth';
 import { ApiResponse } from '@/types';
-
 import crypto from 'crypto';
 
 interface ExpiryResponseData {
@@ -14,7 +13,7 @@ interface ExpiryResponseData {
   expiredByOfferCount: number;
   totalClosedCount: number;
   expiredPoolIds?: string[];
-  executionMode: 'demo' | 'supabase';
+  executionMode: 'demo' | 'd1';
 }
 
 /**
@@ -71,7 +70,6 @@ async function handleLifecycleExpiry(
     if (isDemoMode()) {
       const demoResult = expireDemoPools();
 
-      // Trigger cache revalidations
       try {
         revalidatePath('/');
       } catch (revalErr) {
@@ -90,69 +88,59 @@ async function handleLifecycleExpiry(
       );
     }
 
-    // Live Supabase Execution
-    const supabase = getAdminSupabase();
+    // Live D1 Execution
+    const db = await requireD1Database();
     const nowIso = new Date().toISOString();
 
-    // Call idempotent stored procedure if available, or execute direct updates
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('process_pool_expiry');
+    // 1. Find and update expired deadlines
+    const expiredDeadlines = await db
+      .prepare(
+        "SELECT id FROM pools WHERE status = 'ACTIVE' AND deadline < ? AND deleted_at IS NULL"
+      )
+      .bind(nowIso)
+      .all<{ id: string }>();
 
-    if (!rpcError && rpcResult) {
-      try {
-        revalidatePath('/');
-      } catch (revalErr) {
-        console.warn('Revalidation notice:', revalErr);
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          data: {
-            timestamp: rpcResult.timestamp || nowIso,
-            expiredByDeadlineCount: Number(rpcResult.expiredByDeadlineCount || 0),
-            expiredByOfferCount: Number(rpcResult.expiredByOfferCount || 0),
-            totalClosedCount: Number(rpcResult.totalClosedCount || 0),
-            executionMode: 'supabase',
-          },
-        },
-        { headers: { 'Cache-Control': 'no-store' } }
-      );
+    const deadlineIds = (expiredDeadlines.results || []).map((r: { id: string }) => r.id);
+    if (deadlineIds.length > 0) {
+      await db
+        .prepare(
+          `UPDATE pools
+              SET status = 'CLOSED',
+                  closure_reason = 'AUTO_POOL_EXPIRED',
+                  closed_at = ?,
+                  updated_at = ?
+            WHERE status = 'ACTIVE'
+              AND deadline < ?
+              AND deleted_at IS NULL`
+        )
+        .bind(nowIso, nowIso, nowIso)
+        .run();
     }
 
-    // Direct fallback updates if RPC not yet created in remote DB
-    const { data: expiredDeadlines, error: deadlineErr } = await supabase
-      .from('pools')
-      .update({
-        status: 'CLOSED',
-        closure_reason: 'AUTO_POOL_EXPIRED',
-        closed_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq('status', 'ACTIVE')
-      .lt('deadline', nowIso)
-      .is('deleted_at', null)
-      .select('id');
+    // 2. Find and update expired offers
+    const expiredOffers = await db
+      .prepare(
+        "SELECT id FROM pools WHERE status = 'ACTIVE' AND offer_valid_until IS NOT NULL AND offer_valid_until < ? AND deleted_at IS NULL"
+      )
+      .bind(nowIso)
+      .all<{ id: string }>();
 
-    if (deadlineErr) {
-      throw new Error(`Failed to update expired pool deadlines: ${deadlineErr.message}`);
-    }
-
-    const { data: expiredOffers, error: offerErr } = await supabase
-      .from('pools')
-      .update({
-        status: 'CLOSED',
-        closure_reason: 'OFFER_EXPIRED',
-        closed_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq('status', 'ACTIVE')
-      .not('offer_valid_until', 'is', null)
-      .lt('offer_valid_until', nowIso)
-      .is('deleted_at', null)
-      .select('id');
-
-    if (offerErr) {
-      throw new Error(`Failed to update expired offers: ${offerErr.message}`);
+    const offerIds = (expiredOffers.results || []).map((r: { id: string }) => r.id);
+    if (offerIds.length > 0) {
+      await db
+        .prepare(
+          `UPDATE pools
+              SET status = 'CLOSED',
+                  closure_reason = 'OFFER_EXPIRED',
+                  closed_at = ?,
+                  updated_at = ?
+            WHERE status = 'ACTIVE'
+              AND offer_valid_until IS NOT NULL
+              AND offer_valid_until < ?
+              AND deleted_at IS NULL`
+        )
+        .bind(nowIso, nowIso, nowIso)
+        .run();
     }
 
     try {
@@ -161,8 +149,8 @@ async function handleLifecycleExpiry(
       console.warn('Revalidation notice:', revalErr);
     }
 
-    const deadlineCount = expiredDeadlines?.length || 0;
-    const offerCount = expiredOffers?.length || 0;
+    const deadlineCount = deadlineIds.length;
+    const offerCount = offerIds.length;
 
     return NextResponse.json(
       {
@@ -172,11 +160,8 @@ async function handleLifecycleExpiry(
           expiredByDeadlineCount: deadlineCount,
           expiredByOfferCount: offerCount,
           totalClosedCount: deadlineCount + offerCount,
-          expiredPoolIds: [
-            ...(expiredDeadlines?.map((p) => p.id) || []),
-            ...(expiredOffers?.map((p) => p.id) || []),
-          ],
-          executionMode: 'supabase',
+          expiredPoolIds: [...deadlineIds, ...offerIds],
+          executionMode: 'd1',
         },
       },
       { headers: { 'Cache-Control': 'no-store' } }

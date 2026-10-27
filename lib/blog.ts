@@ -7,10 +7,9 @@ import {
   updateDemoBlogPost,
   deleteDemoBlogPost,
 } from './mock-data';
-import { getPublicSupabase } from './supabase/public';
-import { getAdminSupabase } from './supabase/admin';
+import { getD1Database, requireD1Database } from './d1/db';
 
-interface SupabaseBlogPostRow {
+interface D1BlogPostRow {
   id: string;
   slug: string;
   title: string;
@@ -18,20 +17,30 @@ interface SupabaseBlogPostRow {
   content: string;
   author: string;
   topic: string;
-  tags: string[];
+  tags: string;
   cover_image_url: string | null;
   cover_image_alt: string | null;
   meta_title: string | null;
   meta_description: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   published_at: string | null;
+  sources: string | null;
+  editorial_notes: string | null;
   created_at: string;
   updated_at: string;
-  sources: string[] | null;
-  editorial_notes: string | null;
 }
 
-function mapRowToBlogPost(row: SupabaseBlogPostRow): BlogPost {
+function parseJsonArray(val: string | null | undefined): string[] {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapRowToBlogPost(row: D1BlogPostRow): BlogPost {
   return {
     id: row.id,
     slug: row.slug,
@@ -40,7 +49,7 @@ function mapRowToBlogPost(row: SupabaseBlogPostRow): BlogPost {
     content: row.content,
     author: row.author,
     topic: row.topic,
-    tags: Array.isArray(row.tags) ? row.tags : [],
+    tags: parseJsonArray(row.tags),
     coverImageUrl: row.cover_image_url,
     coverImageAlt: row.cover_image_alt,
     metaTitle: row.meta_title,
@@ -49,7 +58,7 @@ function mapRowToBlogPost(row: SupabaseBlogPostRow): BlogPost {
     publishedAt: row.published_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    sources: Array.isArray(row.sources) ? row.sources : undefined,
+    sources: parseJsonArray(row.sources),
     editorialNotes: row.editorial_notes,
   };
 }
@@ -64,27 +73,31 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
     const posts = getDemoBlogPosts();
     return posts
       .filter((p) => p.status === 'PUBLISHED')
-      .sort((a, b) => new Date(b.publishedAt || b.createdAt).getTime() - new Date(a.publishedAt || a.createdAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.publishedAt || b.createdAt).getTime() -
+          new Date(a.publishedAt || a.createdAt).getTime()
+      );
   }
 
-  const supabase = getPublicSupabase();
-  if (!supabase) {
-    const posts = getDemoBlogPosts();
-    return posts.filter((p) => p.status === 'PUBLISHED');
+  const db = await getD1Database();
+  if (!db) {
+    console.error('getPublishedBlogPosts: D1 database unavailable');
+    return [];
   }
 
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .eq('status', 'PUBLISHED')
-    .order('published_at', { ascending: false });
+  try {
+    const { results } = await db
+      .prepare(
+        "SELECT * FROM blog_posts WHERE status = 'PUBLISHED' ORDER BY published_at DESC"
+      )
+      .all<D1BlogPostRow>();
 
-  if (error) {
-    console.warn('Error fetching published blog posts from Supabase, falling back to mock:', error.message);
-    return getDemoBlogPosts().filter((p) => p.status === 'PUBLISHED');
+    return (results || []).map(mapRowToBlogPost);
+  } catch (error: unknown) {
+    console.error('Error fetching published blog posts from D1:', error);
+    return [];
   }
-
-  return (data || []).map((row) => mapRowToBlogPost(row as SupabaseBlogPostRow));
 }
 
 /**
@@ -99,27 +112,27 @@ export async function getBlogPostBySlug(
   if (isDemoMode()) {
     const post = getDemoBlogPosts().find((p) => p.slug === normalizedSlug);
     if (!post) return null;
-    if (post.status !== 'PUBLISHED' && !options?.allowDraft) {
-      return null;
-    }
+    if (post.status !== 'PUBLISHED' && !options?.allowDraft) return null;
     return post;
   }
 
-  const supabase = options?.allowDraft ? getAdminSupabase() : getPublicSupabase();
-  if (!supabase) {
-    const post = getDemoBlogPosts().find((p) => p.slug === normalizedSlug);
-    return post || null;
+  const db = await getD1Database();
+  if (!db) return null;
+
+  try {
+    const row = await db
+      .prepare('SELECT * FROM blog_posts WHERE slug = ?')
+      .bind(normalizedSlug)
+      .first<D1BlogPostRow>();
+
+    if (!row) return null;
+    if (row.status !== 'PUBLISHED' && !options?.allowDraft) return null;
+
+    return mapRowToBlogPost(row);
+  } catch (error: unknown) {
+    console.error('Error looking up blog post by slug in D1:', error);
+    return null;
   }
-
-  let query = supabase.from('blog_posts').select('*').eq('slug', normalizedSlug);
-  if (!options?.allowDraft) {
-    query = query.eq('status', 'PUBLISHED');
-  }
-
-  const { data, error } = await query.maybeSingle();
-  if (error || !data) return null;
-
-  return mapRowToBlogPost(data as SupabaseBlogPostRow);
 }
 
 /**
@@ -130,18 +143,12 @@ export async function getAllBlogPosts(): Promise<BlogPost[]> {
     return getDemoBlogPosts();
   }
 
-  const supabase = getAdminSupabase();
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const db = await requireD1Database();
+  const { results } = await db
+    .prepare('SELECT * FROM blog_posts ORDER BY created_at DESC')
+    .all<D1BlogPostRow>();
 
-  if (error) {
-    console.warn('Error fetching all blog posts from Supabase, falling back to mock:', error.message);
-    return getDemoBlogPosts();
-  }
-
-  return (data || []).map((row) => mapRowToBlogPost(row as SupabaseBlogPostRow));
+  return (results || []).map(mapRowToBlogPost);
 }
 
 /**
@@ -150,10 +157,12 @@ export async function getAllBlogPosts(): Promise<BlogPost[]> {
 export async function createBlogPost(input: BlogPostSchemaInput): Promise<BlogPost> {
   const now = new Date().toISOString();
   const isPublished = input.status === 'PUBLISHED';
+  const id = `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const publishedAt = isPublished ? now : null;
 
   if (isDemoMode()) {
     const newPost: BlogPost = {
-      id: `post-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id,
       slug: input.slug,
       title: input.title,
       excerpt: input.excerpt,
@@ -166,7 +175,7 @@ export async function createBlogPost(input: BlogPostSchemaInput): Promise<BlogPo
       metaTitle: input.metaTitle || null,
       metaDescription: input.metaDescription || null,
       status: input.status,
-      publishedAt: isPublished ? now : null,
+      publishedAt,
       createdAt: now,
       updatedAt: now,
       sources: input.sources || [],
@@ -176,34 +185,47 @@ export async function createBlogPost(input: BlogPostSchemaInput): Promise<BlogPo
     return newPost;
   }
 
-  const supabase = getAdminSupabase();
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .insert({
-      slug: input.slug,
-      title: input.title,
-      excerpt: input.excerpt,
-      content: input.content,
-      author: input.author,
-      topic: input.topic,
-      tags: input.tags || [],
-      cover_image_url: input.coverImageUrl || null,
-      cover_image_alt: input.coverImageAlt || null,
-      meta_title: input.metaTitle || null,
-      meta_description: input.metaDescription || null,
-      status: input.status,
-      published_at: isPublished ? now : null,
-      sources: input.sources || [],
-      editorial_notes: input.editorialNotes || null,
-    })
-    .select()
-    .single();
+  const db = await requireD1Database();
+  await db
+    .prepare(
+      `INSERT INTO blog_posts (
+        id, slug, title, excerpt, content, author, topic, tags,
+        cover_image_url, cover_image_alt, meta_title, meta_description,
+        status, published_at, sources, editorial_notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      id,
+      input.slug,
+      input.title,
+      input.excerpt,
+      input.content,
+      input.author,
+      input.topic,
+      JSON.stringify(input.tags || []),
+      input.coverImageUrl || null,
+      input.coverImageAlt || null,
+      input.metaTitle || null,
+      input.metaDescription || null,
+      input.status,
+      publishedAt,
+      JSON.stringify(input.sources || []),
+      input.editorialNotes || null,
+      now,
+      now
+    )
+    .run();
 
-  if (error) {
-    throw new Error(`Failed to create blog post: ${error.message}`);
+  const created = await db
+    .prepare('SELECT * FROM blog_posts WHERE id = ?')
+    .bind(id)
+    .first<D1BlogPostRow>();
+
+  if (!created) {
+    throw new Error('Failed to retrieve newly created blog post from D1');
   }
 
-  return mapRowToBlogPost(data as SupabaseBlogPostRow);
+  return mapRowToBlogPost(created);
 }
 
 /**
@@ -223,40 +245,85 @@ export async function updateBlogPost(
     return updateDemoBlogPost(id, payload);
   }
 
-  const supabase = getAdminSupabase();
-  const dbPayload: Record<string, unknown> = {
-    updated_at: now,
-  };
+  const db = await requireD1Database();
+  const setClauses: string[] = ['updated_at = ?'];
+  const values: unknown[] = [now];
 
-  if (updates.title !== undefined) dbPayload.title = updates.title;
-  if (updates.slug !== undefined) dbPayload.slug = updates.slug;
-  if (updates.excerpt !== undefined) dbPayload.excerpt = updates.excerpt;
-  if (updates.content !== undefined) dbPayload.content = updates.content;
-  if (updates.author !== undefined) dbPayload.author = updates.author;
-  if (updates.topic !== undefined) dbPayload.topic = updates.topic;
-  if (updates.tags !== undefined) dbPayload.tags = updates.tags;
-  if (updates.coverImageUrl !== undefined) dbPayload.cover_image_url = updates.coverImageUrl;
-  if (updates.coverImageAlt !== undefined) dbPayload.cover_image_alt = updates.coverImageAlt;
-  if (updates.metaTitle !== undefined) dbPayload.meta_title = updates.metaTitle;
-  if (updates.metaDescription !== undefined) dbPayload.meta_description = updates.metaDescription;
+  if (updates.title !== undefined) {
+    setClauses.push('title = ?');
+    values.push(updates.title);
+  }
+  if (updates.slug !== undefined) {
+    setClauses.push('slug = ?');
+    values.push(updates.slug);
+  }
+  if (updates.excerpt !== undefined) {
+    setClauses.push('excerpt = ?');
+    values.push(updates.excerpt);
+  }
+  if (updates.content !== undefined) {
+    setClauses.push('content = ?');
+    values.push(updates.content);
+  }
+  if (updates.author !== undefined) {
+    setClauses.push('author = ?');
+    values.push(updates.author);
+  }
+  if (updates.topic !== undefined) {
+    setClauses.push('topic = ?');
+    values.push(updates.topic);
+  }
+  if (updates.tags !== undefined) {
+    setClauses.push('tags = ?');
+    values.push(JSON.stringify(updates.tags));
+  }
+  if (updates.coverImageUrl !== undefined) {
+    setClauses.push('cover_image_url = ?');
+    values.push(updates.coverImageUrl);
+  }
+  if (updates.coverImageAlt !== undefined) {
+    setClauses.push('cover_image_alt = ?');
+    values.push(updates.coverImageAlt);
+  }
+  if (updates.metaTitle !== undefined) {
+    setClauses.push('meta_title = ?');
+    values.push(updates.metaTitle);
+  }
+  if (updates.metaDescription !== undefined) {
+    setClauses.push('meta_description = ?');
+    values.push(updates.metaDescription);
+  }
   if (updates.status !== undefined) {
-    dbPayload.status = updates.status;
+    setClauses.push('status = ?');
+    values.push(updates.status);
     if (updates.status === 'PUBLISHED') {
-      dbPayload.published_at = now;
+      setClauses.push('published_at = ?');
+      values.push(now);
     }
   }
-  if (updates.sources !== undefined) dbPayload.sources = updates.sources;
-  if (updates.editorialNotes !== undefined) dbPayload.editorial_notes = updates.editorialNotes;
+  if (updates.sources !== undefined) {
+    setClauses.push('sources = ?');
+    values.push(JSON.stringify(updates.sources));
+  }
+  if (updates.editorialNotes !== undefined) {
+    setClauses.push('editorial_notes = ?');
+    values.push(updates.editorialNotes);
+  }
 
-  const { data, error } = await supabase
-    .from('blog_posts')
-    .update(dbPayload)
-    .eq('id', id)
-    .select()
-    .single();
+  values.push(id);
 
-  if (error || !data) return null;
-  return mapRowToBlogPost(data as SupabaseBlogPostRow);
+  await db
+    .prepare(`UPDATE blog_posts SET ${setClauses.join(', ')} WHERE id = ?`)
+    .bind(...values)
+    .run();
+
+  const row = await db
+    .prepare('SELECT * FROM blog_posts WHERE id = ?')
+    .bind(id)
+    .first<D1BlogPostRow>();
+
+  if (!row) return null;
+  return mapRowToBlogPost(row);
 }
 
 /**
@@ -267,7 +334,7 @@ export async function deleteBlogPost(id: string): Promise<boolean> {
     return deleteDemoBlogPost(id);
   }
 
-  const supabase = getAdminSupabase();
-  const { error } = await supabase.from('blog_posts').delete().eq('id', id);
-  return !error;
+  const db = await requireD1Database();
+  const res = await db.prepare('DELETE FROM blog_posts WHERE id = ?').bind(id).run();
+  return Boolean(res.success);
 }

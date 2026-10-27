@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { getDemoLeads } from '@/lib/mock-data';
-import { getAdminSupabase } from '@/lib/supabase/admin';
+import { requireD1Database } from '@/lib/d1/db';
 import { PoolLead } from '@/types';
 
 type RouteContext = {
@@ -48,7 +48,6 @@ export async function GET(
         );
       }
 
-      // Sort by buyerNumber ascending
       leads.sort((a, b) => a.buyerNumber - b.buyerNumber);
 
       const total = leads.length;
@@ -71,82 +70,100 @@ export async function GET(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
-    let query = supabase
-      .from('pool_leads')
-      .select('*', { count: 'exact' })
-      .eq('pool_id', poolId)
-      .order('buyer_number', { ascending: true });
+    // Live D1 execution
+    const db = await requireD1Database();
 
-    if (quoteResponse) query = query.eq('quote_response', quoteResponse);
-    if (feeStatus) query = query.eq('fee_status', feeStatus);
-    if (connectionStatus) query = query.eq('member_connection_status', connectionStatus);
+    const whereClauses: string[] = ['pool_id = ?'];
+    const params: unknown[] = [poolId];
+
+    if (quoteResponse) {
+      whereClauses.push('quote_response = ?');
+      params.push(quoteResponse);
+    }
+    if (feeStatus) {
+      whereClauses.push('fee_status = ?');
+      params.push(feeStatus);
+    }
+    if (connectionStatus) {
+      whereClauses.push('member_connection_status = ?');
+      params.push(connectionStatus);
+    }
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,whatsapp_number.ilike.%${search}%,admin_notes.ilike.%${search}%`);
+      const s = `%${search}%`;
+      whereClauses.push('(LOWER(full_name) LIKE ? OR whatsapp_number LIKE ? OR LOWER(admin_notes) LIKE ?)');
+      params.push(s, s, s);
     }
 
+    const whereSql = whereClauses.join(' AND ');
+
+    const countRow = await db
+      .prepare(`SELECT COUNT(*) as total FROM pool_leads WHERE ${whereSql}`)
+      .bind(...params)
+      .first<{ total: number }>();
+
+    const total = Number(countRow?.total || 0);
+    const totalPages = Math.ceil(total / pageSize) || 1;
     const offset = (page - 1) * pageSize;
-    query = query.range(offset, offset + pageSize - 1);
 
-    const { data, count, error } = await query;
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: error.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    const dataSql = `
+      SELECT * FROM pool_leads
+      WHERE ${whereSql}
+      ORDER BY buyer_number ASC
+      LIMIT ? OFFSET ?
+    `;
 
-    const members: PoolLead[] = (data || []).map((row) => ({
-      id: row.id,
-      poolId: row.pool_id,
-      poolSlug: row.pool_slug || '',
-      poolName: row.pool_name || '',
-      poolCategory: row.pool_category,
-      fullName: row.full_name,
-      whatsappNumber: row.whatsapp_number,
-      city: row.city,
-      buyingTimeline: row.buying_timeline,
+    const { results } = await db
+      .prepare(dataSql)
+      .bind(...params, pageSize, offset)
+      .all<Record<string, unknown>>();
+
+    const members: PoolLead[] = (results || []).map((row: Record<string, unknown>) => ({
+      id: String(row.id),
+      poolId: String(row.pool_id),
+      poolSlug: '',
+      poolName: '',
+      poolCategory: 'EV_SCOOTERS',
+      fullName: String(row.full_name),
+      whatsappNumber: String(row.whatsapp_number),
+      city: String(row.city),
+      buyingTimeline: row.buying_timeline as PoolLead['buyingTimeline'],
       hasExistingQuote: Boolean(row.has_existing_quote),
       existingQuoteAmount: row.existing_quote_amount !== null ? Number(row.existing_quote_amount) : null,
-      extraMessage: row.extra_message || '',
-      selectedKitOfferId: row.selected_kit_offer_id,
-      selectedKitName: row.selected_kit_name,
-      status: row.status,
-      consentAt: row.consent_at,
-      privacyNoticeVersion: row.privacy_notice_version,
-      createdAt: row.created_at,
+      extraMessage: String(row.extra_message || ''),
+      selectedKitOfferId: (row.selected_kit_offer_id as string) || null,
+      selectedKitName: (row.selected_kit_name as string) || null,
+      status: row.status as PoolLead['status'],
+      consentAt: String(row.consent_at),
+      privacyNoticeVersion: String(row.privacy_notice_version),
+      createdAt: String(row.created_at),
       buyerNumber: Number(row.buyer_number),
-      locality: row.locality,
-      pinCode: row.pin_code,
-      adminNotes: row.admin_notes,
+      locality: (row.locality as string) || null,
+      pinCode: (row.pin_code as string) || null,
+      adminNotes: (row.admin_notes as string) || null,
       doNotContact: Boolean(row.do_not_contact),
-      quoteResponse: row.quote_response,
-      quoteResponseNotes: row.quote_response_notes,
-      quoteResponseRecordedAt: row.quote_response_recorded_at,
-      feeStatus: row.fee_status,
-      feeRuleVersion: row.fee_rule_version,
-      feeApprovedBasis: row.fee_approved_basis !== null ? Number(row.fee_approved_basis) : null,
-      feeCalculatedAmount: row.fee_calculated_amount !== null ? Number(row.fee_calculated_amount) : null,
-      feeDisclosedAmount: row.fee_disclosed_amount !== null ? Number(row.fee_disclosed_amount) : null,
-      feeDisclosedAt: row.fee_disclosed_at,
-      paymentReference: row.payment_reference,
-      paymentReportedAt: row.payment_reported_at,
-      paymentVerifiedBy: row.payment_verified_by,
-      paymentVerifiedAt: row.payment_verified_at,
-      paymentWaiverReason: row.payment_waiver_reason,
-      connectionStatus: row.member_connection_status,
-      connectionDate: row.connection_date,
-      connectionMethod: row.connection_method,
-      exclusionReason: row.exclusion_reason,
-      excludedAt: row.excluded_at,
-      lastContactAt: row.last_contact_at,
-      lastContactStatus: row.last_contact_status,
-      lastContactNote: row.last_contact_note,
+      quoteResponse: (row.quote_response as PoolLead['quoteResponse']) || undefined,
+      quoteResponseNotes: (row.quote_response_notes as string) || undefined,
+      quoteResponseRecordedAt: (row.quote_response_recorded_at as string) || undefined,
+      feeStatus: (row.fee_status as PoolLead['feeStatus']) || undefined,
+      feeRuleVersion: (row.fee_rule_version as string) || undefined,
+      feeApprovedBasis: row.fee_approved_basis !== null && row.fee_approved_basis !== undefined ? Number(row.fee_approved_basis) : null,
+      feeCalculatedAmount: row.fee_calculated_amount !== null && row.fee_calculated_amount !== undefined ? Number(row.fee_calculated_amount) : null,
+      feeDisclosedAmount: row.fee_disclosed_amount !== null && row.fee_disclosed_amount !== undefined ? Number(row.fee_disclosed_amount) : null,
+      feeDisclosedAt: (row.fee_disclosed_at as string) || undefined,
+      paymentReference: (row.payment_reference as string) || undefined,
+      paymentReportedAt: (row.payment_reported_at as string) || undefined,
+      paymentVerifiedBy: (row.payment_verified_by as string) || undefined,
+      paymentVerifiedAt: (row.payment_verified_at as string) || undefined,
+      paymentWaiverReason: (row.payment_waiver_reason as string) || undefined,
+      connectionStatus: (row.member_connection_status as PoolLead['connectionStatus']) || undefined,
+      connectionDate: (row.connection_date as string) || undefined,
+      connectionMethod: (row.connection_method as string) || undefined,
+      exclusionReason: (row.exclusion_reason as string) || undefined,
+      excludedAt: (row.excluded_at as string) || undefined,
+      lastContactAt: (row.last_contact_at as string) || undefined,
+      lastContactStatus: (row.last_contact_status as PoolLead['lastContactStatus']) || undefined,
+      lastContactNote: (row.last_contact_note as string) || undefined,
     }));
-
-    const total = count || 0;
-    const totalPages = Math.ceil(total / pageSize) || 1;
 
     return NextResponse.json(
       {

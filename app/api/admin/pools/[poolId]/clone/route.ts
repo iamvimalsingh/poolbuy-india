@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAdminSupabase } from '@/lib/supabase/admin';
 import { isDemoMode } from '@/lib/data-mode';
 import { MOCK_ADMIN_POOLS, addDemoPool } from '@/lib/mock-data';
+import { requireD1Database } from '@/lib/d1/db';
 import { AdminPool } from '@/types';
 import { z } from 'zod';
 import { slugify } from '@/lib/format';
@@ -47,6 +47,7 @@ export async function POST(
     const { targetCity, targetCitySlug, deadlineDays } = parsed.data;
     const finalCitySlug = targetCitySlug ? slugify(targetCitySlug) : slugify(targetCity);
     const newDeadline = new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
 
     if (isDemoMode()) {
       const source = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
@@ -57,7 +58,6 @@ export async function POST(
         );
       }
 
-      // Check duplicate slug in target city
       const duplicate = MOCK_ADMIN_POOLS.find(
         (p) => p.citySlug.toLowerCase() === finalCitySlug.toLowerCase() && p.slug === source.slug
       );
@@ -74,7 +74,6 @@ export async function POST(
         );
       }
 
-      const now = new Date().toISOString();
       const clonedPool: AdminPool = {
         ...source,
         id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -83,7 +82,7 @@ export async function POST(
         currentBuyers: 0,
         deadline: newDeadline,
         status: 'ACTIVE',
-        isPublished: false, // New clone starts as un-published draft
+        isPublished: false,
         targetReachedAt: null,
         targetReachedAcknowledgedAt: null,
         connectionStatus: 'NOT_ELIGIBLE',
@@ -112,65 +111,95 @@ export async function POST(
       );
     }
 
-    // Live Supabase
-    const supabase = getAdminSupabase();
-    const { data: source, error: sourceErr } = await supabase
-      .from('pools')
-      .select('*')
-      .eq('id', poolId)
-      .maybeSingle();
+    // Live D1 execution
+    const db = await requireD1Database();
 
-    if (sourceErr || !source) {
+    const source = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(poolId)
+      .first<Record<string, unknown>>();
+
+    if (!source) {
       return NextResponse.json(
         { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Source pool not found.' } },
         { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    const { data: created, error: insertErr } = await supabase
-      .from('pools')
-      .insert({
-        slug: source.slug,
-        name: source.name,
-        short_description: source.short_description,
-        long_description: source.long_description,
-        category: source.category,
-        city: targetCity,
-        city_slug: finalCitySlug,
-        product_brand: source.product_brand,
-        product_model: source.product_model,
-        image_url: source.image_url,
-        market_price: source.market_price,
-        group_price: source.group_price,
-        target_buyers: source.target_buyers,
-        current_buyers: 0,
-        deadline: newDeadline,
-        status: 'ACTIVE',
-        is_published: false,
-        price_is_verified: source.price_is_verified,
-        price_verified_at: source.price_verified_at,
-        market_price_type: source.market_price_type || 'INDICATIVE_ESTIMATE',
-        group_price_type: source.group_price_type || 'INDICATIVE_ESTIMATE',
-        savings_display_approved: false,
-        connection_status: 'NOT_ELIGIBLE',
-        payment_config_state: 'DISABLED',
-      })
-      .select()
-      .single();
+    const duplicate = await db
+      .prepare('SELECT id FROM pools WHERE city_slug = ? AND slug = ? AND deleted_at IS NULL')
+      .bind(finalCitySlug, source.slug)
+      .first<{ id: string }>();
 
-    if (insertErr) {
+    if (duplicate) {
       return NextResponse.json(
-        { success: false, error: { code: 'DB_ERROR', message: insertErr.message } },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        {
+          success: false,
+          error: {
+            code: 'DUPLICATE_SLUG',
+            message: `A pool with slug "${source.slug}" already exists in ${targetCity}.`,
+          },
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    const newPoolId = `pool-${finalCitySlug}-${source.slug}-${Date.now().toString(36)}`;
+
+    await db
+      .prepare(
+        `INSERT INTO pools (
+          id, slug, name, short_description, long_description, category,
+          city, city_slug, product_brand, product_model, image_url,
+          market_price, group_price, target_buyers, current_buyers,
+          deadline, status, is_published, price_is_verified, price_verified_at,
+          market_price_type, group_price_type, savings_display_approved,
+          connection_status, payment_config_state, created_at, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, 0,
+          ?, 'ACTIVE', 0, ?, ?,
+          ?, ?, 0,
+          'NOT_ELIGIBLE', 'DISABLED', ?, ?
+        )`
+      )
+      .bind(
+        newPoolId,
+        source.slug,
+        source.name,
+        source.short_description || '',
+        source.long_description || '',
+        source.category,
+        targetCity,
+        finalCitySlug,
+        source.product_brand || '',
+        source.product_model || '',
+        source.image_url || null,
+        source.market_price || null,
+        source.group_price || null,
+        source.target_buyers || 10,
+        newDeadline,
+        source.price_is_verified ? 1 : 0,
+        source.price_verified_at || null,
+        source.market_price_type || 'INDICATIVE_ESTIMATE',
+        source.group_price_type || 'INDICATIVE_ESTIMATE',
+        now,
+        now
+      )
+      .run();
+
+    const created = await db
+      .prepare('SELECT * FROM pools WHERE id = ?')
+      .bind(newPoolId)
+      .first();
 
     await recordAdminAudit({
       action: 'POOL_CLONED',
       targetType: 'POOL',
-      targetId: created.id,
+      targetId: newPoolId,
       changesSummary: `Cloned pool "${source.name}" from ${source.city} to ${targetCity} as independent draft pool.`,
-      details: { sourcePoolId: source.id, targetCity, newDeadline },
+      details: { sourcePoolId: poolId, targetCity, newDeadline },
     });
 
     try {
