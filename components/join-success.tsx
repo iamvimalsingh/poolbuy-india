@@ -17,21 +17,37 @@ export function JoinSuccess({ pool, result, onClose }: JoinSuccessProps) {
   const isDemo = isDemoMode();
   const siteUrl = getSiteUrl();
   const shareUrl = buildBuyerViralShareUrl(pool, siteUrl);
+  const resObj = result as unknown as Record<string, unknown>;
+  const isWaitlisted = Boolean(resObj.isWaitlisted || resObj.leadStatus === 'WAITLISTED');
 
   return (
     <div className="text-center py-6 px-2 sm:px-4 space-y-6">
       {/* Icon badge */}
-      <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm animate-bounce-short">
+      <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-sm animate-bounce-short ${
+        isWaitlisted ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-600'
+      }`}>
         <CheckCircle2 className="w-8 h-8" aria-hidden="true" />
       </div>
 
       <div>
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 inline-block mb-3">
-          {result.alreadyJoined ? 'Already Registered' : 'Registration Confirmed'}
+        <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border inline-block mb-3 ${
+          isWaitlisted
+            ? 'text-amber-800 bg-amber-50 border-amber-200'
+            : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+        }`}>
+          {isWaitlisted
+            ? 'Priority Waitlist Confirmed'
+            : result.alreadyJoined
+            ? 'Already Registered'
+            : 'Registration Confirmed'}
         </span>
 
         <h3 className="text-2xl font-extrabold text-gray-950 tracking-tight">
-          {result.alreadyJoined ? (
+          {isWaitlisted ? (
+            <>
+              You are <span className="text-amber-700">Waitlist #{result.buyerNumber}</span>
+            </>
+          ) : result.alreadyJoined ? (
             <>You are already registered!</>
           ) : (
             <>
@@ -41,7 +57,9 @@ export function JoinSuccess({ pool, result, onClose }: JoinSuccessProps) {
         </h3>
 
         <p className="text-sm text-gray-600 max-w-sm mx-auto mt-2 leading-relaxed">
-          {result.alreadyJoined
+          {isWaitlisted
+            ? `Target of ${pool.targetBuyers} buyers reached. You are recorded in the priority FIFO waitlist for ${pool.name} in ${pool.city}. If any buyer drops out or an expanded dealer batch unlocks, we will message you directly on WhatsApp.`
+            : result.alreadyJoined
             ? `Your WhatsApp number is already recorded as Buyer #${result.buyerNumber} for ${pool.name} in ${pool.city}.`
             : `Your interest for ${pool.name} in ${pool.city} is successfully registered.`}
         </p>
@@ -57,9 +75,11 @@ export function JoinSuccess({ pool, result, onClose }: JoinSuccessProps) {
         </div>
 
         <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
-          <span className="font-medium text-gray-600">Target Remaining:</span>
-          <span className="font-semibold text-emerald-700">
-            {result.remainingBuyers > 0
+          <span className="font-medium text-gray-600">Status:</span>
+          <span className={`font-semibold ${isWaitlisted ? 'text-amber-700' : 'text-emerald-700'}`}>
+            {isWaitlisted
+              ? `Waitlist Queue Position #${result.buyerNumber}`
+              : result.remainingBuyers > 0
               ? `${result.remainingBuyers} more needed to unlock terms`
               : 'Target Met! Dealer review pending'}
           </span>

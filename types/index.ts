@@ -78,6 +78,131 @@ export type PaymentConfigState =
   | 'EXTERNAL_LINK_CONFIGURED'
   | 'RECONCILED';
 
+/** Canonical high-level group lifecycle state */
+export type GroupLifecycleStatus =
+  | 'DRAFT'
+  | 'PENDING_REVIEW'
+  | 'OPEN'
+  | 'TARGET_REACHED'
+  | 'CONNECTION_IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CLOSED'
+  | 'ARCHIVED';
+
+/** Waitlist queue lifecycle states */
+export type WaitlistStatus =
+  | 'WAITING'
+  | 'INVITED'
+  | 'ACCEPTED_PROMOTION'
+  | 'DECLINED'
+  | 'EXPIRED'
+  | 'PROMOTED'
+  | 'REMOVED';
+
+/** FIFO waitlist queue entry for a pool */
+export interface WaitlistEntry {
+  id: string;
+  poolId: string;
+  sequenceNumber: number;
+  fullName: string;
+  whatsappNumber: string;
+  city: string;
+  buyingTimeline?: BuyingTimeline;
+  locality?: string | null;
+  pinCode?: string | null;
+  status: WaitlistStatus;
+  invitedAt?: string | null;
+  invitationExpiresAt?: string | null;
+  responseAt?: string | null;
+  promotedAt?: string | null;
+  promotedLeadId?: string | null;
+  removalReason?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Quotation lifecycle status */
+export type QuoteStatus =
+  | 'NOT_REQUESTED'
+  | 'REQUESTED'
+  | 'RECEIVED'
+  | 'PUBLISHED'
+  | 'EXPIRED'
+  | 'WITHDRAWN';
+
+/** Quotation record with validity and scope */
+export interface PoolQuotation {
+  id: string;
+  poolId: string;
+  priceType: 'ESTIMATED' | 'VENDOR_QUOTED';
+  vendorName: string;
+  vendorContactRef?: string | null; // private server-only
+  quotedAmount: number;
+  currency: string;
+  quoteDate: string;
+  validUntil: string;
+  scope: string;
+  inclusions: string[];
+  exclusions: string[];
+  deliveryTerms?: string | null;
+  quantityCondition?: string | null;
+  status: QuoteStatus;
+  isCurrentPublished: boolean;
+  verifiedByAdmin?: string | null;
+  verifiedAt?: string | null;
+  internalNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Member response to quotation */
+export type MemberQuoteResponse =
+  | 'NOT_SENT'
+  | 'AWAITING_RESPONSE'
+  | 'INTERESTED'
+  | 'DECLINED'
+  | 'NEEDS_INFORMATION'
+  | 'NO_RESPONSE';
+
+/** Connection fee payment lifecycle */
+export type ConnectionFeeStatus =
+  | 'NOT_APPLICABLE'
+  | 'NOT_REQUESTED'
+  | 'DISCLOSED_PENDING'
+  | 'PAYMENT_REPORTED'
+  | 'PAID_VERIFIED'
+  | 'WAIVED'
+  | 'REFUNDED'
+  | 'CANCELLED';
+
+/** Member-level connection status */
+export type MemberConnectionStatus =
+  | 'NOT_READY'
+  | 'OPTED_IN'
+  | 'WAITING_FOR_FEE'
+  | 'ELIGIBLE_TO_CONNECT'
+  | 'CONNECTED'
+  | 'OPTED_OUT'
+  | 'EXCLUDED';
+
+/** All operational WhatsApp templates */
+export type WhatsAppTemplateType =
+  | 'UNLOCKED_TOKEN'
+  | 'LEAD_FALLBACK'
+  | 'QUOTE_FOLLOWUP'
+  | 'TARGET_REACHED_INVITATION'
+  | 'GROUP_PUBLISHED'
+  | 'QUOTE_AVAILABLE'
+  | 'RESPONSE_REMINDER'
+  | 'CONNECTION_FEE_DISCLOSURE'
+  | 'PAYMENT_INSTRUCTIONS'
+  | 'WAITLIST_INVITATION'
+  | 'WAITLIST_PROMOTION'
+  | 'EXCLUSION_NOTICE'
+  | 'GROUP_COMPLETED'
+  | 'OPT_OUT_CONFIRMATION';
+
 /** Complete predefined kit package available within a pool or product */
 export interface PoolKitOffer {
   id: string;
@@ -299,6 +424,42 @@ export interface PoolLead {
   adminNotes?: string | null;
   doNotContact?: boolean;
   contactPreference?: string;
+  // Stage 3 Member Operations Additions
+  quoteResponse?: MemberQuoteResponse;
+  quoteResponseNotes?: string | null;
+  quoteResponseRecordedAt?: string | null;
+  feeStatus?: ConnectionFeeStatus;
+  feeRuleVersion?: string | null;
+  feeApprovedBasis?: number | null;
+  feeCalculatedAmount?: number | null;
+  feeDisclosedAmount?: number | null;
+  feeDisclosedAt?: string | null;
+  paymentReference?: string | null;
+  paymentReportedAt?: string | null;
+  paymentVerifiedBy?: string | null;
+  paymentVerifiedAt?: string | null;
+  paymentWaiverReason?: string | null;
+  connectionStatus?: MemberConnectionStatus;
+  connectionDate?: string | null;
+  connectionMethod?: string | null;
+  exclusionReason?: string | null;
+  excludedAt?: string | null;
+  lastContactAt?: string | null;
+  lastContactStatus?: 'LINK_GENERATED' | 'SENT' | null;
+  lastContactNote?: string | null;
+}
+
+export interface AdminOverviewMetrics {
+  totalDrafts: number;
+  totalOpenGroups: number;
+  totalTargetReached: number;
+  totalWaitlistPending: number;
+  totalQuotesAwaitingReview: number;
+  totalMemberResponsesPending: number;
+  totalFeesPendingVerification: number;
+  totalConnectionsPending: number;
+  totalCompletedGroups: number;
+  totalArchivedGroups: number;
 }
 
 export interface PoolRequest {

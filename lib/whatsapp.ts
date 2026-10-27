@@ -28,8 +28,7 @@ export function buildBuyerViralShareUrl(pool: PublicPool, siteUrl?: string): str
 }
 
 /**
- * Message Template 1: Pool Unlocked — Refundable Token Payment Link
- * Available ONLY when pool is UNLOCKED and dealer terms / token URL are verified.
+ * Message Template: Pool Unlocked — Refundable Token Payment Link
  */
 export function buildUnlockedPoolMessage(
   buyerName: string,
@@ -49,8 +48,7 @@ export function buildUnlockedPoolMessage(
 }
 
 /**
- * Message Template 2: Lead Fallback — Direct Showroom Quotation
- * Used when a pool did not unlock or is routed to lead fallback with buyer consent.
+ * Message Template: Lead Fallback — Direct Showroom Quotation
  */
 export function buildLeadFallbackMessage(
   buyerName: string,
@@ -81,8 +79,7 @@ export function buildQuoteFollowupMessage(
 }
 
 /**
- * Message Template 4: Target Reached / Connection Stage Invitation
- * Sent by admin click-to-chat to invite buyer to review verified group quotation.
+ * Message Template: Target Reached / Connection Stage Invitation
  */
 export function buildTargetReachedMessage(
   buyerName: string,
@@ -96,5 +93,190 @@ export function buildTargetReachedMessage(
     `Our team is currently reviewing vendor quotations to verify pricing and delivery terms. ` +
     `We will share the verified options for your confirmation shortly before connecting you with the supplier.\n\n` +
     `There is no payment or commitment required at this stage.`
+  );
+}
+
+/**
+ * Message Template: Group Published
+ */
+export function buildGroupPublishedMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  targetBuyers: number,
+  deadline: string
+): string {
+  const formattedDeadline = new Date(deadline).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `The group buy for *${productName}* in ${cityName} is now officially published on GroupBuying.store!\n\n` +
+    `Target: ${targetBuyers} buyers. Group closes on: ${formattedDeadline}.\n` +
+    `You can track group progress in real time. We will update you as soon as the cohort reaches capacity.`
+  );
+}
+
+/**
+ * Message Template: Quote Available
+ */
+export function buildQuoteAvailableMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  vendorQuotedPrice: number,
+  validUntil: string
+): string {
+  const priceFormatted = formatINR(vendorQuotedPrice);
+  const formattedExpiry = new Date(validUntil).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `A verified vendor quotation is now available for *${productName}* in ${cityName}!\n\n` +
+    `Quoted Group Price: *${priceFormatted}*\n` +
+    `Valid until: ${formattedExpiry}\n\n` +
+    `Please reply with:\n` +
+    `1. *INTERESTED* — if you would like to proceed at this quotation.\n` +
+    `2. *DECLINED* — if this quote does not meet your requirements.\n\n` +
+    `This inquiry does not obligate you to purchase.`
+  );
+}
+
+/**
+ * Message Template: Response Reminder
+ */
+export function buildResponseReminderMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `Friendly reminder regarding the group quotation for *${productName}* in ${cityName}.\n\n` +
+    `To finalize the group count and reserve supplier allocation, please let us know if you wish to proceed (*INTERESTED*) or opt out (*DECLINED*).\n\n` +
+    `If you need additional scope or specification details, simply reply here.`
+  );
+}
+
+/**
+ * Message Template: Connection Fee Disclosure
+ */
+export function buildConnectionFeeDisclosureMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  feeAmount: number,
+  feeBasis: number
+): string {
+  const feeFormatted = formatINR(feeAmount);
+  const basisFormatted = formatINR(feeBasis);
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `The group for *${productName}* in ${cityName} is preparing for direct supplier introduction.\n\n` +
+    `As per our terms, the connection fee for this group is *${feeFormatted}* (calculated as max(₹99, 0.10% × approved basis of ${basisFormatted})).\n\n` +
+    `This fee covers supplier verification, delivery coordination, and group representation.\n` +
+    `Please confirm if you agree to these disclosed terms to receive payment instructions.`
+  );
+}
+
+/**
+ * Message Template: Payment Instructions
+ */
+export function buildPaymentInstructionsMessage(
+  buyerName: string,
+  productName: string,
+  feeAmount: number,
+  paymentDetails: string
+): string {
+  const feeFormatted = formatINR(feeAmount);
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `Payment details for connecting to *${productName}* (Fee: *${feeFormatted}*):\n\n` +
+    `${paymentDetails}\n\n` +
+    `After completing payment, please share your UPI / UTR transaction reference number here for manual verification by our operator.`
+  );
+}
+
+/**
+ * Message Template: Waitlist Invitation
+ */
+export function buildWaitlistInvitationMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  position: number
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `Good news! A capacity slot has opened up in the *${productName}* group in ${cityName}.\n\n` +
+    `As position #${position} on the waitlist, you are now invited to take this allocation.\n\n` +
+    `Please reply with *ACCEPT* within 24 hours to confirm your seat in the active buying group, or *PASS* to release it to the next buyer.`
+  );
+}
+
+/**
+ * Message Template: Waitlist Promotion Confirmation
+ */
+export function buildWaitlistPromotionMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  buyerNumber: number
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `You have been successfully promoted from the waitlist to an active member (Buyer #${buyerNumber}) in the *${productName}* group in ${cityName}!\n\n` +
+    `You will receive all group quotation and supplier connection updates directly on WhatsApp.`
+  );
+}
+
+/**
+ * Message Template: Exclusion Notice
+ */
+export function buildExclusionNoticeMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string,
+  reason: string
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `This is an update regarding your registration in *${productName}* in ${cityName}.\n\n` +
+    `Your seat has been released from the active group for the following reason: ${reason}.\n\n` +
+    `If you believe this was in error, please reply to this message and our admin team will review it.`
+  );
+}
+
+/**
+ * Message Template: Group Completed
+ */
+export function buildGroupCompletedMessage(
+  buyerName: string,
+  productName: string,
+  cityName: string
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `The group buy round for *${productName}* in ${cityName} has concluded successfully!\n\n` +
+    `All participating members have been connected with the supplier. Thank you for participating in community group buying with GroupBuying.store.`
+  );
+}
+
+/**
+ * Message Template: Opt-out Confirmation
+ */
+export function buildOptOutConfirmationMessage(
+  buyerName: string,
+  productName: string
+): string {
+  return (
+    `Namaste ${buyerName.trim()},\n\n` +
+    `As requested, your contact preferences have been updated to DO NOT CONTACT for *${productName}*.\n\n` +
+    `You will receive no further messages or calls regarding this group. Thank you.`
   );
 }

@@ -4,7 +4,7 @@ import { getAdminSupabase } from './supabase/admin';
 export interface AuditLogEntry {
   id: string;
   action: string;
-  targetType: 'POOL' | 'LEAD' | 'REQUEST' | 'CITY' | 'CATEGORY' | 'CONFIG';
+  targetType: 'POOL' | 'LEAD' | 'REQUEST' | 'CITY' | 'CATEGORY' | 'CONFIG' | 'QUOTE';
   targetId: string;
   adminIdentifier: string;
   changesSummary: string;
@@ -38,7 +38,7 @@ export function getDemoAuditLogs(): AuditLogEntry[] {
 
 export async function recordAdminAudit(entry: {
   action: string;
-  targetType: 'POOL' | 'LEAD' | 'REQUEST' | 'CITY' | 'CATEGORY' | 'CONFIG';
+  targetType: 'POOL' | 'LEAD' | 'REQUEST' | 'CITY' | 'CATEGORY' | 'CONFIG' | 'QUOTE';
   targetId: string;
   adminIdentifier?: string;
   changesSummary: string;

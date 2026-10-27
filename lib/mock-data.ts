@@ -12,6 +12,10 @@ import {
   VendorPriceTier,
   PriceHistoryEntry,
   BlogPost,
+  WaitlistEntry,
+  PoolQuotation,
+  AdminOverviewMetrics,
+  BuyingTimeline,
 } from '@/types';
 import { STANDARD_PRODUCTS } from './products';
 
@@ -758,9 +762,108 @@ interface GlobalMockStore {
   __poolbuy_requests?: PoolRequest[];
   __poolbuy_standard_products?: StandardProduct[];
   __poolbuy_blog_posts?: BlogPost[];
+  __poolbuy_waitlist?: WaitlistEntry[];
+  __poolbuy_quotations?: PoolQuotation[];
 }
 
 const g = globalThis as unknown as GlobalMockStore;
+
+export const INITIAL_MOCK_QUOTATIONS: PoolQuotation[] = [
+  {
+    id: 'quote-tvs-bhopal-1',
+    poolId: '11111111-1111-4111-8111-111111111111',
+    priceType: 'VENDOR_QUOTED',
+    vendorName: 'Bhopal TVS Dealership (MP Nagar)',
+    vendorContactRef: 'Rajesh Saxena (General Manager Sales, 9826012345)',
+    quotedAmount: 130000,
+    currency: 'INR',
+    quoteDate: '2026-10-25T10:00:00.000Z',
+    validUntil: '2026-11-15T18:00:00.000Z',
+    scope: 'TVS iQube Electric Scooter (Base 3.4 kWh battery). Includes OEM charger, comprehensive RTO registration, and 5-year third party + 1-year own damage insurance in Bhopal.',
+    inclusions: ['OEM Portable Fast Charger', 'Bhopal RTO Registration', '1+5 Year Insurance', 'Extended 3-Year Battery Warranty'],
+    exclusions: ['Accessories package (smart helmet, body guard, floor mat)'],
+    deliveryTerms: 'Priority showroom delivery within 7 working days from invoicing.',
+    quantityCondition: 'Valid for verified cohort of 8–15 buyers.',
+    status: 'PUBLISHED',
+    isCurrentPublished: true,
+    verifiedByAdmin: 'admin_session',
+    verifiedAt: '2026-10-25T11:00:00.000Z',
+    internalNotes: 'Dealer verified GST invoice & dealership authorization certificate checked.',
+    createdAt: '2026-10-25T10:00:00.000Z',
+    updatedAt: '2026-10-25T11:00:00.000Z',
+  },
+  {
+    id: 'quote-solar-bhopal-1',
+    poolId: '33333333-5kw-4333-8333-bhopal000005',
+    priceType: 'VENDOR_QUOTED',
+    vendorName: 'Madhya Bharat Solar EPC Pvt Ltd',
+    vendorContactRef: 'Er. Sandeep Chouhan (Director, 9893012345)',
+    quotedAmount: 285000,
+    currency: 'INR',
+    quoteDate: '2026-10-25T12:00:00.000Z',
+    validUntil: '2026-11-20T18:00:00.000Z',
+    scope: '5 kW Turnkey Rooftop Solar with TopCon DCR modules and MPMKVVCL Net-metering setup in Bhopal.',
+    inclusions: ['550Wp DCR Panels', '5kW Inverter', 'Structure & Earthing', 'DISCOM Paperwork'],
+    exclusions: ['Elevated structure beyond 6 feet'],
+    deliveryTerms: 'Installation within 14 days of DISCOM feasibility approval.',
+    quantityCondition: 'Minimum cohort of 6 residential buyers.',
+    status: 'PUBLISHED',
+    isCurrentPublished: true,
+    verifiedByAdmin: 'admin_session',
+    verifiedAt: '2026-10-25T12:30:00.000Z',
+    internalNotes: 'EPC company MNRE empanelled and insured.',
+    createdAt: '2026-10-25T12:00:00.000Z',
+    updatedAt: '2026-10-25T12:30:00.000Z',
+  },
+  {
+    id: 'quote-backup-bhopal-1',
+    poolId: '77777777-1111-4777-8777-bhopal000007',
+    priceType: 'VENDOR_QUOTED',
+    vendorName: 'Bhopal Power Solutions & Distribution',
+    vendorContactRef: 'Manoj Agarwal (Authorized Distributor, 9425012345)',
+    quotedAmount: 24800,
+    currency: 'INR',
+    quoteDate: '2026-10-25T14:00:00.000Z',
+    validUntil: '2026-11-12T18:00:00.000Z',
+    scope: '1100VA Pure Sine Wave Inverter + 200 Ah Heavy Duty Tall Tubular Battery + Modular Trolley.',
+    inclusions: ['Doorstep Delivery', 'Installation & Terminal Coating', 'Official Tax Invoice & Warranty'],
+    exclusions: ['Sub-DB rewiring beyond inverter bypass'],
+    deliveryTerms: 'Same-day or next-day doorstep installation across Bhopal municipal limits.',
+    quantityCondition: 'Cohort of 10+ orders.',
+    status: 'PUBLISHED',
+    isCurrentPublished: true,
+    verifiedByAdmin: 'admin_session',
+    verifiedAt: '2026-10-25T14:30:00.000Z',
+    internalNotes: 'Authorized OEM battery distributor warranty backed.',
+    createdAt: '2026-10-25T14:00:00.000Z',
+    updatedAt: '2026-10-25T14:30:00.000Z',
+  },
+  {
+    id: 'quote-softener-bhopal-1',
+    poolId: '88888888-1111-4888-8888-bhopal000008',
+    priceType: 'VENDOR_QUOTED',
+    vendorName: 'PureFlow Water Treatment Engineering',
+    vendorContactRef: 'Sunil Rao (9755012345)',
+    quotedAmount: 31000,
+    currency: 'INR',
+    quoteDate: '2026-10-24T15:00:00.000Z',
+    validUntil: '2026-11-18T18:00:00.000Z',
+    scope: 'Automatic Digital Ion-Exchange Water Softener (28L Food-Grade Resin) with bypass manifold.',
+    inclusions: ['FRP Vessel & Auto Valve', 'Brine Tank with Safety Float', '25kg Tablet Salt', 'Plumbing Installation'],
+    exclusions: ['Motorized booster pump if inlet pressure < 1.5 bar'],
+    deliveryTerms: 'Installation within 48 hours in Bhopal.',
+    quantityCondition: 'Valid for 5+ residential buyers.',
+    status: 'PUBLISHED',
+    isCurrentPublished: true,
+    verifiedByAdmin: 'admin_session',
+    verifiedAt: '2026-10-24T15:30:00.000Z',
+    internalNotes: 'NSF certified resin verified.',
+    createdAt: '2026-10-24T15:00:00.000Z',
+    updatedAt: '2026-10-24T15:30:00.000Z',
+  },
+];
+
+export const INITIAL_MOCK_WAITLIST: WaitlistEntry[] = [];
 
 if (!g.__poolbuy_cities) {
   g.__poolbuy_cities = INITIAL_MOCK_CITIES;
@@ -789,6 +892,12 @@ if (!g.__poolbuy_mock_admin_pools) {
 }
 if (!g.__poolbuy_demo_leads) {
   g.__poolbuy_demo_leads = [];
+}
+if (!g.__poolbuy_quotations) {
+  g.__poolbuy_quotations = [...INITIAL_MOCK_QUOTATIONS];
+}
+if (!g.__poolbuy_waitlist) {
+  g.__poolbuy_waitlist = [...INITIAL_MOCK_WAITLIST];
 }
 
 export const MOCK_POOLS: PublicPool[] = g.__poolbuy_mock_pools;
@@ -1080,11 +1189,13 @@ export function deleteDemoPool(
 
   const leads = DEMO_LEADS.filter((l) => l.poolId === poolId);
   const requests = (g.__poolbuy_requests || []).filter((r) => r.resultingPoolId === poolId);
+  const waitlist = (g.__poolbuy_waitlist || []).filter((w) => w.poolId === poolId);
+  const quotes = (g.__poolbuy_quotations || []).filter((q) => q.poolId === poolId);
 
   if (options?.hardDelete) {
-    if (leads.length > 0 || requests.length > 0) {
+    if (leads.length > 0 || requests.length > 0 || waitlist.length > 0 || quotes.length > 0) {
       throw new Error(
-        `CANNOT_HARD_DELETE_POOL_WITH_DEPENDENCIES: Pool has ${leads.length} recorded leads and ${requests.length} linked proposal requests. Use soft-delete / archive instead.`
+        `CANNOT_HARD_DELETE_POOL_WITH_DEPENDENCIES: Pool has dependencies (leads: ${leads.length}, requests: ${requests.length}, waitlist: ${waitlist.length}, quotes: ${quotes.length}). Use soft-delete / archive instead.`
       );
     }
     // Hard delete: remove from both arrays
@@ -1120,77 +1231,401 @@ export function deleteDemoPool(
 }
 
 /**
- * Restores a soft-deleted or archived pool in demo mode.
+ * Marks a group as COMPLETED in demo mode.
+ * Hides it from active public discovery while retaining detail and history views.
  */
-export function restoreDemoPool(poolId: string): AdminPool {
-  const adminIndex = MOCK_ADMIN_POOLS.findIndex((p) => p.id === poolId);
-  if (adminIndex === -1) {
-    throw new Error('POOL_NOT_FOUND');
+export function completeDemoPool(poolId: string): AdminPool | null {
+  const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
+  if (!adminPool) return null;
+
+  const now = new Date().toISOString();
+  adminPool.status = 'CLOSED';
+  adminPool.connectionStatus = 'COMPLETED';
+  adminPool.closureReason = 'TARGET_ACHIEVED';
+  adminPool.closedAt = adminPool.closedAt || now;
+  adminPool.isPublished = false;
+  adminPool.updatedAt = now;
+
+  // Remove from active public discovery
+  const pubIndex = MOCK_POOLS.findIndex((p) => p.id === poolId);
+  if (pubIndex !== -1) {
+    MOCK_POOLS.splice(pubIndex, 1);
+  }
+
+  return adminPool;
+}
+
+/**
+ * Archives a group in demo mode.
+ */
+export function archiveDemoPool(poolId: string): AdminPool | null {
+  const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
+  if (!adminPool) return null;
+
+  const now = new Date().toISOString();
+  adminPool.isArchived = true;
+  adminPool.isPublished = false;
+  adminPool.updatedAt = now;
+
+  // Remove from active public discovery
+  const pubIndex = MOCK_POOLS.findIndex((p) => p.id === poolId);
+  if (pubIndex !== -1) {
+    MOCK_POOLS.splice(pubIndex, 1);
+  }
+
+  return adminPool;
+}
+
+/**
+ * Restores an archived or soft-deleted group in demo mode.
+ * Note: Restoring changes administrative visibility only and does NOT automatically republish.
+ */
+export function restoreDemoPool(poolId: string): AdminPool | null {
+  const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
+  if (!adminPool) return null;
+
+  const now = new Date().toISOString();
+  adminPool.isArchived = false;
+  adminPool.deletedAt = null;
+  adminPool.isPublished = false; // Never auto-publish on restore per specification
+  adminPool.updatedAt = now;
+
+  return adminPool;
+}
+
+/**
+ * Waitlist Management in Demo Mode
+ */
+export function getDemoWaitlist(poolId?: string): WaitlistEntry[] {
+  const all = g.__poolbuy_waitlist || [];
+  if (poolId) {
+    return all.filter((w) => w.poolId === poolId).sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+  }
+  return [...all].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+}
+
+export function addDemoWaitlistEntry(
+  poolId: string,
+  input: {
+    fullName: string;
+    whatsappNumber: string;
+    city: string;
+    locality?: string | null;
+    pinCode?: string | null;
+    buyingTimeline?: BuyingTimeline | null;
+    notes?: string | null;
+  }
+): WaitlistEntry {
+  if (!g.__poolbuy_waitlist) {
+    g.__poolbuy_waitlist = [];
+  }
+
+  const existingInPool = g.__poolbuy_waitlist.filter((w) => w.poolId === poolId);
+  const nextSeq = existingInPool.length + 1;
+  const now = new Date().toISOString();
+
+  const entry: WaitlistEntry = {
+    id: `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    poolId,
+    sequenceNumber: nextSeq,
+    fullName: input.fullName.trim(),
+    whatsappNumber: input.whatsappNumber.trim(),
+    city: input.city,
+    locality: input.locality || null,
+    pinCode: input.pinCode || null,
+    buyingTimeline: input.buyingTimeline || 'THIS_MONTH',
+    status: 'WAITING',
+    notes: input.notes || null,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  g.__poolbuy_waitlist.push(entry);
+  return entry;
+}
+
+export function updateDemoWaitlistEntry(
+  waitlistId: string,
+  updates: Partial<WaitlistEntry>
+): WaitlistEntry | null {
+  if (!g.__poolbuy_waitlist) {
+    g.__poolbuy_waitlist = [];
+  }
+
+  const index = g.__poolbuy_waitlist.findIndex((w) => w.id === waitlistId);
+  if (index === -1) return null;
+
+  const current = g.__poolbuy_waitlist[index];
+  const updated: WaitlistEntry = {
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  g.__poolbuy_waitlist[index] = updated;
+  return updated;
+}
+
+/**
+ * Promotes a waitlist entry to an active group member in demo mode.
+ */
+export function promoteDemoWaitlistEntry(waitlistId: string): { lead: PoolLead; waitlist: WaitlistEntry } | null {
+  if (!g.__poolbuy_waitlist) return null;
+
+  const waitlistIndex = g.__poolbuy_waitlist.findIndex((w) => w.id === waitlistId);
+  if (waitlistIndex === -1) return null;
+
+  const entry = g.__poolbuy_waitlist[waitlistIndex];
+  const pool = MOCK_POOLS.find((p) => p.id === entry.poolId);
+  const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === entry.poolId);
+
+  if (!pool || !adminPool) return null;
+
+  const now = new Date().toISOString();
+  const nextCount = pool.currentBuyers + 1;
+  pool.currentBuyers = nextCount;
+  pool.updatedAt = now;
+  adminPool.currentBuyers = nextCount;
+  adminPool.updatedAt = now;
+
+  const newLead: PoolLead = {
+    id: `lead-promoted-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    poolId: pool.id,
+    poolSlug: pool.slug,
+    poolName: pool.name,
+    poolCategory: pool.category,
+    buyerNumber: nextCount,
+    fullName: entry.fullName,
+    whatsappNumber: entry.whatsappNumber,
+    city: entry.city,
+    buyingTimeline: entry.buyingTimeline || 'THIS_MONTH',
+    hasExistingQuote: false,
+    existingQuoteAmount: null,
+    extraMessage: 'Promoted from waitlist position #' + entry.sequenceNumber,
+    selectedKitOfferId: null,
+    status: 'NEW',
+    consentAt: now,
+    privacyNoticeVersion: '2026-10-26-v1',
+    createdAt: now,
+    connectionOptIn: false,
+    vendorShareConsent: false,
+    locality: entry.locality || null,
+    pinCode: entry.pinCode || null,
+    adminNotes: `Promoted from waitlist ${waitlistId} on ${now}`,
+    doNotContact: false,
+    contactPreference: 'WHATSAPP',
+    connectionStatus: 'NOT_READY',
+    quoteResponse: 'NOT_SENT',
+    feeStatus: 'NOT_REQUESTED',
+  };
+
+  DEMO_LEADS.unshift(newLead);
+
+  entry.status = 'PROMOTED';
+  entry.promotedAt = now;
+  entry.promotedLeadId = newLead.id;
+  entry.updatedAt = now;
+
+  return { lead: newLead, waitlist: entry };
+}
+
+/**
+ * Quotation Management in Demo Mode
+ */
+export function getDemoQuotations(poolId?: string): PoolQuotation[] {
+  const all = g.__poolbuy_quotations || [];
+  if (poolId) {
+    return all.filter((q) => q.poolId === poolId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  return [...all].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function addDemoQuotation(
+  poolId: string,
+  quotationData: Omit<PoolQuotation, 'id' | 'poolId' | 'createdAt' | 'updatedAt'>
+): PoolQuotation {
+  if (!g.__poolbuy_quotations) {
+    g.__poolbuy_quotations = [];
   }
 
   const now = new Date().toISOString();
-  const current = MOCK_ADMIN_POOLS[adminIndex];
-  const updatedAdmin: AdminPool = {
-    ...current,
-    status: 'ACTIVE',
-    closureReason: null,
-    closedAt: null,
-    deletedAt: null,
-    isArchived: false,
+  const newQuote: PoolQuotation = {
+    ...quotationData,
+    id: `quote-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    poolId,
+    createdAt: now,
     updatedAt: now,
   };
-  MOCK_ADMIN_POOLS[adminIndex] = updatedAdmin;
 
-  // Add back or update in public pools
-  const pubIndex = MOCK_POOLS.findIndex((p) => p.id === poolId);
-  if (pubIndex !== -1) {
-    MOCK_POOLS[pubIndex] = {
-      ...MOCK_POOLS[pubIndex],
-      status: 'ACTIVE',
-      closureReason: null,
-      closedAt: null,
-      deletedAt: null,
-      isArchived: false,
-      updatedAt: now,
-    };
-  } else {
-    // Re-insert into public pools
-    const pubPool: PublicPool = {
-      id: updatedAdmin.id,
-      slug: updatedAdmin.slug,
-      name: updatedAdmin.name,
-      shortDescription: updatedAdmin.shortDescription,
-      longDescription: updatedAdmin.longDescription,
-      category: updatedAdmin.category,
-      categorySlug: updatedAdmin.categorySlug,
-      city: updatedAdmin.city,
-      citySlug: updatedAdmin.citySlug,
-      productBrand: updatedAdmin.productBrand,
-      productModel: updatedAdmin.productModel,
-      imageUrl: updatedAdmin.imageUrl,
-      marketPrice: updatedAdmin.marketPrice,
-      groupPrice: updatedAdmin.groupPrice,
-      targetBuyers: updatedAdmin.targetBuyers,
-      currentBuyers: updatedAdmin.currentBuyers,
-      deadline: updatedAdmin.deadline,
-      status: updatedAdmin.status,
-      closureReason: null,
-      closedAt: null,
-      offerValidUntil: updatedAdmin.offerValidUntil,
-      isArchived: false,
-      deletedAt: null,
-      priceIsVerified: updatedAdmin.priceIsVerified,
-      priceVerifiedAt: updatedAdmin.priceVerifiedAt,
-      kitOffers: updatedAdmin.kitOffers,
-      priceTiers: updatedAdmin.priceTiers,
-      createdAt: updatedAdmin.createdAt,
-      updatedAt: now,
-    };
-    MOCK_POOLS.unshift(pubPool);
+  if (newQuote.isCurrentPublished) {
+    // Unpublish previous quotes for this pool
+    g.__poolbuy_quotations.forEach((q) => {
+      if (q.poolId === poolId) q.isCurrentPublished = false;
+    });
   }
 
-  return updatedAdmin;
+  g.__poolbuy_quotations.unshift(newQuote);
+  return newQuote;
 }
+
+export function updateDemoQuotation(
+  quoteId: string,
+  updates: Partial<PoolQuotation>
+): PoolQuotation | null {
+  if (!g.__poolbuy_quotations) {
+    g.__poolbuy_quotations = [];
+  }
+
+  const index = g.__poolbuy_quotations.findIndex((q) => q.id === quoteId);
+  if (index === -1) return null;
+
+  const current = g.__poolbuy_quotations[index];
+
+  if (updates.isCurrentPublished) {
+    g.__poolbuy_quotations.forEach((q) => {
+      if (q.poolId === current.poolId && q.id !== quoteId) {
+        q.isCurrentPublished = false;
+      }
+    });
+  }
+
+  const updated: PoolQuotation = {
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  g.__poolbuy_quotations[index] = updated;
+
+  // Synchronize pool groupPrice if published
+  if (updated.isCurrentPublished) {
+    const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === current.poolId);
+    const pubPool = MOCK_POOLS.find((p) => p.id === current.poolId);
+    if (adminPool) {
+      adminPool.groupPrice = updated.quotedAmount;
+      adminPool.groupPriceType = updated.priceType === 'VENDOR_QUOTED' ? 'VENDOR_QUOTED' : 'INDICATIVE_ESTIMATE';
+      adminPool.dealerName = updated.vendorName;
+      adminPool.quoteSource = updated.vendorName;
+      adminPool.quoteDate = updated.quoteDate;
+      adminPool.quoteValidUntil = updated.validUntil;
+      adminPool.quoteScope = updated.scope;
+      adminPool.priceIsVerified = true;
+      adminPool.priceVerifiedAt = updated.verifiedAt || new Date().toISOString();
+    }
+    if (pubPool) {
+      pubPool.groupPrice = updated.quotedAmount;
+      pubPool.groupPriceType = updated.priceType === 'VENDOR_QUOTED' ? 'VENDOR_QUOTED' : 'INDICATIVE_ESTIMATE';
+      pubPool.priceIsVerified = true;
+      pubPool.priceVerifiedAt = updated.verifiedAt || new Date().toISOString();
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Updates a lead / member record in demo mode.
+ */
+export function updateDemoLead(leadId: string, updates: Partial<PoolLead>): PoolLead | null {
+  const index = DEMO_LEADS.findIndex((l) => l.id === leadId);
+  if (index === -1) return null;
+
+  const current = DEMO_LEADS[index];
+  const updated: PoolLead = {
+    ...current,
+    ...updates,
+  };
+  DEMO_LEADS[index] = updated;
+  return updated;
+}
+
+/**
+ * Records an explicit manual "SENT" status on a lead after admin sends WhatsApp message.
+ */
+export function recordManualWhatsAppSent(
+  leadId: string,
+  templateType: string,
+  notes?: string | null
+): PoolLead | null {
+  const index = DEMO_LEADS.findIndex((l) => l.id === leadId);
+  if (index === -1) return null;
+
+  const now = new Date().toISOString();
+  const current = DEMO_LEADS[index];
+
+  const updated: PoolLead = {
+    ...current,
+    lastContactAt: now,
+    lastContactStatus: 'SENT',
+    lastContactNote: notes || `Manually sent ${templateType} via WhatsApp.`,
+    status: current.status === 'NEW' ? 'CONTACTED' : current.status,
+  };
+
+  DEMO_LEADS[index] = updated;
+  return updated;
+}
+
+/**
+ * Calculates current admin overview metrics across all pools, leads, and quotes.
+ */
+export function getDemoOverviewMetrics(): AdminOverviewMetrics {
+  const nowMs = Date.now();
+  let totalDrafts = 0;
+  let totalOpenGroups = 0;
+  let totalTargetReached = 0;
+  let totalCompletedGroups = 0;
+  let totalArchivedGroups = 0;
+
+  for (const pool of MOCK_ADMIN_POOLS) {
+    if (pool.isArchived) {
+      totalArchivedGroups++;
+    } else if (pool.connectionStatus === 'COMPLETED') {
+      totalCompletedGroups++;
+    } else if (pool.isPublished === false && !pool.deletedAt) {
+      totalDrafts++;
+    } else if (pool.status === 'ACTIVE' && new Date(pool.deadline).getTime() > nowMs) {
+      totalOpenGroups++;
+    } else if (pool.currentBuyers >= pool.targetBuyers || pool.status === 'UNLOCKED') {
+      totalTargetReached++;
+    }
+  }
+
+  const waitlist = g.__poolbuy_waitlist || [];
+  const totalWaitlistPending = waitlist.filter((w) => w.status === 'WAITING' || w.status === 'INVITED').length;
+
+  const quotes = g.__poolbuy_quotations || [];
+  const totalQuotesAwaitingReview = quotes.filter((q) => q.status === 'RECEIVED' || q.status === 'REQUESTED').length;
+
+  let totalMemberResponsesPending = 0;
+  let totalFeesPendingVerification = 0;
+  let totalConnectionsPending = 0;
+
+  for (const lead of DEMO_LEADS) {
+    if (lead.quoteResponse === 'AWAITING_RESPONSE' || (!lead.quoteResponse && lead.status === 'CONTACTED')) {
+      totalMemberResponsesPending++;
+    }
+    if (lead.feeStatus === 'PAYMENT_REPORTED' || lead.feeStatus === 'DISCLOSED_PENDING') {
+      totalFeesPendingVerification++;
+    }
+    if (lead.connectionStatus === 'ELIGIBLE_TO_CONNECT' || lead.connectionStatus === 'OPTED_IN') {
+      totalConnectionsPending++;
+    }
+  }
+
+  return {
+    totalDrafts,
+    totalOpenGroups,
+    totalTargetReached,
+    totalWaitlistPending,
+    totalQuotesAwaitingReview,
+    totalMemberResponsesPending,
+    totalFeesPendingVerification,
+    totalConnectionsPending,
+    totalCompletedGroups,
+    totalArchivedGroups,
+  };
+}
+
 
 /**
  * Idempotently expires pools whose deadline or vendor offer valid until has passed.

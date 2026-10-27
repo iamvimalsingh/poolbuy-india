@@ -78,6 +78,154 @@ export const paymentConfigStateEnum = z.enum([
   'RECONCILED',
 ]);
 
+export const groupLifecycleStatusEnum = z.enum([
+  'DRAFT',
+  'PENDING_REVIEW',
+  'OPEN',
+  'TARGET_REACHED',
+  'CONNECTION_IN_PROGRESS',
+  'COMPLETED',
+  'CLOSED',
+  'ARCHIVED',
+]);
+
+export const waitlistStatusEnum = z.enum([
+  'WAITING',
+  'INVITED',
+  'ACCEPTED_PROMOTION',
+  'DECLINED',
+  'EXPIRED',
+  'PROMOTED',
+  'REMOVED',
+]);
+
+export const quoteStatusEnum = z.enum([
+  'NOT_REQUESTED',
+  'REQUESTED',
+  'RECEIVED',
+  'PUBLISHED',
+  'EXPIRED',
+  'WITHDRAWN',
+]);
+
+export const memberQuoteResponseEnum = z.enum([
+  'NOT_SENT',
+  'AWAITING_RESPONSE',
+  'INTERESTED',
+  'DECLINED',
+  'NEEDS_INFORMATION',
+  'NO_RESPONSE',
+]);
+
+export const connectionFeeStatusEnum = z.enum([
+  'NOT_APPLICABLE',
+  'NOT_REQUESTED',
+  'DISCLOSED_PENDING',
+  'PAYMENT_REPORTED',
+  'PAID_VERIFIED',
+  'WAIVED',
+  'REFUNDED',
+  'CANCELLED',
+]);
+
+export const memberConnectionStatusEnum = z.enum([
+  'NOT_READY',
+  'OPTED_IN',
+  'WAITING_FOR_FEE',
+  'ELIGIBLE_TO_CONNECT',
+  'CONNECTED',
+  'OPTED_OUT',
+  'EXCLUDED',
+]);
+
+export const whatsAppTemplateTypeEnum = z.enum([
+  'UNLOCKED_TOKEN',
+  'LEAD_FALLBACK',
+  'QUOTE_FOLLOWUP',
+  'TARGET_REACHED_INVITATION',
+  'GROUP_PUBLISHED',
+  'QUOTE_AVAILABLE',
+  'RESPONSE_REMINDER',
+  'CONNECTION_FEE_DISCLOSURE',
+  'PAYMENT_INSTRUCTIONS',
+  'WAITLIST_INVITATION',
+  'WAITLIST_PROMOTION',
+  'EXCLUSION_NOTICE',
+  'GROUP_COMPLETED',
+  'OPT_OUT_CONFIRMATION',
+]);
+
+export const updateMemberDecisionSchema = z.object({
+  quoteResponse: memberQuoteResponseEnum.optional(),
+  quoteResponseNotes: z.string().trim().max(1000).optional().nullable(),
+  feeStatus: connectionFeeStatusEnum.optional(),
+  feeApprovedBasis: z.number().min(0).optional().nullable(),
+  feeDisclosedAmount: z.number().min(0).optional().nullable(),
+  paymentReference: z.string().trim().max(100).optional().nullable(),
+  paymentWaiverReason: z.string().trim().max(500).optional().nullable(),
+  connectionStatus: memberConnectionStatusEnum.optional(),
+  connectionMethod: z.string().trim().max(100).optional().nullable(),
+  exclusionReason: z.string().trim().max(500).optional().nullable(),
+  adminNotes: z.string().trim().max(2000).optional().nullable(),
+  doNotContact: z.boolean().optional(),
+});
+
+export const createWaitlistSchema = z.object({
+  fullName: z.string().trim().min(2).max(100),
+  whatsappNumber: z
+    .string()
+    .transform((val) => normalizePhone(val))
+    .refine((val) => isValidIndianMobile(val), {
+      message: 'Enter a valid 10-digit Indian mobile number.',
+    }),
+  city: z.string().trim().min(2).max(80),
+  buyingTimeline: buyingTimelineEnum.optional(),
+  locality: z.string().trim().max(100).optional().nullable(),
+  pinCode: z.string().trim().max(10).optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const updateWaitlistSchema = z.object({
+  status: waitlistStatusEnum.optional(),
+  removalReason: z.string().trim().max(500).optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const createQuoteSchema = z.object({
+  priceType: z.enum(['ESTIMATED', 'VENDOR_QUOTED']).default('VENDOR_QUOTED'),
+  vendorName: z.string().trim().min(2).max(180),
+  vendorContactRef: z.string().trim().max(250).optional().nullable(),
+  quotedAmount: z.number().min(1),
+  currency: z.string().trim().default('INR'),
+  quoteDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
+  validUntil: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
+  scope: z.string().trim().min(5).max(1000),
+  inclusions: z.array(z.string().trim()).default([]),
+  exclusions: z.array(z.string().trim()).default([]),
+  deliveryTerms: z.string().trim().max(500).optional().nullable(),
+  quantityCondition: z.string().trim().max(200).optional().nullable(),
+  status: quoteStatusEnum.default('RECEIVED'),
+  internalNotes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const updateQuoteSchema = z.object({
+  quotedAmount: z.number().min(1).optional(),
+  validUntil: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)).optional(),
+  scope: z.string().trim().min(5).max(1000).optional(),
+  inclusions: z.array(z.string().trim()).optional(),
+  exclusions: z.array(z.string().trim()).optional(),
+  deliveryTerms: z.string().trim().max(500).optional().nullable(),
+  quantityCondition: z.string().trim().max(200).optional().nullable(),
+  status: quoteStatusEnum.optional(),
+  isCurrentPublished: z.boolean().optional(),
+  internalNotes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const recordWhatsAppSentSchema = z.object({
+  templateType: whatsAppTemplateTypeEnum,
+  notes: z.string().trim().max(500).optional().nullable(),
+});
+
 /**
  * Validation schema for public buyer interest join submissions
  */

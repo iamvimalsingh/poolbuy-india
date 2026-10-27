@@ -40,6 +40,8 @@ function JoinPoolDialogContent({
   const [existingQuoteAmount, setExistingQuoteAmount] = useState<string>('');
   const [extraMessage, setExtraMessage] = useState('');
 
+  const isPoolFull = pool.currentBuyers >= pool.targetBuyers;
+
   // UI status
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -94,7 +96,8 @@ function JoinPoolDialogContent({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/pools/${pool.id}/join`, {
+      const endpoint = isPoolFull ? `/api/pools/${pool.id}/waitlist` : `/api/pools/${pool.id}/join`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -107,8 +110,23 @@ function JoinPoolDialogContent({
         return;
       }
 
-      setSuccessResult(data.data);
-      if (onSuccess) onSuccess(data.data);
+      if (isPoolFull) {
+        const waitlistResult: JoinPoolResult = {
+          leadId: data.data.waitlistId,
+          poolId: pool.id,
+          buyerNumber: data.data.sequenceNumber,
+          currentBuyers: pool.currentBuyers,
+          targetBuyers: pool.targetBuyers,
+          remainingBuyers: 0,
+          alreadyJoined: false,
+          isWaitlisted: true,
+        } as unknown as JoinPoolResult;
+        setSuccessResult(waitlistResult);
+        if (onSuccess) onSuccess(waitlistResult);
+      } else {
+        setSuccessResult(data.data);
+        if (onSuccess) onSuccess(data.data);
+      }
     } catch {
       setErrorMessage('Network error occurred. Please check your connection and try again.');
     } finally {
@@ -141,15 +159,31 @@ function JoinPoolDialogContent({
         <div className="p-6 sm:p-8">
           {/* Header */}
           <div className="mb-6">
-            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 inline-block mb-2">
-              100% Free • No Upfront Payment
+            <span
+              className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border inline-block mb-2 ${
+                isPoolFull
+                  ? 'text-amber-800 bg-amber-50 border-amber-200'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+              }`}
+            >
+              {isPoolFull ? 'Target Reached • Join Priority Waitlist' : '100% Free • No Upfront Payment'}
             </span>
             <h2 id="join-modal-title" className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight">
-              Join Group Pool
+              {isPoolFull ? 'Join Priority Waitlist' : 'Join Group Pool'}
             </h2>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Registering for <strong className="text-gray-900 font-semibold">{pool.name}</strong> in{' '}
-              <strong className="text-gray-900 font-semibold">{pool.city}</strong>.
+              {isPoolFull ? (
+                <>
+                  Target of <strong className="text-gray-900 font-semibold">{pool.targetBuyers} buyers</strong> reached for{' '}
+                  <strong className="text-gray-900 font-semibold">{pool.name}</strong> in{' '}
+                  <strong className="text-gray-900 font-semibold">{pool.city}</strong>. Join the FIFO queue to claim a spot if an existing buyer drops out or an expanded batch unlocks.
+                </>
+              ) : (
+                <>
+                  Registering for <strong className="text-gray-900 font-semibold">{pool.name}</strong> in{' '}
+                  <strong className="text-gray-900 font-semibold">{pool.city}</strong>.
+                </>
+              )}
             </p>
           </div>
 
@@ -432,12 +466,12 @@ function JoinPoolDialogContent({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  <span>Joining Group...</span>
+                  <span>{isPoolFull ? 'Joining Waitlist...' : 'Joining Group...'}</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-                  <span>Join Group Free</span>
+                  <span>{isPoolFull ? 'Join Priority Waitlist Free' : 'Join Group Free'}</span>
                 </>
               )}
             </button>

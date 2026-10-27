@@ -16,16 +16,24 @@ import {
   Calendar,
   Eye,
   EyeOff,
+  Sliders,
+  CheckCircle,
+  Layers,
 } from 'lucide-react';
 import { AdminPool, PoolCategory, PoolStatus, City } from '@/types';
 import { CATEGORIES, CITIES, STATUS_LABELS } from '@/lib/constants';
 import { STANDARD_PRODUCTS } from '@/lib/products';
 import { formatINR } from '@/lib/format';
+import { AdminGroupDetailModal } from './admin-group-detail-modal';
 
 export function AdminPoolsTab() {
   const [pools, setPools] = useState<AdminPool[]>([]);
   const [availableCities, setAvailableCities] = useState<City[]>([]);
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<
+    'all' | 'active' | 'target_reached' | 'completed' | 'archived' | 'closed' | 'soft_deleted'
+  >('all');
+  const [selectedOperationsPool, setSelectedOperationsPool] = useState<AdminPool | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -159,20 +167,36 @@ export function AdminPoolsTab() {
 
   const handleRestore = async (poolId: string) => {
     try {
-      const res = await fetch(`/api/admin/pools/${poolId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deletedAt: null, isArchived: false, status: 'ACTIVE', closureReason: null }),
+      const res = await fetch(`/api/admin/pools/${poolId}/restore`, {
+        method: 'POST',
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         setErrorMessage(data.error?.message || 'Failed to restore pool.');
         return;
       }
-      setSuccessMessage('Pool restored to active state.');
+      setSuccessMessage('Pool restored safely to draft state (unpublished per safety rules).');
       loadPools();
     } catch {
       setErrorMessage('Network error restoring pool.');
+    }
+  };
+
+  const handleCompletePool = async (poolId: string) => {
+    if (!confirm('Mark this group as Completed (all member connections delivered)?')) return;
+    try {
+      const res = await fetch(`/api/admin/pools/${poolId}/complete`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Failed to complete pool.');
+        return;
+      }
+      setSuccessMessage('Group marked as Completed successfully.');
+      loadPools();
+    } catch {
+      setErrorMessage('Network error completing pool.');
     }
   };
 
@@ -330,10 +354,51 @@ export function AdminPoolsTab() {
     }));
   }, [availableCities]);
 
+  const statusCounts = useMemo(() => {
+    return {
+      all: pools.filter((p) => !p.deletedAt).length,
+      active: pools.filter(
+        (p) => p.status === 'ACTIVE' && !p.isArchived && !p.deletedAt && p.currentBuyers < p.targetBuyers
+      ).length,
+      target_reached: pools.filter(
+        (p) => p.status === 'ACTIVE' && !p.isArchived && !p.deletedAt && p.currentBuyers >= p.targetBuyers
+      ).length,
+      completed: pools.filter((p) => (p.status as string) === 'COMPLETED' && !p.deletedAt).length,
+      archived: pools.filter((p) => p.isArchived && !p.deletedAt).length,
+      closed: pools.filter((p) => p.status === 'CLOSED' && !p.deletedAt).length,
+      soft_deleted: pools.filter((p) => Boolean(p.deletedAt)).length,
+    };
+  }, [pools]);
+
   const filteredPools = useMemo(() => {
-    if (selectedCityFilter === 'all') return pools;
-    return pools.filter((p) => p.citySlug === selectedCityFilter);
-  }, [pools, selectedCityFilter]);
+    return pools.filter((p) => {
+      // City filter
+      if (selectedCityFilter !== 'all' && p.citySlug !== selectedCityFilter) {
+        return false;
+      }
+      // Status filter
+      if (selectedStatusFilter === 'active') {
+        return p.status === 'ACTIVE' && !p.isArchived && !p.deletedAt && p.currentBuyers < p.targetBuyers;
+      }
+      if (selectedStatusFilter === 'target_reached') {
+        return p.status === 'ACTIVE' && !p.isArchived && !p.deletedAt && p.currentBuyers >= p.targetBuyers;
+      }
+      if (selectedStatusFilter === 'completed') {
+        return (p.status as string) === 'COMPLETED' && !p.deletedAt;
+      }
+      if (selectedStatusFilter === 'archived') {
+        return p.isArchived === true && !p.deletedAt;
+      }
+      if (selectedStatusFilter === 'closed') {
+        return p.status === 'CLOSED' && !p.deletedAt;
+      }
+      if (selectedStatusFilter === 'soft_deleted') {
+        return Boolean(p.deletedAt);
+      }
+      // 'all' excludes soft-deleted items unless specifically on the soft_deleted tab
+      return !p.deletedAt;
+    });
+  }, [pools, selectedCityFilter, selectedStatusFilter]);
 
   const handleUpdatePool = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -549,6 +614,91 @@ export function AdminPoolsTab() {
         </div>
       )}
 
+      {/* Status View Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="text-gray-400 font-semibold uppercase text-[10px] shrink-0 flex items-center gap-1">
+          <Layers className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+          <span>Status View:</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('all')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'all'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          All Active ({statusCounts.all})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('active')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'active'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Open / In Progress ({statusCounts.active})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('target_reached')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'target_reached'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Target Reached ({statusCounts.target_reached})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('completed')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'completed'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Completed ({statusCounts.completed})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('archived')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'archived'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Archived ({statusCounts.archived})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('closed')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'closed'
+              ? 'bg-gray-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Closed / Expired ({statusCounts.closed})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedStatusFilter('soft_deleted')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-colors shrink-0 text-xs ${
+            selectedStatusFilter === 'soft_deleted'
+              ? 'bg-rose-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Soft-Deleted ({statusCounts.soft_deleted})
+        </button>
+      </div>
+
       {/* City Filter Bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         <span className="text-gray-400 font-semibold uppercase text-[10px] shrink-0 flex items-center gap-1">
@@ -683,6 +833,28 @@ export function AdminPoolsTab() {
                             </button>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOperationsPool(p)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-98 transition-all shadow-xs"
+                                title="Manage Group Operations (Members, Waitlist, Quotes, Connection & Fees, Activity)"
+                              >
+                                <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>Operations</span>
+                              </button>
+
+                              {p.status === 'ACTIVE' && p.currentBuyers >= p.targetBuyers && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCompletePool(p.id)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors"
+                                  title="Mark group completed after vendor connection"
+                                >
+                                  <CheckCircle className="w-3 h-3" aria-hidden="true" />
+                                  <span>Complete</span>
+                                </button>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() => handleTogglePublish(p)}
@@ -1522,6 +1694,19 @@ export function AdminPoolsTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Operations Detail Modal */}
+      {selectedOperationsPool && (
+        <AdminGroupDetailModal
+          pool={selectedOperationsPool}
+          isOpen={Boolean(selectedOperationsPool)}
+          onClose={() => setSelectedOperationsPool(null)}
+          onPoolUpdated={(updated) => {
+            setSelectedOperationsPool(updated);
+            loadPools();
+          }}
+        />
       )}
     </div>
   );

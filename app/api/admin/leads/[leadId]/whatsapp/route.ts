@@ -9,8 +9,20 @@ import {
   buildLeadFallbackMessage,
   buildQuoteFollowupMessage,
   buildTargetReachedMessage,
+  buildGroupPublishedMessage,
+  buildQuoteAvailableMessage,
+  buildResponseReminderMessage,
+  buildConnectionFeeDisclosureMessage,
+  buildPaymentInstructionsMessage,
+  buildWaitlistInvitationMessage,
+  buildWaitlistPromotionMessage,
+  buildExclusionNoticeMessage,
+  buildGroupCompletedMessage,
+  buildOptOutConfirmationMessage,
 } from '@/lib/whatsapp';
-import { AdminPool } from '@/types';
+import { AdminPool, WhatsAppTemplateType } from '@/types';
+import { whatsAppTemplateTypeEnum } from '@/lib/validation';
+import { calculateSuggestedConnectionFee } from '@/lib/fee';
 import { z } from 'zod';
 
 type RouteContext = {
@@ -19,12 +31,9 @@ type RouteContext = {
 
 const whatsappRequestSchema = z
   .object({
-    templateType: z
-      .enum(['UNLOCKED_TOKEN', 'LEAD_FALLBACK', 'QUOTE_FOLLOWUP', 'TARGET_REACHED_INVITATION'])
-      .optional(),
-    template: z
-      .enum(['UNLOCKED_TOKEN', 'LEAD_FALLBACK', 'QUOTE_FOLLOWUP', 'TARGET_REACHED_INVITATION'])
-      .optional(),
+    templateType: whatsAppTemplateTypeEnum.optional(),
+    template: whatsAppTemplateTypeEnum.optional(),
+    customNote: z.string().trim().max(500).optional(),
   })
   .refine((data) => data.templateType || data.template, {
     message: 'Template selection is required.',
@@ -48,20 +57,25 @@ export async function POST(
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message:
-              'Invalid template selection. Choose UNLOCKED_TOKEN, LEAD_FALLBACK, QUOTE_FOLLOWUP, or TARGET_REACHED_INVITATION.',
+            message: parsed.error.issues[0]?.message || 'Invalid template selection.',
           },
         },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    const templateType = (parsed.data.templateType || parsed.data.template)!;
+    const templateType = (parsed.data.templateType || parsed.data.template)! as WhatsAppTemplateType;
+    const now = new Date().toISOString();
 
     let buyerName = 'Valued Buyer';
     let buyerPhone = '9876543210';
     let poolName = 'Electric Scooter Group Deal';
     let cityName = 'Bhopal';
+    let targetBuyers = 10;
+    let deadline = new Date(Date.now() + 14 * 86400000).toISOString();
+    let groupPrice = 130000;
+    let feeBasis = 130000;
+    let buyerNumber = 1;
     let pool: AdminPool | null = null;
 
     if (isDemoMode()) {
@@ -90,11 +104,22 @@ export async function POST(
       buyerPhone = demoLead.whatsappNumber;
       cityName = demoLead.city;
       poolName = demoLead.poolName;
+      buyerNumber = demoLead.buyerNumber;
       pool = MOCK_ADMIN_POOLS.find((p) => p.id === demoLead.poolId) || null;
+      if (pool) {
+        targetBuyers = pool.targetBuyers;
+        deadline = pool.deadline;
+        groupPrice = pool.groupPrice || 130000;
+        feeBasis = pool.groupPrice || pool.marketPrice || 130000;
+      }
+
+      // Record link generated status
+      demoLead.lastContactAt = now;
+      demoLead.lastContactStatus = 'LINK_GENERATED';
+      demoLead.lastContactNote = `Generated ${templateType} link.`;
     } else {
       const supabase = getAdminSupabase();
 
-      // Fetch lead and associated pool
       const { data: leadData, error: leadError } = await supabase
         .from('pool_leads')
         .select(`
@@ -103,6 +128,7 @@ export async function POST(
           whatsapp_number,
           city,
           pool_id,
+          buyer_number,
           status,
           do_not_contact,
           pools (*)
@@ -133,10 +159,15 @@ export async function POST(
       buyerName = leadData.full_name;
       buyerPhone = leadData.whatsapp_number;
       cityName = leadData.city;
+      buyerNumber = Number(leadData.buyer_number || 1);
 
       const p = leadData.pools as unknown as Record<string, unknown>;
       if (p) {
         poolName = String(p.name || '');
+        targetBuyers = Number(p.target_buyers || 10);
+        deadline = String(p.deadline || '');
+        groupPrice = Number(p.group_price || 130000);
+        feeBasis = Number(p.group_price || p.market_price || 130000);
         pool = {
           id: String(p.id),
           slug: String(p.slug),
@@ -151,9 +182,9 @@ export async function POST(
           imageUrl: (p.image_url as string) || null,
           marketPrice: p.market_price ? Number(p.market_price) : null,
           groupPrice: p.group_price ? Number(p.group_price) : null,
-          targetBuyers: Number(p.target_buyers),
+          targetBuyers,
           currentBuyers: Number(p.current_buyers),
-          deadline: String(p.deadline),
+          deadline,
           status: p.status as AdminPool['status'],
           priceIsVerified: Boolean(p.price_is_verified),
           priceVerifiedAt: (p.price_verified_at as string) || null,
@@ -166,42 +197,88 @@ export async function POST(
           dealerTerms: (p.dealer_terms as string) || null,
         };
       }
+
+      // Record link generated status
+      await supabase
+        .from('pool_leads')
+        .update({
+          last_contact_at: now,
+          last_contact_status: 'LINK_GENERATED',
+          last_contact_note: `Generated ${templateType} link.`,
+        })
+        .eq('id', leadId);
     }
 
     let messageText = '';
 
-    if (templateType === 'UNLOCKED_TOKEN') {
-      if (!isDemoMode()) {
-        if (!pool || pool.status !== 'UNLOCKED' || !pool.tokenPaymentUrl || !pool.tokenAmount) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'POOL_NOT_UNLOCKED',
-                message:
-                  'Cannot generate refundable token link: pool must be UNLOCKED with a verified payment URL and token deposit amount.',
+    switch (templateType) {
+      case 'UNLOCKED_TOKEN': {
+        if (!isDemoMode()) {
+          if (!pool || pool.status !== 'UNLOCKED' || !pool.tokenPaymentUrl || !pool.tokenAmount) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: {
+                  code: 'POOL_NOT_UNLOCKED',
+                  message:
+                    'Cannot generate refundable token link: pool must be UNLOCKED with a verified payment URL and token deposit amount.',
+                },
               },
-            },
-            { status: 400, headers: { 'Cache-Control': 'no-store' } }
-          );
+              { status: 400, headers: { 'Cache-Control': 'no-store' } }
+            );
+          }
+          messageText = buildUnlockedPoolMessage(buyerName, pool, pool.tokenPaymentUrl, pool.tokenAmount);
+        } else {
+          messageText = `Namaste ${buyerName},\n\n[DEMO] The group pool for ${poolName} is unlocked! Complete your refundable token deposit: https://example.com/demo-pay`;
         }
-
-        messageText = buildUnlockedPoolMessage(
-          buyerName,
-          pool,
-          pool.tokenPaymentUrl,
-          pool.tokenAmount
-        );
-      } else {
-        messageText = `Namaste ${buyerName},\n\n[DEMO] The group pool for ${poolName} is unlocked! Complete your refundable token deposit: https://example.com/demo-pay`;
+        break;
       }
-    } else if (templateType === 'LEAD_FALLBACK') {
-      messageText = buildLeadFallbackMessage(buyerName, poolName, cityName, pool?.dealerName || undefined);
-    } else if (templateType === 'TARGET_REACHED_INVITATION') {
-      messageText = buildTargetReachedMessage(buyerName, poolName, cityName, pool?.targetBuyers || 10);
-    } else {
-      // QUOTE_FOLLOWUP
-      messageText = buildQuoteFollowupMessage(buyerName, poolName, cityName);
+      case 'LEAD_FALLBACK':
+        messageText = buildLeadFallbackMessage(buyerName, poolName, cityName, pool?.dealerName || undefined);
+        break;
+      case 'TARGET_REACHED_INVITATION':
+        messageText = buildTargetReachedMessage(buyerName, poolName, cityName, targetBuyers);
+        break;
+      case 'QUOTE_FOLLOWUP':
+        messageText = buildQuoteFollowupMessage(buyerName, poolName, cityName);
+        break;
+      case 'GROUP_PUBLISHED':
+        messageText = buildGroupPublishedMessage(buyerName, poolName, cityName, targetBuyers, deadline);
+        break;
+      case 'QUOTE_AVAILABLE':
+        messageText = buildQuoteAvailableMessage(buyerName, poolName, cityName, groupPrice, deadline);
+        break;
+      case 'RESPONSE_REMINDER':
+        messageText = buildResponseReminderMessage(buyerName, poolName, cityName);
+        break;
+      case 'CONNECTION_FEE_DISCLOSURE': {
+        const fee = calculateSuggestedConnectionFee(feeBasis);
+        messageText = buildConnectionFeeDisclosureMessage(buyerName, poolName, cityName, fee, feeBasis);
+        break;
+      }
+      case 'PAYMENT_INSTRUCTIONS': {
+        const fee = calculateSuggestedConnectionFee(feeBasis);
+        const details = 'UPI ID: pay.groupbuying@upi (GroupBuying Operations Account)\nBank: State Bank of India | IFSC: SBIN0001234';
+        messageText = buildPaymentInstructionsMessage(buyerName, poolName, fee, details);
+        break;
+      }
+      case 'WAITLIST_INVITATION':
+        messageText = buildWaitlistInvitationMessage(buyerName, poolName, cityName, 1);
+        break;
+      case 'WAITLIST_PROMOTION':
+        messageText = buildWaitlistPromotionMessage(buyerName, poolName, cityName, buyerNumber);
+        break;
+      case 'EXCLUSION_NOTICE':
+        messageText = buildExclusionNoticeMessage(buyerName, poolName, cityName, 'Non-response after deadline.');
+        break;
+      case 'GROUP_COMPLETED':
+        messageText = buildGroupCompletedMessage(buyerName, poolName, cityName);
+        break;
+      case 'OPT_OUT_CONFIRMATION':
+        messageText = buildOptOutConfirmationMessage(buyerName, poolName);
+        break;
+      default:
+        messageText = buildTargetReachedMessage(buyerName, poolName, cityName, targetBuyers);
     }
 
     const whatsappUrl = buildWhatsAppDirectUrl(buyerPhone, messageText);
@@ -211,8 +288,10 @@ export async function POST(
         success: true,
         data: {
           whatsappUrl,
+          url: whatsappUrl,
           messageText,
           recipientPhone: buyerPhone,
+          templateType,
           clickToChatNotice:
             'Click-to-chat opens WhatsApp on your device. Review the message and press Send manually. Antigravity/GroupBuying never sends automated background messages.',
         },
@@ -227,4 +306,26 @@ export async function POST(
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
+}
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request, { checkCsrf: false });
+  if (authError) return authError;
+
+  const url = new URL(request.url);
+  const template =
+    url.searchParams.get('template') ||
+    url.searchParams.get('templateType') ||
+    'TARGET_REACHED_INVITATION';
+  const customNote = url.searchParams.get('customNote') || undefined;
+
+  const dummyRequest = new NextRequest(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify({ template, customNote }),
+  });
+  return POST(dummyRequest, context);
 }
