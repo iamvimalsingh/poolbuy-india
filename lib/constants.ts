@@ -1,8 +1,10 @@
 import { BuyingTimeline, PoolCategory, PoolStatus, LeadStatus, PoolRequestStatus } from '@/types';
 
-export const SITE_NAME = 'PoolBuy India';
-export const SITE_TAGLINE = 'Group Buying & High-Intent Buyer Pools';
-export const SITE_DESCRIPTION = 'Join zero-risk group-buying pools for high-ticket products in your city. Unlocking bulk discounts directly from verified local dealers.';
+export const SITE_NAME = 'GroupBuying.store';
+export const SECONDARY_BRAND = 'PoolBuy India';
+export const CANONICAL_PRODUCTION_URL = 'https://groupbuying.store';
+export const SITE_TAGLINE = 'Solar, Power Backup & Water Softener Group Deals in India';
+export const SITE_DESCRIPTION = 'Register free interest in local group-buying for rooftop solar systems, inverter-battery combos and whole-house water softeners. Offers depend on local demand and verified supplier terms.';
 
 export interface CategoryMeta {
   category: PoolCategory;

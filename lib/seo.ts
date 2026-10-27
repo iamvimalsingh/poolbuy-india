@@ -11,8 +11,14 @@ export function getSiteUrl(): string {
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
     return envUrl.replace(/\/+$/, '');
   }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/+$/, '')}`;
+  }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin.replace(/\/+$/, '');
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://groupbuying.store';
   }
   return 'http://localhost:3000';
 }
@@ -160,7 +166,7 @@ export function buildArticleJsonLd(post: BlogPost) {
     },
     publisher: {
       '@type': 'Organization',
-      name: 'PoolBuy India',
+      name: 'GroupBuying.store',
       url: siteUrl,
       logo: {
         '@type': 'ImageObject',
@@ -173,5 +179,35 @@ export function buildArticleJsonLd(post: BlogPost) {
     },
     articleSection: post.topic,
     keywords: post.tags?.join(', '),
+  };
+}
+
+/**
+ * Builds Schema.org WebSite JSON-LD object for Google site identity.
+ */
+export function buildWebSiteJsonLd() {
+  const siteUrl = getSiteUrl();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'GroupBuying.store',
+    alternateName: 'GroupBuying Store',
+    url: siteUrl,
+  };
+}
+
+/**
+ * Builds Schema.org Organization JSON-LD object.
+ */
+export function buildOrganizationJsonLd() {
+  const siteUrl = getSiteUrl();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'GroupBuying.store',
+    alternateName: 'PoolBuy India',
+    url: siteUrl,
+    logo: `${siteUrl}/images/logo.png`,
+    description: 'Collective demand aggregation and local group-buying platform for solar, power backup, and water softeners in India.',
   };
 }

@@ -12,7 +12,7 @@ export function SiteHeader() {
           <Link
             href="/"
             className="flex items-center gap-2.5 text-gray-900 group transition-transform active:scale-95"
-            aria-label="PoolBuy India Home"
+            aria-label="GroupBuying.store Home"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all">
               <Users2 className="w-5 h-5" aria-hidden="true" />
@@ -20,14 +20,14 @@ export function SiteHeader() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-lg tracking-tight text-gray-950 font-sans">
-                  PoolBuy<span className="text-emerald-600">.in</span>
+                  GroupBuying<span className="text-emerald-600">.store</span>
                 </span>
-                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                  India
+                <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.5 rounded-full tracking-wider hidden sm:inline-block">
+                  PoolBuy India
                 </span>
               </div>
               <p className="text-[11px] text-gray-500 hidden sm:block -mt-0.5">
-                Zero-Risk Group Buying
+                Solar, Power &amp; Home Group Buying
               </p>
             </div>
           </Link>
@@ -38,7 +38,7 @@ export function SiteHeader() {
               href="/#pools"
               className="hover:text-emerald-600 transition-colors py-1"
             >
-              Active Pools
+              Active Group Deals
             </Link>
             <Link
               href="/#how-it-works"
@@ -50,14 +50,14 @@ export function SiteHeader() {
               href="/blog"
               className="hover:text-emerald-600 transition-colors py-1"
             >
-              Blog & Guides
+              Blog &amp; Guides
             </Link>
             <Link
               href="/#request-pool"
               className="hover:text-emerald-600 transition-colors py-1 flex items-center gap-1 text-gray-800"
             >
               <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-              Request a Pool
+              Request a Product
             </Link>
           </nav>
 
@@ -69,13 +69,6 @@ export function SiteHeader() {
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
               <span>100% Free Interest</span>
             </div>
-
-            <Link
-              href="/admin"
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all"
-            >
-              Admin
-            </Link>
           </div>
         </div>
       </div>

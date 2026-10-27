@@ -51,7 +51,7 @@ describe('WhatsApp Integration Tests', () => {
         updatedAt: '2026-10-26T10:00:00Z',
       };
 
-      const shareUrl = buildBuyerViralShareUrl(pool, 'https://poolbuy.in');
+      const shareUrl = buildBuyerViralShareUrl(pool, 'https://groupbuying.store');
       const decoded = decodeURIComponent(shareUrl);
 
       // Verify no PII
@@ -60,7 +60,7 @@ describe('WhatsApp Integration Tests', () => {
       // Verify no fake "guaranteed" discount claim
       assert.ok(!decoded.includes('guaranteed'));
       // Verify correct deal URL link
-      assert.ok(decoded.includes('https://poolbuy.in/deals/bhopal/tvs-iqube-s'));
+      assert.ok(decoded.includes('https://groupbuying.store/deals/bhopal/tvs-iqube-s'));
     });
   });
 

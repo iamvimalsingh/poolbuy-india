@@ -25,8 +25,8 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
 
   const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/deals/${pool.citySlug}/${pool.slug}`;
-  const title = `${pool.name} Group Deal in ${pool.city} | PoolBuy India`;
-  const description = `Join the group buying pool for ${pool.name} in ${pool.city}. Team up with local buyers to reach target volume for wholesale dealership bulk pricing.`;
+  const title = `${pool.name} Group Deal in ${pool.city} | GroupBuying.store`;
+  const description = `Register free interest for ${pool.name} group deal in ${pool.city}. Team up with local buyers to reach target volume for authorized dealer bulk pricing.`;
   const isClosedOrFallback = pool.status === 'CLOSED' || pool.status === 'LEAD_FALLBACK';
 
   const fallbackImage = getPoolFallbackImage(pool.category, pool.categorySlug, pool.slug || pool.name);
@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
       title,
       description,
       url: canonicalUrl,
-      siteName: 'PoolBuy India',
+      siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
       images: [

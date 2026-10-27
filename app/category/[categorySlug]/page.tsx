@@ -58,14 +58,17 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   const info = await resolveCategoryInfo(categorySlug);
   if (!info) {
     return {
-      title: 'Category Not Found | PoolBuy India',
+      title: 'Category Not Found | GroupBuying.store',
     };
   }
 
   const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/category/${info.slug}`;
-  const title = `${info.name} Group Buying Deals in India | PoolBuy India`;
-  const description = `Join active buyer pools for ${info.name.toLowerCase()} across major Indian cities. Zero-cost registration to unlock institutional dealer bulk discounts.`;
+  const title = `${info.name} Group Buying Deals in India | GroupBuying.store`;
+  const description = `Register interest for ${info.name.toLowerCase()} group buying across Indian cities. Zero-cost registration to unlock institutional dealer bulk discounts.`;
+
+  const pools = await getPublicPools({ categorySlug: info.slug });
+  const isUnservedOrEmpty = pools.length === 0;
 
   return {
     title,
@@ -77,7 +80,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
       title,
       description,
       url: canonicalUrl,
-      siteName: 'PoolBuy India',
+      siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
       images: [
@@ -85,7 +88,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
           url: `${siteUrl}/images/category-default.svg`,
           width: 800,
           height: 600,
-          alt: `PoolBuy India - ${info.name}`,
+          alt: `GroupBuying.store - ${info.name}`,
         },
       ],
     },
@@ -94,7 +97,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
       title,
       description,
     },
-    robots: getRobotsMetadata(),
+    robots: getRobotsMetadata(isUnservedOrEmpty),
   };
 }
 

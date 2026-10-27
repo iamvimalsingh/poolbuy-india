@@ -7,7 +7,6 @@ import { getPublicPools } from '../pools';
 import { CATEGORIES, CATEGORY_SLUG_MAP, CITIES } from '../constants';
 import { getDemoCategories } from '../mock-data';
 import { getCountdownParts } from '../format';
-import { PublicPool } from '@/types';
 
 describe('Phase 3 — UI, Mobile & Eligibility Regression Tests', () => {
   describe('1. Category-Specific Image Fallback System', () => {

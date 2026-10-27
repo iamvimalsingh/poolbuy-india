@@ -12,9 +12,9 @@ export function SiteFooter() {
           <div className="flex items-start gap-3 text-xs text-gray-400">
             <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="leading-relaxed">
-              <strong>Legal Disclaimer:</strong> PoolBuy India is an interest-aggregation discovery platform.
-              We are not an authorized automobile dealer, manufacturer, financial lender, escrow service, or direct seller.
-              Joining a pool expresses non-binding purchase intent. Group discounts are subject to reaching minimum buyer thresholds
+              <strong>Legal Disclaimer:</strong> GroupBuying.store (PoolBuy India) is an interest-aggregation discovery platform.
+              We are not an authorized automobile dealer, manufacturer, solar installer, financial lender, escrow service, or direct seller.
+              Joining a group deal expresses non-binding purchase intent. Group discounts are subject to reaching minimum buyer thresholds
               and written verification of commercial terms by licensed local dealerships. Illustrative prices shown in demo
               modes are estimates and do not constitute legal quotations.
             </p>
@@ -30,12 +30,17 @@ export function SiteFooter() {
               <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
                 <Users2 className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span className="font-bold text-white text-lg tracking-tight">
-                PoolBuy<span className="text-emerald-400">.in</span>
-              </span>
+              <div>
+                <span className="font-bold text-white text-lg tracking-tight block">
+                  GroupBuying<span className="text-emerald-400">.store</span>
+                </span>
+                <span className="text-[10px] text-emerald-400/80 font-medium">
+                  PoolBuy India
+                </span>
+              </div>
             </div>
             <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              Empowering Indian consumers to access transparent bulk commercial pricing on high-ticket assets through coordinated collective demand.
+              Empowering Indian homeowners and consumers to access transparent bulk commercial pricing on rooftop solar, power backup, and water softeners through coordinated collective demand.
             </p>
             <div className="text-[11px] text-gray-500 font-mono">
               Engineered for India • Zero Signup Required
@@ -111,7 +116,7 @@ export function SiteFooter() {
         </div>
 
         <div className="pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
-          <p>© 2026 PoolBuy India. All rights reserved.</p>
+          <p>© 2026 GroupBuying.store • PoolBuy India. All rights reserved.</p>
           <p className="text-center sm:text-right">
             Privacy Version: 2026-10-26-v1 • Respecting DPDP Act buyer privacy norms
           </p>

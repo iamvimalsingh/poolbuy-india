@@ -28,9 +28,11 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
   const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/city/${city.slug}`;
-  const title = `Group Buying Pools in ${city.name} | PoolBuy India`;
-  const description = `Join zero-risk group-buying pools in ${city.name}, ${city.state}. Connect with fellow local buyers for electric scooters, cars, solar panels, and electronics bulk deals.`;
-  const isUnservedOrEmpty = !city.isActive;
+  const title = `Group Buying Deals in ${city.name} | GroupBuying.store`;
+  const description = `Register interest for group-buying deals in ${city.name}, ${city.state}. Connect with fellow local buyers for rooftop solar, power backup, and water softener bulk quotations.`;
+
+  const pools = await getPublicPools({ citySlug: city.slug });
+  const isUnservedOrEmpty = !city.isActive || pools.length === 0;
 
   return {
     title,
@@ -42,7 +44,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
       title,
       description,
       url: canonicalUrl,
-      siteName: 'PoolBuy India',
+      siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
       images: [
@@ -50,7 +52,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
           url: `${siteUrl}/images/category-default.svg`,
           width: 800,
           height: 600,
-          alt: `PoolBuy India - ${city.name}`,
+          alt: `GroupBuying.store - ${city.name}`,
         },
       ],
     },

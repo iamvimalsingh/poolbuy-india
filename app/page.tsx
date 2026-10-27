@@ -9,10 +9,12 @@ import {
 import { getPublicPools } from '@/lib/pools';
 import { getOperationalCities } from '@/lib/cities';
 import { getOperationalCategories } from '@/lib/categories';
+import { connection } from 'next/server';
 import { PoolCatalog } from '@/components/pool-catalog';
 import { PoolRequestForm } from '@/components/pool-request-form';
 
 export default async function HomePage() {
+  await connection();
   const [pools, operationalCities, operationalCategories] = await Promise.all([
     getPublicPools(),
     getOperationalCities(),
@@ -35,12 +37,12 @@ export default async function HomePage() {
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-gray-950 tracking-tight max-w-4xl mx-auto leading-[1.15] mb-6">
-            Get <span className="text-emerald-600">Bulk Dealer Quotations</span> on High-Ticket Products in Your City
+            Group Buying for <span className="text-emerald-600">Solar, Power Backup &amp; Water Softeners</span> in India
           </h1>
 
           {/* Subheading emphasizing 3 V3 launch product families */}
           <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-8">
-            Express interest alongside verified local buyers in your city for Rooftop Solar (3kW/5kW), Home Power Backup, and Whole-House Water Softeners. No upfront fees. No passwords.
+            Register free interest alongside verified local buyers in your city for rooftop solar systems (3kW &amp; 5kW), home inverter-battery combos, and whole-house water softeners. Offers depend on local demand and verified supplier terms.
           </p>
 
           {/* CTA Buttons */}
@@ -49,7 +51,7 @@ export default async function HomePage() {
               href="#pools"
               className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-98 transition-all shadow-sm shadow-emerald-600/20"
             >
-              <span>Explore Active Pools</span>
+              <span>Explore Group Deals</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
 
@@ -97,7 +99,7 @@ export default async function HomePage() {
               Transparent & Verified
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
-              How PoolBuy Works in 3 Simple Steps
+              How Group Buying Works in 3 Simple Steps
             </h2>
             <p className="text-sm text-gray-600 mt-2">
               We aggregate buyer volume so verified local dealers offer authentic group pricing.

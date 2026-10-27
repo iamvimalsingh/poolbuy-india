@@ -21,7 +21,7 @@ export function buildBuyerViralShareUrl(pool: PublicPool, siteUrl?: string): str
   const dealUrl = `${base}/deals/${pool.citySlug}/${pool.slug}`;
 
   const message =
-    `Main ${pool.city} mein ${pool.name} ke PoolBuy group-buy pool mein interest register kar chuka/chuki hoon. ` +
+    `Main ${pool.city} mein ${pool.name} ke GroupBuying.store group deal mein interest register kar chuka/chuki hoon. ` +
     `Target hit hone par dealer se bulk-price terms verify hongi. Details: ${dealUrl}`;
 
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
