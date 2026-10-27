@@ -62,14 +62,22 @@ function getNowMs(): number {
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return STABLE_BUILD_MS;
   }
-  return Date.now();
+  try {
+    return Date.now();
+  } catch {
+    return STABLE_BUILD_MS;
+  }
 }
 
 function getNowIso(): string {
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return STABLE_BUILD_ISO;
   }
-  return new Date().toISOString();
+  try {
+    return new Date().toISOString();
+  } catch {
+    return STABLE_BUILD_ISO;
+  }
 }
 
 /**

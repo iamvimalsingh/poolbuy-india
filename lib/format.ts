@@ -72,7 +72,14 @@ export function getCountdownParts(deadlineIso: string): {
   totalMs: number;
 } {
   const target = new Date(deadlineIso).getTime();
-  const now = process.env.NEXT_PHASE === 'phase-production-build' ? 1792929600000 : Date.now();
+  let now = 1792929600000;
+  if (process.env.NEXT_PHASE !== 'phase-production-build') {
+    try {
+      now = Date.now();
+    } catch {
+      now = 1792929600000;
+    }
+  }
   const diff = target - now;
 
   if (diff <= 0) {

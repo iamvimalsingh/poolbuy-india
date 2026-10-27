@@ -7,6 +7,7 @@ import { getOperationalCities } from '@/lib/cities';
 import { getOperationalCategories } from '@/lib/categories';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  'use cache';
   const siteUrl = getSiteUrl();
 
   // Root landing page
