@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400" fill="none">
+  <defs>
+    <linearGradient id="laptopBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5F3FF"/>
+      <stop offset="50%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EFF6FF"/>
+    </linearGradient>
+    <linearGradient id="screenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <filter id="laptopShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="600" height="400" fill="url(#laptopBg)"/>
+
+  <g filter="url(#laptopShadow)">
+    <rect x="140" y="45" width="320" height="235" rx="24" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+  </g>
+
+  <!-- Laptop Artwork -->
+  <g transform="translate(190, 80)">
+    <!-- Screen Bezel -->
+    <rect x="25" y="10" width="170" height="110" rx="8" fill="#334155" stroke="#0F172A" stroke-width="2"/>
+    <!-- Screen Display -->
+    <rect x="33" y="18" width="154" height="94" rx="4" fill="url(#screenGrad)"/>
+    <!-- Webcam dot -->
+    <circle cx="110" cy="14" r="2" fill="#64748B"/>
+    <!-- Display Graphics (Lines / Charts) -->
+    <line x1="45" y1="35" x2="100" y2="35" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"/>
+    <line x1="45" y1="48" x2="80" y2="48" stroke="#818CF8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M45 90 L75 65 L105 80 L145 45 L175 60" stroke="#34D399" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Keyboard Base -->
+    <polygon points="5,120 215,120 225,135 -5,135" fill="#CBD5E1" stroke="#94A3B8" stroke-width="1.5"/>
+    <rect x="85" y="125" width="50" height="7" rx="2" fill="#94A3B8"/>
+  </g>
+
+  <!-- Spec Pill -->
+  <g transform="translate(300, 248)">
+    <rect x="-85" y="-12" width="170" height="24" rx="12" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1"/>
+    <text x="0" y="4" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#6D28D9" text-anchor="middle" letter-spacing="0.5">DIRECT OEM / DEALER</text>
+  </g>
+
+  <!-- Captions -->
+  <text x="300" y="315" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#0F172A" text-anchor="middle" letter-spacing="-0.3">Laptops &amp; MacBooks</text>
+  <text x="300" y="342" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="500" fill="#64748B" text-anchor="middle">Corporate &amp; Student Group Discounts • Official GST Invoicing</text>
+</svg>

@@ -54,23 +54,80 @@ function mapRowToPublicPool(row: SupabasePoolRow): PublicPool {
   };
 }
 
+// Prerender-safe reference timestamp (2026-10-26T12:00:00.000Z) for Next.js 16 build phase
+const STABLE_BUILD_MS = 1792929600000;
+const STABLE_BUILD_ISO = '2026-10-26T12:00:00.000Z';
+
+function getNowMs(): number {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return STABLE_BUILD_MS;
+  }
+  return Date.now();
+}
+
+function getNowIso(): string {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return STABLE_BUILD_ISO;
+  }
+  return new Date().toISOString();
+}
+
 /**
  * Loads public pools matching optional city/category filters.
  */
 export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[]> {
   if (isDemoMode()) {
-    let result = MOCK_POOLS.filter((p) => !p.deletedAt && !p.isArchived);
+    const now = getNowMs();
+    let result = MOCK_POOLS.filter((p) => {
+      if (p.deletedAt || p.isArchived) return false;
+      // Authoritative eligibility rule: CLOSED pools never appear in active public opportunities
+      if (p.status === 'CLOSED') return false;
+      // Past-deadline ACTIVE pools are immediately excluded from active listings
+      if (new Date(p.deadline).getTime() <= now) return false;
+      return true;
+    });
+
     if (filters?.citySlug && filters.citySlug !== 'all') {
       result = result.filter((p) => p.citySlug === filters.citySlug);
     }
+
     if (filters?.categorySlug && filters.categorySlug !== 'all') {
-      const mapped = CATEGORY_SLUG_MAP[filters.categorySlug];
-      if (Array.isArray(mapped)) {
-        result = result.filter((p) => mapped.includes(p.category));
-      } else if (mapped) {
-        result = result.filter((p) => p.category === mapped || p.categorySlug === filters.categorySlug);
+      const catSlug = filters.categorySlug;
+      if (catSlug === 'home-power-backup') {
+        result = result.filter(
+          (p) =>
+            p.categorySlug === 'home-power-backup' ||
+            p.slug.includes('power-backup') ||
+            p.slug.includes('inverter') ||
+            p.name.toLowerCase().includes('inverter') ||
+            p.name.toLowerCase().includes('power-backup')
+        );
+      } else if (catSlug === 'water-softeners' || catSlug === 'water-softener') {
+        result = result.filter(
+          (p) =>
+            p.categorySlug === 'water-softeners' ||
+            p.slug.includes('water-softener') ||
+            p.slug.includes('softener') ||
+            p.name.toLowerCase().includes('softener')
+        );
+      } else if (catSlug === 'rooftop-solar') {
+        result = result.filter(
+          (p) =>
+            (p.category === 'ROOFTOP_SOLAR' || p.categorySlug === 'rooftop-solar') &&
+            !p.slug.includes('power-backup') &&
+            !p.slug.includes('inverter') &&
+            !p.slug.includes('water-softener') &&
+            !p.slug.includes('softener')
+        );
       } else {
-        result = result.filter((p) => p.categorySlug === filters.categorySlug);
+        const mapped = CATEGORY_SLUG_MAP[catSlug];
+        if (Array.isArray(mapped)) {
+          result = result.filter((p) => mapped.includes(p.category));
+        } else if (mapped) {
+          result = result.filter((p) => p.category === mapped || p.categorySlug === catSlug);
+        } else {
+          result = result.filter((p) => p.categorySlug === catSlug);
+        }
       }
     }
     return result;
@@ -84,6 +141,8 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
   let query = supabase
     .from('public_pools')
     .select('*')
+    .neq('status', 'CLOSED')
+    .gt('deadline', getNowIso())
     .order('created_at', { ascending: false });
 
   if (filters?.citySlug && filters.citySlug !== 'all') {

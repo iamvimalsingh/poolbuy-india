@@ -1,12 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { MapPin, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { MapPin, ArrowRight, ShieldCheck, Tag, Info } from 'lucide-react';
 import { PublicPool } from '@/types';
 import { CATEGORIES, STATUS_LABELS } from '@/lib/constants';
-import { formatINR } from '@/lib/format';
+import { formatINR, getCountdownParts } from '@/lib/format';
 import { PoolProgress } from './pool-progress';
 import { Countdown } from './countdown';
+import { PoolImage } from './pool-image';
 
 interface PoolCardProps {
   pool: PublicPool;
@@ -15,10 +15,26 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardProps) {
-  const categoryMeta = CATEGORIES.find((c) => c.category === pool.category);
-  const statusMeta = STATUS_LABELS[pool.status] || STATUS_LABELS.ACTIVE;
+  // Category resolution prioritizing categorySlug if present
+  const categoryMeta = pool.categorySlug
+    ? CATEGORIES.find((c) => c.slug === pool.categorySlug) || CATEGORIES.find((c) => c.category === pool.category)
+    : CATEGORIES.find((c) => c.category === pool.category);
 
-  const isJoinable = pool.status === 'ACTIVE';
+  // Authoritative status and eligibility checks
+  const isPastDeadline = getCountdownParts(pool.deadline).isExpired;
+  const isExpired = pool.status === 'ACTIVE' && isPastDeadline;
+  const isClosed = pool.status === 'CLOSED';
+  const isJoinable = pool.status === 'ACTIVE' && !isPastDeadline;
+
+  // Status badge meta
+  let statusMeta = STATUS_LABELS[pool.status] || STATUS_LABELS.ACTIVE;
+  if (isExpired) {
+    statusMeta = {
+      label: 'Deadline Passed',
+      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      description: 'Registration deadline reached — processing pool outcome.',
+    };
+  }
 
   // Savings calculation
   const hasSavings =
@@ -29,14 +45,16 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
     ? pool.marketPrice - pool.groupPrice
     : 0;
 
-  // Truthful urgency message
+  // Truthful urgency message with non-negative clamped remaining buyers
   let urgencyText = '';
-  if (pool.status === 'CLOSED') {
+  if (isClosed) {
     urgencyText = 'Pool closed — registration ended';
+  } else if (isPastDeadline) {
+    urgencyText = 'Deadline passed — dealer confirmation pending';
   } else if (pool.currentBuyers >= pool.targetBuyers) {
     urgencyText = 'Target reached — dealer confirmation pending';
   } else {
-    const remaining = pool.targetBuyers - pool.currentBuyers;
+    const remaining = Math.max(0, pool.targetBuyers - pool.currentBuyers);
     urgencyText = `Only ${remaining} more buyer${remaining === 1 ? '' : 's'} needed`;
   }
 
@@ -44,18 +62,20 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
 
   return (
     <article className="group bg-white rounded-2xl border border-gray-200/80 shadow-xs hover:shadow-md hover:border-emerald-200 transition-all duration-200 flex flex-col overflow-hidden">
-      {/* Visual Header / Image */}
+      {/* Visual Header / Image with Category Fallback */}
       <div className="relative aspect-[16/9] w-full bg-gray-100 overflow-hidden">
-        <Image
-          src={pool.imageUrl || '/images/pool-default.svg'}
+        <PoolImage
+          src={pool.imageUrl}
           alt={`${pool.name} in ${pool.city}`}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          category={pool.category}
+          categorySlug={pool.categorySlug}
+          slugOrName={pool.slug || pool.name}
           priority={priorityImage}
-          className="object-cover group-hover:scale-102 transition-transform duration-300"
+          className="group-hover:scale-102 transition-transform duration-300"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
 
-        {/* Status / Category Badges overlay */}
+        {/* Status / City Badges overlay */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/95 backdrop-blur-xs text-gray-800 px-2.5 py-1 rounded-full shadow-xs border border-gray-200/50">
             <MapPin className="w-3 h-3 text-emerald-600" aria-hidden="true" />
@@ -71,8 +91,8 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
 
         {/* Demo Indicator Pill */}
         {!pool.priceIsVerified && (
-          <div className="absolute bottom-2.5 left-3">
-            <span className="text-[10px] font-medium bg-gray-900/80 text-white backdrop-blur-xs px-2 py-0.5 rounded-md flex items-center gap-1">
+          <div className="absolute bottom-2.5 left-3 pointer-events-none">
+            <span className="text-[10px] font-medium bg-gray-900/85 text-white backdrop-blur-xs px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
               <Tag className="w-2.5 h-2.5 text-amber-300" aria-hidden="true" />
               Demo Estimate
             </span>
@@ -123,14 +143,26 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
               )}
             </div>
 
-            {hasSavings && (
-              <div className="mt-2 pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs">
-                <span className="text-[11px] text-gray-500">Estimated Saving:</span>
-                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-100">
+            {/* Savings & Demo Verification Label */}
+            <div className="mt-2 pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs gap-2">
+              {!pool.priceIsVerified ? (
+                <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60 font-medium inline-flex items-center gap-1">
+                  <Info className="w-2.5 h-2.5 text-amber-600 shrink-0" aria-hidden="true" />
+                  <span>Demo data — not a live dealer offer</span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold inline-flex items-center gap-1">
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" aria-hidden="true" />
+                  <span>Verified Dealer Quote</span>
+                </span>
+              )}
+
+              {hasSavings && (
+                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-100 shrink-0">
                   Save ~{formatINR(savingsAmount)}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Progress Component */}
@@ -142,7 +174,11 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
 
           {/* Urgency & Timer */}
           <div className="flex items-center justify-between gap-2 text-xs text-gray-500 mb-5 pt-1">
-            <Countdown deadline={pool.deadline} />
+            <Countdown
+              deadline={pool.deadline}
+              status={pool.status}
+              isClosed={isClosed || isPastDeadline}
+            />
 
             <span className="text-[11px] text-gray-600 truncate max-w-[170px]" title={urgencyText}>
               {urgencyText}
@@ -172,7 +208,7 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isJoinable ? 'Join Free' : 'Closed'}</span>
+              <span>{isJoinable ? 'Join Free' : isClosed ? 'Closed' : 'Concluded'}</span>
             </button>
           ) : (
             <Link
@@ -184,7 +220,7 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isJoinable ? 'Join Free' : 'Closed'}</span>
+              <span>{isJoinable ? 'Join Free' : isClosed ? 'Closed' : 'Concluded'}</span>
             </Link>
           )}
         </div>

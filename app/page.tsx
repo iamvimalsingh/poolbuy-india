@@ -38,9 +38,9 @@ export default async function HomePage() {
             Get <span className="text-emerald-600">Bulk Dealer Quotations</span> on High-Ticket Products in Your City
           </h1>
 
-          {/* Subheading */}
+          {/* Subheading emphasizing 3 V3 launch product families */}
           <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-8">
-            Express interest alongside verified local buyers in your city for Electric Scooters, Cars, Rooftop Solar, and Laptops. No upfront fees. No passwords.
+            Express interest alongside verified local buyers in your city for Rooftop Solar (3kW/5kW), Home Power Backup, and Whole-House Water Softeners. No upfront fees. No passwords.
           </p>
 
           {/* CTA Buttons */}
@@ -81,7 +81,12 @@ export default async function HomePage() {
 
       {/* Pool Catalog with Interactive City/Category Filters & Join Modal */}
       <section id="pools" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full scroll-mt-24">
-        <PoolCatalog initialPools={pools} initialCities={operationalCities} />
+        <PoolCatalog
+          initialPools={pools}
+          initialCities={operationalCities}
+          initialCategories={operationalCategories}
+          initialCity="bhopal"
+        />
       </section>
 
       {/* How It Works Section */}

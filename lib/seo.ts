@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { isDemoMode } from './data-mode';
 import { PublicPool, BlogPost } from '@/types';
+import { getPoolFallbackImage } from './pool-image-fallback';
 
 /**
  * Returns the sanitized base site URL without trailing slashes.
@@ -62,9 +63,10 @@ export function getRobotsMetadata(isClosedOrDemo = false): Metadata['robots'] {
 export function buildProductJsonLd(pool: PublicPool) {
   const siteUrl = getSiteUrl();
   const dealUrl = `${siteUrl}/deals/${pool.citySlug}/${pool.slug}`;
+  const fallbackImage = getPoolFallbackImage(pool.category, pool.categorySlug, pool.slug || pool.name);
   const imageUrl = pool.imageUrl?.startsWith('http')
     ? pool.imageUrl
-    : `${siteUrl}${pool.imageUrl || '/images/pool-default.svg'}`;
+    : `${siteUrl}${pool.imageUrl || fallbackImage}`;
 
   const productData: Record<string, unknown> = {
     '@context': 'https://schema.org',

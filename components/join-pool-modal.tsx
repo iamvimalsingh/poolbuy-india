@@ -336,6 +336,16 @@ function JoinPoolDialogContent({
               />
             </div>
 
+            {/* Demo Mode Notice */}
+            {!pool.priceIsVerified && (
+              <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong>Demo Mode Notice:</strong> This pool displays an illustrative demo estimate. Expressing interest stores demonstration data locally and is not transmitted to an authorized dealership until formal volume terms are verified.
+                </span>
+              </div>
+            )}
+
             {/* Privacy Notice */}
             <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
               <p>

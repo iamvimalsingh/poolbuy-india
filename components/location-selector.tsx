@@ -35,6 +35,31 @@ export function LocationSelector({
     isError?: boolean;
   }>({ isLoading: false, message: null });
 
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   // Currently selected state object
   const currentState = useMemo(() => {
     return (
@@ -184,7 +209,10 @@ export function LocationSelector({
 
       {/* Popover / Dialog */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[340px] sm:w-[480px] bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-scale-in">
+        <div
+          ref={popoverRef}
+          className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-[480px] max-w-[480px] bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-scale-in"
+        >
           {/* Header & Search */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/70">
             <div className="flex items-center justify-between mb-3">

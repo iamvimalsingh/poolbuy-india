@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { getPublicPoolBySlug, getPublicPools } from '@/lib/pools';
 import { getSiteUrl, getRobotsMetadata, buildProductJsonLd, buildFaqJsonLd } from '@/lib/seo';
@@ -9,6 +8,8 @@ import { DealActionPanel } from '@/components/deal-action-panel';
 import { FaqAccordion } from '@/components/faq-accordion';
 import { JsonLd } from '@/components/json-ld';
 import { PoolCard } from '@/components/pool-card';
+import { PoolImage } from '@/components/pool-image';
+import { getPoolFallbackImage } from '@/lib/pool-image-fallback';
 
 interface DealPageProps {
   params: Promise<{ citySlug: string; poolSlug: string }>;
@@ -28,9 +29,10 @@ export async function generateMetadata({ params }: DealPageProps): Promise<Metad
   const description = `Join the group buying pool for ${pool.name} in ${pool.city}. Team up with local buyers to reach target volume for wholesale dealership bulk pricing.`;
   const isClosedOrFallback = pool.status === 'CLOSED' || pool.status === 'LEAD_FALLBACK';
 
+  const fallbackImage = getPoolFallbackImage(pool.category, pool.categorySlug, pool.slug || pool.name);
   const imageUrl = pool.imageUrl?.startsWith('http')
     ? pool.imageUrl
-    : `${siteUrl}${pool.imageUrl || '/images/pool-default.svg'}`;
+    : `${siteUrl}${pool.imageUrl || fallbackImage}`;
 
   return {
     title,
@@ -174,14 +176,16 @@ export default async function DealPage({ params }: DealPageProps) {
                 </p>
               )}
 
-              {/* Image */}
+              {/* Image with Category Fallback */}
               <div className="mt-6 aspect-video sm:aspect-16/9 bg-slate-100 rounded-xl overflow-hidden relative border border-slate-200">
-                <Image
-                  src={pool.imageUrl || '/images/pool-default.svg'}
+                <PoolImage
+                  src={pool.imageUrl}
                   alt={pool.name}
-                  fill
-                  className="object-cover"
+                  category={pool.category}
+                  categorySlug={pool.categorySlug}
+                  slugOrName={pool.slug || pool.name}
                   priority
+                  className="object-cover"
                 />
               </div>
 

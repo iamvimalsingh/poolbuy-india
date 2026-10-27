@@ -13,6 +13,24 @@ export interface CategoryMeta {
 
 export const CATEGORIES: CategoryMeta[] = [
   {
+    category: 'ROOFTOP_SOLAR',
+    slug: 'rooftop-solar',
+    label: 'Rooftop Solar (3kW & 5kW)',
+    description: 'Residential rooftop solar installations with DISCOM subsidy guidance.',
+  },
+  {
+    category: 'ROOFTOP_SOLAR',
+    slug: 'home-power-backup',
+    label: 'Home Power Backup',
+    description: 'Heavy-duty pure sine wave inverter and 200 Ah tall tubular battery combo package.',
+  },
+  {
+    category: 'ROOFTOP_SOLAR',
+    slug: 'water-softeners',
+    label: 'Whole-House Water Softener',
+    description: 'Automatic ion-exchange water softeners for scale-free residential plumbing.',
+  },
+  {
     category: 'EV_SCOOTERS',
     slug: 'ev-scooters',
     label: 'Electric Scooters',
@@ -23,12 +41,6 @@ export const CATEGORIES: CategoryMeta[] = [
     slug: 'cars',
     label: 'Cars & SUVs',
     description: 'City-level group quotations for personal and family passenger cars.',
-  },
-  {
-    category: 'ROOFTOP_SOLAR',
-    slug: 'rooftop-solar',
-    label: 'Rooftop Solar',
-    description: 'Residential rooftop solar installations with DISCOM subsidy guidance.',
   },
   {
     category: 'LAPTOPS',
@@ -51,9 +63,11 @@ export const CATEGORIES: CategoryMeta[] = [
 ];
 
 export const CATEGORY_SLUG_MAP: Record<string, PoolCategory | PoolCategory[]> = {
+  'rooftop-solar': 'ROOFTOP_SOLAR',
+  'home-power-backup': 'ROOFTOP_SOLAR',
+  'water-softeners': 'ROOFTOP_SOLAR',
   'ev-scooters': 'EV_SCOOTERS',
   'cars': 'CARS',
-  'rooftop-solar': 'ROOFTOP_SOLAR',
   'laptops': 'LAPTOPS',
   'smart-tvs': 'SMART_TVS',
   'tractors-commercial': 'TRACTORS_COMMERCIAL',
