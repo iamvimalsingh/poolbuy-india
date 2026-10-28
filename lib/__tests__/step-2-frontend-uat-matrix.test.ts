@@ -6,9 +6,8 @@ import { setTestD1Database } from '../d1/db';
 import { D1Database, D1PreparedStatement, D1Result, D1ExecResult } from '../d1/types';
 import { executePoolRequest, getPoolRequestById } from '../requests';
 import { executeJoinPool, getPublicPools } from '../pools';
-import { createCategory, updateCategory, getOperationalCategories, getCategoryBySlug } from '../categories';
+import { createCategory, updateCategory, getOperationalCategories } from '../categories';
 import { createPoolQuotation, updatePoolQuotation, isQuoteValid, getPublishedPoolQuotation } from '../quotes';
-import { poolRequestSchema, joinPoolSchema } from '../validation';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DatabaseSync } = require('node:sqlite');
