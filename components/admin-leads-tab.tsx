@@ -444,7 +444,7 @@ export function AdminLeadsTab() {
                   }`}
                 >
                   <div className="font-bold">1. Pool Unlocked — Refundable Token Link</div>
-                  <div className="text-[11px] text-gray-500">Requires unlocked status, verified terms & payment link.</div>
+                  <div className="text-[11px] text-gray-500">Requires target reached status, verified terms & coordination fee link.</div>
                 </button>
 
                 <button

@@ -24,6 +24,7 @@ import { AdminPool, PoolCategory, PoolStatus, City } from '@/types';
 import { CATEGORIES, CITIES, STATUS_LABELS } from '@/lib/constants';
 import { STANDARD_PRODUCTS } from '@/lib/products';
 import { formatINR } from '@/lib/format';
+import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
 import { AdminGroupDetailModal } from './admin-group-detail-modal';
 
 export function AdminPoolsTab() {
@@ -1080,12 +1081,11 @@ export function AdminPoolsTab() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-gray-800 mb-1">Token Deposit (₹499–₹999)</label>
+                    <label className="block font-semibold text-gray-800 mb-1">Coordination Fee / Deposit (₹99+)</label>
                     <input
                       type="number"
                       name="tokenAmount"
-                      min={499}
-                      max={999}
+                      min={99}
                       defaultValue={editingPool.tokenAmount || 499}
                       className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
                     />
@@ -1345,10 +1345,15 @@ export function AdminPoolsTab() {
                     required
                     className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white outline-hidden font-medium"
                   >
-                    {activeCitiesList.map((c) => (
-                      <option key={c.slug} value={c.name}>
-                        {c.name} ({c.state})
-                      </option>
+                    <option value="">Select Authoritative City</option>
+                    {INDIA_LOCATION_DIRECTORY.map((state) => (
+                      <optgroup key={state.code} label={`${state.name} (${state.type === 'UNION_TERRITORY' ? 'UT' : 'State'})`}>
+                        {state.cities.map((c) => (
+                          <option key={c.slug} value={c.name}>
+                            {c.name} ({state.name})
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -1518,13 +1523,17 @@ export function AdminPoolsTab() {
                   required
                 >
                   <option value="">Select Target City</option>
-                  {activeCitiesList
-                    .filter((c) => c.name.toLowerCase() !== cloneModalPool.city.toLowerCase())
-                    .map((c) => (
-                      <option key={c.slug} value={c.name}>
-                        {c.name} ({c.state})
-                      </option>
-                    ))}
+                  {INDIA_LOCATION_DIRECTORY.map((state) => (
+                    <optgroup key={state.code} label={state.name}>
+                      {state.cities
+                        .filter((c) => c.name.toLowerCase() !== cloneModalPool?.city?.toLowerCase())
+                        .map((c) => (
+                          <option key={c.slug} value={c.name}>
+                            {c.name} ({state.name})
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
               <div>

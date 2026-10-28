@@ -35,3 +35,4 @@ ALTER TABLE pool_leads ADD COLUMN connection_preference TEXT DEFAULT 'INDIVIDUAL
 ALTER TABLE pool_leads ADD COLUMN group_privacy_acknowledged INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE pool_leads ADD COLUMN selected_variant_id TEXT;
 ALTER TABLE pool_leads ADD COLUMN selected_variant_name TEXT;
+

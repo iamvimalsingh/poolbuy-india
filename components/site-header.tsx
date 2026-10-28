@@ -38,7 +38,7 @@ export function SiteHeader() {
               href="/#pools"
               className="hover:text-emerald-600 transition-colors py-1"
             >
-              Explore Groups
+              Explore Pools
             </Link>
             <Link
               href="/#how-it-works"
@@ -57,7 +57,7 @@ export function SiteHeader() {
               className="hover:text-emerald-600 transition-colors py-1 flex items-center gap-1 text-gray-900 font-semibold"
             >
               <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-              Start a Group Buy
+              Start a Pool
             </Link>
           </nav>
 

@@ -1,84 +1,140 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, CheckCircle2, AlertCircle, Loader2, Send, Info, Users, Clock } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
+import {
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Send,
+  Info,
+  Users,
+  Clock,
+  ArrowRight,
+} from 'lucide-react';
 import { normalizePhone, isValidIndianMobile } from '@/lib/format';
 import { City, Category } from '@/types';
+import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
+import { useSelectedCity } from '@/lib/location-store';
 
-interface PoolRequestFormProps {
+export interface PoolRequestFormProps {
   initialCities?: City[];
   initialCategories?: Category[];
 }
 
-export function PoolRequestForm({ initialCities, initialCategories }: PoolRequestFormProps) {
-  const [cities, setCities] = useState<City[]>(initialCities || []);
-  const [categories, setCategories] = useState<Category[]>(initialCategories || []);
+const APPROVED_CATALOGUE_PRODUCTS = [
+  {
+    id: 'prod-rooftop-solar-3kw',
+    name: '3 kW Rooftop Solar Complete Kit',
+    category: 'ROOFTOP_SOLAR',
+    categoryName: 'Rooftop Solar',
+    brand: 'Tier-1 Mono PERC / TopCon',
+    model: '3 kW Residential On-Grid',
+  },
+  {
+    id: 'prod-rooftop-solar-5kw',
+    name: '5 kW Rooftop Solar Complete Kit',
+    category: 'ROOFTOP_SOLAR',
+    categoryName: 'Rooftop Solar',
+    brand: 'Tier-1 High-Efficiency',
+    model: '5 kW Residential Dual-MPPT Package',
+  },
+  {
+    id: 'prod-power-backup-combo',
+    name: 'Home Power-Backup Combo (Inverter + 200 Ah Battery)',
+    category: 'ROOFTOP_SOLAR',
+    categoryName: 'Power Backup',
+    brand: 'Pure Sine Wave Inverter + Tubular Battery',
+    model: '1100VA Inverter + 200 Ah Battery',
+  },
+  {
+    id: 'prod-water-softener',
+    name: 'Whole-House Water Softener Kit',
+    category: 'ROOFTOP_SOLAR',
+    categoryName: 'Water Softener',
+    brand: 'Automatic Food-Grade Ion Exchange',
+    model: 'Automatic 28L Resin Residential Softener',
+  },
+];
 
-  const [requestType, setRequestType] = useState<'GROUP_PROPOSAL' | 'PRODUCT_SUGGESTION'>('GROUP_PROPOSAL');
-  const [productName, setProductName] = useState('');
-  const [selectedCity, setSelectedCity] = useState(cities[0]?.name || 'Bhopal');
-  const [customCity, setCustomCity] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [customCategory, setCustomCategory] = useState('');
+function findInitialLocation(citySlug: string | null) {
+  if (!citySlug) return null;
+  for (const st of INDIA_LOCATION_DIRECTORY) {
+    const found = st.cities.find((c) => c.slug === citySlug);
+    if (found) {
+      return { stateCode: st.code, cityName: found.name, citySlug: found.slug };
+    }
+  }
+  return null;
+}
+
+export function PoolRequestForm(props: PoolRequestFormProps) {
+  void props;
+  const [storeCity] = useSelectedCity();
+
+  // Determine initial location from storeCity
+  const initialLocation = findInitialLocation(storeCity);
+
+  // State & City selection using canonical INDIA_LOCATION_DIRECTORY
+  const [userStateCode, setUserStateCode] = useState<string | null>(null);
+  const [userCityName, setUserCityName] = useState<string | null>(null);
+  const [userCitySlug, setUserCitySlug] = useState<string | null>(null);
+
+  const selectedStateCode = userStateCode ?? initialLocation?.stateCode ?? '';
+  const selectedCityName = userCityName ?? initialLocation?.cityName ?? '';
+  const selectedCitySlug = userCitySlug ?? initialLocation?.citySlug ?? '';
+
+  // Selected State object
+  const currentState = useMemo(() => {
+    return INDIA_LOCATION_DIRECTORY.find((s) => s.code === selectedStateCode) || null;
+  }, [selectedStateCode]);
+
+  // Cities in selected State
+  const stateCities = useMemo(() => {
+    return currentState ? currentState.cities : [];
+  }, [currentState]);
+
+  // Form fields
+  const [poolTitle, setPoolTitle] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState(APPROVED_CATALOGUE_PRODUCTS[0].id);
   const [requirementsSummary, setRequirementsSummary] = useState('');
   const [targetBuyersRequested, setTargetBuyersRequested] = useState<number>(10);
   const [requestedDeadlineDays, setRequestedDeadlineDays] = useState<number>(30);
-  const [brandPreference, setBrandPreference] = useState('');
-  const [modelPreference, setModelPreference] = useState('');
   const [fullName, setFullName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [extraMessage, setExtraMessage] = useState('');
   const [contactConsent, setContactConsent] = useState(true);
+  const [acknowledgedReview, setAcknowledgedReview] = useState(true);
 
+  // Existing pool check derived directly from selected city
+  const hasExistingPool = Boolean(selectedCitySlug && ['bhopal', 'indore', 'pune'].includes(selectedCitySlug));
+  const existingPoolUrl = hasExistingPool ? `/city/${selectedCitySlug}` : null;
+
+  // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submissionResult, setSubmissionResult] = useState<{ id: string; isDemo: boolean } | null>(null);
 
-  // Fetch operational cities and categories on mount if not provided
-  useEffect(() => {
-    let ignore = false;
-    async function loadData() {
-      try {
-        if (!initialCities || initialCities.length === 0) {
-          const res = await fetch('/api/cities');
-          const data = await res.json();
-          if (!ignore && data.success && Array.isArray(data.data)) {
-            setCities(data.data);
-            if (data.data.length > 0 && !selectedCity) {
-              setSelectedCity(data.data[0].name);
-            }
-          }
-        }
-        if (!initialCategories || initialCategories.length === 0) {
-          const res = await fetch('/api/categories');
-          const data = await res.json();
-          if (!ignore && data.success && Array.isArray(data.data)) {
-            setCategories(data.data);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching cities/categories for request form:', err);
-      }
-    }
-    loadData();
-    return () => {
-      ignore = true;
-    };
-  }, [initialCities, initialCategories, selectedCity]);
+  const selectedProduct = useMemo(() => {
+    return (
+      APPROVED_CATALOGUE_PRODUCTS.find((p) => p.id === selectedProductId) ||
+      APPROVED_CATALOGUE_PRODUCTS[0]
+    );
+  }, [selectedProductId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const trimmedProduct = productName.trim();
-    if (trimmedProduct.length < 2) {
-      setErrorMessage('Please enter a valid product name (at least 2 characters).');
+    const trimmedTitle = poolTitle.trim();
+    if (trimmedTitle.length < 3) {
+      setErrorMessage('Please provide a descriptive pool title (at least 3 characters, e.g. "Silver Oak Society Solar Group").');
       return;
     }
 
-    const effectiveCity = selectedCity === '__OTHER__' ? customCity.trim() : selectedCity.trim();
-    if (!effectiveCity || effectiveCity.length < 2) {
-      setErrorMessage('Please specify a valid city name (at least 2 characters).');
+    if (!selectedStateCode || !selectedCityName) {
+      setErrorMessage('Please select both your State and City from the directory.');
       return;
     }
 
@@ -86,37 +142,42 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
     if (whatsappNumber.trim()) {
       normalizedPhone = normalizePhone(whatsappNumber);
       if (!isValidIndianMobile(normalizedPhone)) {
-        setErrorMessage('Please enter a valid 10-digit Indian WhatsApp number, or leave it blank.');
+        setErrorMessage('Please enter a valid 10-digit Indian WhatsApp mobile number (e.g. 9876543210).');
         return;
       }
-    }
-
-    if (!contactConsent && normalizedPhone) {
-      setErrorMessage('Please consent to contact regarding this proposal, or clear the phone field.');
+    } else {
+      setErrorMessage('Please provide a WhatsApp contact number so our team can coordinate this proposal.');
       return;
     }
 
-    const effectiveCategory = selectedCategory === '__OTHER__' ? null : selectedCategory || null;
-    const effectiveCategoryName =
-      selectedCategory === '__OTHER__' ? customCategory.trim() : null;
+    if (!contactConsent) {
+      setErrorMessage('Please consent to contact regarding this pool proposal.');
+      return;
+    }
+
+    if (!acknowledgedReview) {
+      setErrorMessage('Please acknowledge that proposals undergo Admin review before being published as live pools.');
+      return;
+    }
 
     const requestedDeadline = new Date(Date.now() + requestedDeadlineDays * 86400000).toISOString();
 
     const payload = {
-      productName: trimmedProduct,
-      category: effectiveCategory,
-      categoryName: effectiveCategoryName || null,
-      city: effectiveCity,
-      brandPreference: brandPreference.trim() || null,
-      modelPreference: modelPreference.trim() || null,
-      fullName: fullName.trim() || null,
-      whatsappNumber: normalizedPhone || null,
+      productName: `${trimmedTitle} — ${selectedProduct.name}`,
+      category: selectedProduct.category,
+      categoryName: selectedProduct.categoryName,
+      brandPreference: selectedProduct.brand,
+      modelPreference: selectedProduct.model,
+      city: selectedCityName,
+      state: currentState?.name || selectedStateCode,
+      fullName: fullName.trim() || 'Community Organizer',
+      whatsappNumber: normalizedPhone,
       extraMessage: extraMessage.trim(),
       requirementsSummary: requirementsSummary.trim() || undefined,
       targetBuyersRequested: Number(targetBuyersRequested) || 10,
       requestedDeadline,
-      contactConsent,
-      requestType,
+      contactConsent: true,
+      requestType: 'GROUP_PROPOSAL' as const,
     };
 
     setIsSubmitting(true);
@@ -144,322 +205,362 @@ export function PoolRequestForm({ initialCities, initialCategories }: PoolReques
   };
 
   if (submissionResult) {
-    const finalCityDisplay = selectedCity === '__OTHER__' ? customCity : selectedCity;
     return (
-      <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 text-center text-white space-y-4">
-        <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center mx-auto">
-          <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
+      <div className="bg-white rounded-2xl p-6 sm:p-8 text-slate-900 shadow-xl border border-emerald-100 animate-fade-in space-y-4">
+        <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+          <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h3 className="text-xl font-bold">
-          {requestType === 'GROUP_PROPOSAL' ? 'Group Buy Proposal Submitted!' : 'Product Suggestion Received!'}
-        </h3>
-        <p className="text-sm text-emerald-100 max-w-md mx-auto leading-relaxed">
-          Thank you for proposing <strong>{productName}</strong> in <strong>{finalCityDisplay}</strong>.
-          Your submission is in the <strong>Admin Review Queue</strong>. Once community demand and local availability are reviewed, an official buying group will be published.
-        </p>
-
-        {submissionResult.isDemo ? (
-          <div className="inline-block bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs px-3.5 py-1.5 rounded-lg">
-            Demo Mode: Proposal recorded in session demo store (ID: {submissionResult.id}). Visible in Admin Command Center.
-          </div>
-        ) : (
-          <div className="inline-block bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs px-3.5 py-1.5 rounded-lg">
-            Proposal ID: {submissionResult.id} (Status: PENDING REVIEW)
-          </div>
-        )}
-
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              setSubmissionResult(null);
-              setProductName('');
-              setCustomCity('');
-              setCustomCategory('');
-              setBrandPreference('');
-              setModelPreference('');
-              setRequirementsSummary('');
-              setExtraMessage('');
-            }}
-            className="text-xs font-semibold px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
-          >
-            Submit Another Proposal
-          </button>
+        <div className="text-center space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+            Pending Admin Review
+          </span>
+          <h3 className="text-lg sm:text-xl font-extrabold text-slate-950 pt-2">
+            Pool Proposal Submitted Successfully
+          </h3>
+          <p className="text-xs text-slate-500">
+            Reference ID: <span className="font-mono font-bold text-slate-800">{submissionResult.id}</span>
+          </p>
         </div>
+
+        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-2">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Proposed Title:</span>
+            <span className="font-semibold text-slate-900">{poolTitle}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Approved Product:</span>
+            <span className="font-semibold text-slate-900">{selectedProduct.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Location:</span>
+            <span className="font-semibold text-slate-900">{selectedCityName}, {currentState?.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Target Cohort:</span>
+            <span className="font-semibold text-slate-900">{targetBuyersRequested} Buyers</span>
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+          <p className="font-bold flex items-center gap-1.5 mb-1">
+            <Info className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>What Happens Next:</span>
+          </p>
+          <p>
+            Your proposal is not yet a live public pool. The GroupBuying operations team will review supplier feasibility, local grid net-metering parameters in {selectedCityName}, and reach out to you via WhatsApp at <strong>+91 {whatsappNumber}</strong> to coordinate next steps.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSubmissionResult(null);
+            setPoolTitle('');
+            setRequirementsSummary('');
+            setExtraMessage('');
+          }}
+          className="w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
+        >
+          Submit Another Proposal
+        </button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 sm:p-8 text-white space-y-4">
-      {/* Mode Switcher Tabs */}
-      <div className="flex items-center gap-2 pb-3 border-b border-white/15">
-        <button
-          type="button"
-          onClick={() => setRequestType('GROUP_PROPOSAL')}
-          className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all ${
-            requestType === 'GROUP_PROPOSAL'
-              ? 'bg-emerald-500 text-gray-950 shadow-xs'
-              : 'bg-white/10 text-emerald-100 hover:bg-white/15'
-          }`}
-        >
-          Start a Group Buy (Proposal)
-        </button>
-        <button
-          type="button"
-          onClick={() => setRequestType('PRODUCT_SUGGESTION')}
-          className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all ${
-            requestType === 'PRODUCT_SUGGESTION'
-              ? 'bg-emerald-500 text-gray-950 shadow-xs'
-              : 'bg-white/10 text-emerald-100 hover:bg-white/15'
-          }`}
-        >
-          Suggest a Product
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2 mb-1">
-        <Sparkles className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-        <h3 className="text-lg font-bold text-white">
-          {requestType === 'GROUP_PROPOSAL' ? 'Propose a Local Group Buy' : 'Suggest a Product for Your City'}
-        </h3>
-      </div>
-      <p className="text-xs text-emerald-100/80 -mt-2 mb-3 leading-relaxed">
-        {requestType === 'GROUP_PROPOSAL'
-          ? 'Visitors can propose a buying group for any product. Proposals enter admin review before publication. No customer account required.'
-          : 'Suggest a product you would like to see listed in your city. Demand is aggregated and reviewed by operators.'}
-      </p>
-
+    <div className="bg-white rounded-3xl p-6 sm:p-8 text-slate-900 shadow-xl border border-slate-100">
       {errorMessage && (
-        <div className="bg-rose-500/20 border border-rose-400/40 text-rose-200 text-xs rounded-xl p-3 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Product / Group Title */}
-        <div className="sm:col-span-2">
-          <label htmlFor="req-product" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Product or Group Title <span className="text-emerald-400">*</span>
+      {/* Existing Pool Notification Banner */}
+      {hasExistingPool && existingPoolUrl && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs space-y-2">
+          <div className="flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-slate-950">
+                A Solar Pool is already collecting interest in {selectedCityName}!
+              </p>
+              <p className="text-slate-600 text-[11px] mt-0.5">
+                Joining the existing general pool brings buyers together faster for volume negotiation.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <Link
+              href={existingPoolUrl}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold text-xs hover:bg-amber-700 transition-colors shadow-2xs"
+            >
+              <span>Explore Existing {selectedCityName} Deals</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <span className="text-[11px] text-slate-500">
+              Or continue proposing a distinct society pool below:
+            </span>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* 1. Proposed Pool Title */}
+        <div>
+          <label htmlFor="pool-title" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+            1. Proposed Pool / Community Title <span className="text-rose-500">*</span>
           </label>
           <input
-            id="req-product"
+            id="pool-title"
             type="text"
             required
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            placeholder="e.g. 5kW Rooftop Solar Installation, Electric Scooter Bulk Deal, Whole-House Water Softener"
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden transition-all"
+            placeholder="e.g. Green Acres Society Rooftop Solar Group, Arera Colony Collective"
+            value={poolTitle}
+            onChange={(e) => setPoolTitle(e.target.value)}
+            className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
           />
+          <p className="text-[11px] text-slate-500 mt-1">
+            Free text title representing your society, commercial cluster, or neighborhood campaign.
+          </p>
         </div>
 
-        {/* City Selector */}
+        {/* 2. Product from Approved Catalogue */}
         <div>
-          <label htmlFor="req-city" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Target City <span className="text-emerald-400">*</span>
+          <label htmlFor="approved-product" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+            2. Approved Product Category <span className="text-rose-500">*</span>
           </label>
           <select
-            id="req-city"
-            value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-gray-900 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
+            id="approved-product"
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
           >
-            {cities.map((c) => (
-              <option key={c.slug} value={c.name} className="bg-gray-900 text-white">
-                {c.name} ({c.state})
+            {APPROVED_CATALOGUE_PRODUCTS.map((prod) => (
+              <option key={prod.id} value={prod.id}>
+                {prod.name} ({prod.brand})
               </option>
             ))}
-            <option value="__OTHER__" className="bg-gray-900 text-white">
-              + Other city / town (Not in directory)
-            </option>
           </select>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Initial national rollout is active for Solar &amp; Power products. Admin manages additional product launches.
+          </p>
         </div>
 
-        {/* Category Selector */}
+        {/* 3. Canonical Location: State & City */}
         <div>
-          <label htmlFor="req-category" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Category (Optional)
+          <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+            3. Operational Location (28 States &amp; 8 UTs) <span className="text-rose-500">*</span>
           </label>
-          <select
-            id="req-category"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-gray-900 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
-          >
-            <option value="" className="bg-gray-900 text-white">Select Category...</option>
-            {categories.map((c) => (
-              <option key={c.slug} value={c.slug} className="bg-gray-900 text-white">
-                {c.label}
-              </option>
-            ))}
-            <option value="__OTHER__" className="bg-gray-900 text-white">
-              + Other / Free-text Category
-            </option>
-          </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* State selector */}
+            <div>
+              <label htmlFor="req-state" className="block text-[11px] font-semibold text-slate-600 mb-1">
+                State / Union Territory
+              </label>
+              <select
+                id="req-state"
+                value={selectedStateCode}
+                onChange={(e) => {
+                  const newCode = e.target.value;
+                  setUserStateCode(newCode);
+                  const st = INDIA_LOCATION_DIRECTORY.find((s) => s.code === newCode);
+                  if (st && st.cities.length > 0) {
+                    setUserCityName(st.cities[0].name);
+                    setUserCitySlug(st.cities[0].slug);
+                  } else {
+                    setUserCityName('');
+                    setUserCitySlug('');
+                  }
+                }}
+                required
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+              >
+                <option value="">Select State / UT</option>
+                {INDIA_LOCATION_DIRECTORY.map((st) => (
+                  <option key={st.code} value={st.code}>
+                    {st.name} ({st.type === 'UNION_TERRITORY' ? 'UT' : 'State'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* City selector */}
+            <div>
+              <label htmlFor="req-city" className="block text-[11px] font-semibold text-slate-600 mb-1">
+                Urban Centre / City
+              </label>
+              <select
+                id="req-city"
+                value={selectedCitySlug}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  setUserCitySlug(slug);
+                  const match = stateCities.find((c) => c.slug === slug);
+                  if (match) setUserCityName(match.name);
+                }}
+                disabled={!selectedStateCode}
+                required
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                <option value="">{selectedStateCode ? 'Select City' : 'Choose State First'}</option>
+                {stateCities.map((city) => (
+                  <option key={city.slug} value={city.slug}>
+                    {city.name} ({city.placeType})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Canonical location directory covers all 28 Indian States &amp; 8 UTs. Local supplier readiness is evaluated per city.
+          </p>
         </div>
 
-        {/* Other City Input (conditional) */}
-        {selectedCity === '__OTHER__' && (
-          <div className="sm:col-span-2 bg-white/5 border border-white/10 rounded-xl p-3 space-y-1.5">
-            <label htmlFor="req-custom-city" className="block text-xs font-semibold text-emerald-200">
-              Enter Your City / Town Name <span className="text-emerald-400">*</span>
-            </label>
-            <input
-              id="req-custom-city"
-              type="text"
-              required
-              value={customCity}
-              onChange={(e) => setCustomCity(e.target.value)}
-              placeholder="e.g. Lucknow, Nagpur, Surat, Coimbatore"
-              className="w-full text-sm px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 outline-hidden"
-            />
-            <p className="text-[11px] text-emerald-100/70 flex items-start gap-1 mt-1">
-              <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-              <span>
-                New cities are reviewed by operators. Official groups open only after local serviceability is verified.
-              </span>
-            </p>
-          </div>
-        )}
-
-        {/* Other Category Input (conditional) */}
-        {selectedCategory === '__OTHER__' && (
-          <div className="sm:col-span-2 bg-white/5 border border-white/10 rounded-xl p-3 space-y-1.5">
-            <label htmlFor="req-custom-category" className="block text-xs font-semibold text-emerald-200">
-              Custom Category or Product Type
-            </label>
-            <input
-              id="req-custom-category"
-              type="text"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              placeholder="e.g. Electric Bicycles, Inverters, Commercial Equipment"
-              className="w-full text-sm px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 outline-hidden"
-            />
-          </div>
-        )}
-
-        {/* Target Group Size (bounded 2 - 10000) */}
+        {/* 4. Community Need / Description */}
         <div>
-          <label htmlFor="req-target" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Target Group Size (Buyers)
-          </label>
-          <div className="relative">
-            <Users className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-            <input
-              id="req-target"
-              type="number"
-              min={2}
-              max={10000}
-              value={targetBuyersRequested}
-              onChange={(e) => setTargetBuyersRequested(Math.max(2, Math.min(10000, parseInt(e.target.value, 10) || 10)))}
-              className="w-full text-sm pl-9 pr-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
-            />
-          </div>
-        </div>
-
-        {/* Requested Timeline / Days */}
-        <div>
-          <label htmlFor="req-deadline" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Desired Timeline
-          </label>
-          <div className="relative">
-            <Clock className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-            <select
-              id="req-deadline"
-              value={requestedDeadlineDays}
-              onChange={(e) => setRequestedDeadlineDays(parseInt(e.target.value, 10) || 30)}
-              className="w-full text-sm pl-9 pr-3.5 py-2.5 rounded-xl bg-gray-900 border border-white/20 text-white focus:border-emerald-400 outline-hidden"
-            >
-              <option value={14} className="bg-gray-900 text-white">14 Days (Fast cohort)</option>
-              <option value={30} className="bg-gray-900 text-white">30 Days (Standard 1 Month)</option>
-              <option value={60} className="bg-gray-900 text-white">60 Days (2 Months)</option>
-              <option value={90} className="bg-gray-900 text-white">90 Days (Quarterly pool)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Short Requirements Description */}
-        <div className="sm:col-span-2">
-          <label htmlFor="req-summary" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Requirements / Package Summary
+          <label htmlFor="req-summary" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+            4. Community Need &amp; Requirements
           </label>
           <textarea
             id="req-summary"
-            rows={2}
-            maxLength={1000}
+            rows={3}
+            placeholder="e.g. We have 12 independent bungalows looking for 3 kW on-grid solar systems with net-metering. Roof access is available."
             value={requirementsSummary}
             onChange={(e) => setRequirementsSummary(e.target.value)}
-            placeholder="e.g. Seeking turnkey rooftop solar installation with net-metering liaison, or TopCon bifacial kit option"
-            className="w-full text-sm px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden resize-none"
+            className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all resize-none"
           />
         </div>
 
-        {/* Contact Info (for proposal follow-up) */}
-        <div>
-          <label htmlFor="req-name" className="block text-xs font-semibold text-emerald-100 mb-1">
-            Your Name (Organizer / Proposer)
+        {/* 5. Target Cohort Size & Timeline */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="req-target" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+              Target Buyers Requested
+            </label>
+            <div className="relative">
+              <Users className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                id="req-target"
+                type="number"
+                min={2}
+                max={500}
+                value={targetBuyersRequested}
+                onChange={(e) => setTargetBuyersRequested(parseInt(e.target.value, 10) || 10)}
+                className="w-full text-sm pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Recommended: 10 buyers for optimal quotation leverage.</p>
+          </div>
+
+          <div>
+            <label htmlFor="req-days" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+              Desired Aggregation Window
+            </label>
+            <div className="relative">
+              <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <select
+                id="req-days"
+                value={requestedDeadlineDays}
+                onChange={(e) => setRequestedDeadlineDays(parseInt(e.target.value, 10) || 30)}
+                className="w-full text-sm pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+              >
+                <option value={14}>14 Days (Fast Track)</option>
+                <option value={30}>30 Days (Standard Community)</option>
+                <option value={45}>45 Days (Large Housing Society)</option>
+                <option value={60}>60 Days (Commercial Cluster)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Contact Information */}
+        <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="req-name" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+              Organizer / Contact Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="req-name"
+              type="text"
+              required
+              placeholder="e.g. Ramesh Patel"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="req-whatsapp" className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-1.5">
+              WhatsApp Mobile Number <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-slate-500 select-none">
+                +91
+              </span>
+              <input
+                id="req-whatsapp"
+                type="tel"
+                required
+                maxLength={10}
+                placeholder="9876543210"
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                className="w-full text-sm pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 7. Disclosures & Legal Consents */}
+        <div className="space-y-3 pt-2 border-t border-slate-200">
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              required
+              checked={acknowledgedReview}
+              onChange={(e) => setAcknowledgedReview(e.target.checked)}
+              className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+            />
+            <span className="text-xs text-slate-700 leading-relaxed">
+              <strong>Admin Review Acknowledged:</strong> I understand that submitting this proposal enters our operations review queue. It is <em>not</em> published as a live pool automatically. <span className="text-rose-500">*</span>
+            </span>
           </label>
-          <input
-            id="req-name"
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Vikram Sharma"
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden"
-          />
-        </div>
 
-        <div>
-          <label htmlFor="req-phone" className="block text-xs font-semibold text-emerald-100 mb-1">
-            WhatsApp Number (For Proposal Review)
-          </label>
-          <input
-            id="req-phone"
-            type="tel"
-            maxLength={10}
-            value={whatsappNumber}
-            onChange={(e) => setWhatsappNumber(e.target.value)}
-            placeholder="9876543210"
-            className="w-full text-sm px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-200/50 focus:border-emerald-400 focus:bg-white/15 outline-hidden"
-          />
-        </div>
-
-        {/* Proposal Consent Checkbox */}
-        <div className="sm:col-span-2 bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-3">
           <label className="flex items-start gap-2.5 cursor-pointer select-none">
             <input
               type="checkbox"
               required
               checked={contactConsent}
               onChange={(e) => setContactConsent(e.target.checked)}
-              className="w-4 h-4 mt-0.5 rounded text-emerald-500 focus:ring-emerald-400 border-gray-400"
+              className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
             />
-            <span className="text-xs text-emerald-100/90 leading-relaxed">
-              <strong>Proposal Acknowledgement &amp; Consent:</strong> I understand that this is a proposal that will be reviewed before public listing. If provided, my contact details may be used on WhatsApp to verify or moderate this group buy proposal.
+            <span className="text-xs text-slate-700 leading-relaxed">
+              <strong>Consent to Contact:</strong> I agree to receive WhatsApp communication from the GroupBuying team regarding feasibility and review for this proposal. <span className="text-rose-500">*</span>
             </span>
           </label>
         </div>
-      </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="inline-flex items-center justify-center gap-2 text-xs font-bold px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-sans shadow-sm transition-all disabled:opacity-50 active:scale-98"
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-            <span>Submitting Proposal...</span>
-          </>
-        ) : (
-          <>
-            <Send className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{requestType === 'GROUP_PROPOSAL' ? 'Submit Group Buy Proposal' : 'Submit Product Suggestion'}</span>
-          </>
-        )}
-      </button>
-    </form>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 active:scale-98 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Submitting Proposal for Review...</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-4 h-4" />
+              <span>Submit Pool Proposal for Admin Review</span>
+            </>
+          )}
+        </button>
+      </form>
+    </div>
   );
 }

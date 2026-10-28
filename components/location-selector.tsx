@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Navigation, Search, Check, ChevronDown, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Search, Check, ChevronDown, AlertCircle, Globe } from 'lucide-react';
 import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
+import { useSelectedCity } from '@/lib/location-store';
 
 interface LocationSelectorProps {
-  currentCitySlug?: string;
+  currentCitySlug?: string | null;
   onSelectCity?: (citySlug: string) => void;
   className?: string;
 }
 
-function findCityBySlug(slug?: string) {
-  if (!slug) return null;
+function findCityBySlug(slug?: string | null) {
+  if (!slug || slug === 'all') return null;
   for (const state of INDIA_LOCATION_DIRECTORY) {
     const match = state.cities.find((c) => c.slug === slug);
     if (match) return { ...match, stateName: state.name };
@@ -21,13 +22,30 @@ function findCityBySlug(slug?: string) {
 }
 
 export function LocationSelector({
-  currentCitySlug,
+  currentCitySlug: propCitySlug,
   onSelectCity,
   className = '',
 }: LocationSelectorProps) {
   const router = useRouter();
+  const [storeCity, setStoreCity] = useSelectedCity();
+  const effectiveCitySlug = propCitySlug !== undefined ? propCitySlug : storeCity;
+
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedStateCode, setSelectedStateCode] = useState<string>('MP');
+  const [userSelectedStateCode, setUserSelectedStateCode] = useState<string | null>(null);
+
+  // Derive active state code from city selection without an effect
+  const stateCodeForCity = useMemo(() => {
+    if (!effectiveCitySlug) return null;
+    for (const state of INDIA_LOCATION_DIRECTORY) {
+      if (state.cities.some((c) => c.slug === effectiveCitySlug)) {
+        return state.code;
+      }
+    }
+    return null;
+  }, [effectiveCitySlug]);
+
+  const selectedStateCode = userSelectedStateCode || stateCodeForCity || 'MP';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [geoStatus, setGeoStatus] = useState<{
     isLoading: boolean;
@@ -35,9 +53,9 @@ export function LocationSelector({
     isError?: boolean;
   }>({ isLoading: false, message: null });
 
-  const popoverRef = React.useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,7 +87,7 @@ export function LocationSelector({
   }, [selectedStateCode]);
 
   // Current city label
-  const currentCity = findCityBySlug(currentCitySlug);
+  const currentCity = findCityBySlug(effectiveCitySlug);
 
   // Search filtered results
   const searchResults = useMemo(() => {
@@ -107,19 +125,19 @@ export function LocationSelector({
     setSearchQuery('');
     setGeoStatus({ isLoading: false, message: null });
 
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('poolbuy_preferred_city', citySlug);
-        window.dispatchEvent(new CustomEvent('poolbuy:city-change', { detail: citySlug }));
-      } catch {
-        // Ignore localStorage restrictions
-      }
-    }
+    const isAllIndia = !citySlug || citySlug === 'all' || citySlug === '';
+    const targetSlug = isAllIndia ? null : citySlug;
+
+    setStoreCity(targetSlug);
 
     if (onSelectCity) {
-      onSelectCity(citySlug);
+      onSelectCity(isAllIndia ? '' : citySlug);
     } else {
-      router.push(`/city/${citySlug}`);
+      if (isAllIndia) {
+        router.push('/');
+      } else {
+        router.push(`/city/${citySlug}`);
+      }
     }
   };
 
@@ -144,7 +162,6 @@ export function LocationSelector({
         const lon = position.coords.longitude.toFixed(2);
 
         // Approximate heuristic for seeded launch regions without paid external geocoding keys
-        // Bhopal approx (23.25, 77.41), Indore (22.71, 75.85), Pune (18.52, 73.85), Delhi (28.61, 77.20)
         let suggestedCitySlug: string | null = null;
         const latNum = position.coords.latitude;
         const lonNum = position.coords.longitude;
@@ -161,6 +178,8 @@ export function LocationSelector({
           suggestedCitySlug = 'mumbai';
         } else if (Math.abs(latNum - 26.91) < 0.8 && Math.abs(lonNum - 75.78) < 0.8) {
           suggestedCitySlug = 'jaipur';
+        } else if (Math.abs(latNum - 12.97) < 0.8 && Math.abs(lonNum - 77.59) < 0.8) {
+          suggestedCitySlug = 'bengaluru-urban';
         }
 
         if (suggestedCitySlug) {
@@ -191,19 +210,21 @@ export function LocationSelector({
     );
   };
 
+  const isAllIndiaActive = !currentCity;
+
   return (
     <div className={`relative ${className}`}>
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold shadow-2xs transition-all"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
         aria-expanded={isOpen}
         aria-haspopup="dialog"
       >
         <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
         <span className="truncate max-w-[140px] sm:max-w-[200px]">
-          {currentCity ? `${currentCity.name}, ${currentCity.stateName}` : 'Select City & State'}
+          {currentCity ? `${currentCity.name}, ${currentCity.stateName}` : 'All India (National)'}
         </span>
         <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -224,12 +245,41 @@ export function LocationSelector({
                 type="button"
                 onClick={handleUseMyLocation}
                 disabled={geoStatus.isLoading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold border border-emerald-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold border border-emerald-200 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <Navigation className="w-3 h-3 shrink-0" />
                 <span>{geoStatus.isLoading ? 'Locating...' : 'Use my location'}</span>
               </button>
             </div>
+
+            {/* All India Quick Button */}
+            <button
+              type="button"
+              onClick={() => handleCitySelect('all')}
+              className={`w-full text-left p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all mb-3 cursor-pointer ${
+                isAllIndiaActive
+                  ? 'border-emerald-600 bg-emerald-50/80 text-emerald-950 font-bold ring-1 ring-emerald-600 shadow-2xs'
+                  : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>All India (National Overview)</span>
+                    {isAllIndiaActive && (
+                      <span className="text-[10px] font-semibold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-normal">
+                    Show group buying pools from all Indian cities
+                  </div>
+                </div>
+              </div>
+              {isAllIndiaActive && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+            </button>
 
             {/* Geolocation feedback message */}
             {geoStatus.message && (
@@ -261,7 +311,28 @@ export function LocationSelector({
           {/* Search Results Mode */}
           {searchResults !== null ? (
             <div className="max-h-[300px] overflow-y-auto p-2 divide-y divide-slate-100">
-              {searchResults.length === 0 ? (
+              {/* Option to clear/All India in search if matched */}
+              {('all india'.includes(searchQuery.toLowerCase().trim()) || 'national'.includes(searchQuery.toLowerCase().trim())) && (
+                <button
+                  type="button"
+                  onClick={() => handleCitySelect('all')}
+                  className="w-full text-left p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-900">All India</span>
+                      <span className="text-slate-400 ml-2 font-normal text-[11px]">
+                        National Overview
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    National
+                  </span>
+                </button>
+              )}
+              {searchResults.length === 0 && !'all india'.includes(searchQuery.toLowerCase().trim()) ? (
                 <div className="p-4 text-center text-xs text-slate-400">
                   No matching city or state found.
                 </div>
@@ -271,7 +342,7 @@ export function LocationSelector({
                     key={`${item.stateName}-${item.citySlug}`}
                     type="button"
                     onClick={() => handleCitySelect(item.citySlug)}
-                    className="w-full text-left p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors"
+                    className="w-full text-left p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors cursor-pointer"
                   >
                     <div>
                       <span className="font-bold text-slate-900">{item.cityName}</span>
@@ -284,8 +355,8 @@ export function LocationSelector({
                         Live Deals
                       </span>
                     ) : (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                        Request Pool
+                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50/60 px-1.5 py-0.5 rounded border border-emerald-100">
+                        Demand Open
                       </span>
                     )}
                   </button>
@@ -298,7 +369,7 @@ export function LocationSelector({
               {/* States Column */}
               <div className="sm:col-span-6 border-r border-slate-100 overflow-y-auto max-h-[160px] sm:max-h-[340px] p-1.5 bg-slate-50/50">
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  28 States & 8 UTs
+                  28 States &amp; 8 UTs
                 </div>
                 {INDIA_LOCATION_DIRECTORY.map((state) => {
                   const isSelected = selectedStateCode === state.code;
@@ -306,8 +377,8 @@ export function LocationSelector({
                     <button
                       key={state.code}
                       type="button"
-                      onClick={() => setSelectedStateCode(state.code)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors ${
+                      onClick={() => setUserSelectedStateCode(state.code)}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-emerald-600 text-white font-bold'
                           : 'text-slate-700 hover:bg-slate-100'
@@ -333,13 +404,13 @@ export function LocationSelector({
                 </div>
                 <div className="space-y-1 mt-1">
                   {currentState.cities.map((city) => {
-                    const isSelected = currentCitySlug === city.slug;
+                    const isSelected = effectiveCitySlug === city.slug;
                     return (
                       <button
                         key={city.slug}
                         type="button"
                         onClick={() => handleCitySelect(city.slug)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between transition-all ${
+                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200'
                             : 'text-slate-700 hover:bg-slate-50 border border-transparent'
@@ -357,7 +428,7 @@ export function LocationSelector({
                               Live
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 font-medium">
                               Demand
                             </span>
                           )}

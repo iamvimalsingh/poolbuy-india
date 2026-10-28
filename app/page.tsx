@@ -52,14 +52,14 @@ export default async function HomePage() {
               className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-98 transition-all shadow-sm shadow-emerald-600/20"
             >
               <Sparkles className="w-4 h-4" aria-hidden="true" />
-              <span>Start a Group Buy</span>
+              <span>Start a Pool</span>
             </Link>
 
             <Link
               href="#pools"
               className="inline-flex items-center gap-2 text-sm font-semibold px-6 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              <span>Explore Local Groups</span>
+              <span>Explore Pools</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
 
@@ -75,7 +75,7 @@ export default async function HomePage() {
           <div className="mt-12 pt-8 border-t border-gray-200/60 max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-6 text-center">
             <div>
               <p className="text-2xl sm:text-3xl font-extrabold text-gray-900">₹0</p>
-              <p className="text-xs text-gray-500 font-medium">To Join or Propose a Group</p>
+              <p className="text-xs text-gray-500 font-medium">To Join or Propose a Pool</p>
             </div>
             <div>
               <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">Local</p>
@@ -95,7 +95,6 @@ export default async function HomePage() {
           initialPools={pools}
           initialCities={operationalCities}
           initialCategories={operationalCategories}
-          initialCity="bhopal"
         />
       </section>
 
@@ -124,7 +123,7 @@ export default async function HomePage() {
                 Choose City &amp; Product
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Discover active groups in your city or start a new group buy proposal for a product you need.
+                Discover active pools in your city or start a new group buy proposal for a product you need.
               </p>
             </div>
 
@@ -181,13 +180,13 @@ export default async function HomePage() {
           <div className="relative z-10 max-w-2xl mb-8">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full border border-emerald-400/30 mb-4">
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              Start a Group Buy / Suggest a Product
+              Start a Pool (Proposal for Admin Review)
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-4">
-              Start a group buy for any product in your city
+              Propose a collective buying pool for your community
             </h2>
             <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed mb-6">
-              Propose a product for collective buying in your city. Submissions enter community review and are published once approved so local neighbors can join.
+              Organizing for an apartment society, residential colony, or commercial group? Propose a group-buy pool in your city. Submissions enter Admin review and are published after approval so local neighbors can join.
             </p>
             <div className="flex flex-wrap gap-4 items-center">
               <div className="text-xs text-emerald-200 flex items-center gap-1.5">

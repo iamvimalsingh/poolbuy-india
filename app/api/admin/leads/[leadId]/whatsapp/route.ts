@@ -272,11 +272,35 @@ export async function POST(
         break;
       case 'CONNECTION_FEE_DISCLOSURE': {
         const fee = calculateSuggestedConnectionFee(feeBasis);
+        if (fee === null) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'FEE_BASIS_REQUIRED',
+                message: 'Connection fee calculation is disabled because no approved purchase value basis is set for this pool.',
+              },
+            },
+            { status: 400 }
+          );
+        }
         messageText = buildConnectionFeeDisclosureMessage(buyerName, poolName, cityName, fee, feeBasis);
         break;
       }
       case 'PAYMENT_INSTRUCTIONS': {
         const fee = calculateSuggestedConnectionFee(feeBasis);
+        if (fee === null) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'FEE_BASIS_REQUIRED',
+                message: 'Payment instructions cannot be generated because no approved purchase value basis is set for this pool.',
+              },
+            },
+            { status: 400 }
+          );
+        }
         const details = 'UPI ID: pay.groupbuying@upi (GroupBuying Operations Account)\nBank: State Bank of India | IFSC: SBIN0001234';
         messageText = buildPaymentInstructionsMessage(buyerName, poolName, fee, details);
         break;

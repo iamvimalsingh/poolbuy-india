@@ -1,7 +1,7 @@
 # GroupBuying (PoolBuy India) — Operator Runbook & Architecture Documentation
 
 **Document ID:** PBI-DOC-MVP-001  
-**Version:** 4.0.0 (Master V4.0 Blueprint Alignment)
+**Version:** 6.0.0 (Master V6.0.0 Blueprint Alignment)
 **Primary Brand:** **GroupBuying** (`https://groupbuying.store`)  
 **Secondary / Historical Identity:** **PoolBuy India**  
 **Target Platform:** Next.js 16.4+ (App Router), React 19, TypeScript, Tailwind CSS v4, Cloudflare Workers + D1 SQLite
@@ -13,7 +13,7 @@
 **GroupBuying** is a community-led group-buying and high-intent buyer acquisition platform for high-ticket consumer products (Electric Scooters, Passenger Cars, Rooftop Solar, Laptops, Smart TVs, Water Softeners, and Commercial Equipment) across Indian cities.
 
 ### Supreme Specification Authority
-The authoritative product and implementation specification is defined in `MASTER_BLUEPRINT.md` Section 19 (V3.1 amendment) and `MVP.md`. These supersede any older conflicting text in Sections 1–18.
+The authoritative product and implementation specification is defined in the root `MASTER_BLUEPRINT.md` (v6.0.0). It is the single permanent source of truth for architecture, domain models, UX, and verification evidence.
 
 ### Core Architectural Guarantees:
 1. **Zero Customer Accounts / Login:** Buyers never enter passwords, register accounts, or undergo SMS/WhatsApp OTP friction. Buyers join groups simply by submitting their name, verified 10-digit Indian WhatsApp number, city, and purchasing timeline.

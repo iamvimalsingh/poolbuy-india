@@ -24,11 +24,13 @@ import {
 } from '../mock-data';
 
 describe('Admin Manual Operations — Fee Calculation Suite', () => {
-  test('Applies minimum floor of ₹99 for small values or zero basis', () => {
-    assert.equal(calculateSuggestedConnectionFee(0), 99);
-    assert.equal(calculateSuggestedConnectionFee(-500), 99);
-    assert.equal(calculateSuggestedConnectionFee(50000), 99); // 0.10% = ₹50 < ₹99
-    assert.equal(calculateSuggestedConnectionFee(99000), 99); // 0.10% = ₹99
+  test('Applies minimum floor of ₹99 for small values and disables when basis is unavailable', () => {
+    assert.equal(calculateSuggestedConnectionFee(0), null);
+    assert.equal(calculateSuggestedConnectionFee(-500), null);
+    assert.equal(calculateSuggestedConnectionFee(null), null);
+    assert.equal(calculateSuggestedConnectionFee(undefined), null);
+    assert.equal(calculateSuggestedConnectionFee(50000), 99);
+    assert.equal(calculateSuggestedConnectionFee(99000), 99);
   });
 
   test('Calculates 0.10% accurately for high-ticket values', () => {

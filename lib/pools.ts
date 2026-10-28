@@ -268,7 +268,32 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
 
   try {
     const { results } = await db.prepare(sql).bind(...params).all<D1PoolRow>();
-    return (results || []).map(mapRowToPublicPool);
+    const pools = (results || []).map(mapRowToPublicPool);
+    if (pools.length > 0) {
+      try {
+        const poolIds = pools.map((p) => p.id);
+        const placeholders = poolIds.map(() => '?').join(', ');
+        const { results: kitRows } = await db
+          .prepare(
+            `SELECT * FROM pool_kit_offers WHERE pool_id IN (${placeholders}) AND is_available = 1 ORDER BY sort_order ASC, name ASC`
+          )
+          .bind(...poolIds)
+          .all<D1KitOfferRow>();
+        if (kitRows && kitRows.length > 0) {
+          const kitsByPool: Record<string, ReturnType<typeof mapRowToKitOffer>[]> = {};
+          for (const row of kitRows) {
+            if (!kitsByPool[row.pool_id]) kitsByPool[row.pool_id] = [];
+            kitsByPool[row.pool_id].push(mapRowToKitOffer(row));
+          }
+          for (const pool of pools) {
+            if (kitsByPool[pool.id]) {
+              pool.kitOffers = kitsByPool[pool.id];
+            }
+          }
+        }
+      } catch {}
+    }
+    return pools;
   } catch (error: unknown) {
     console.error('Error fetching public pools from D1:', error);
     return [];

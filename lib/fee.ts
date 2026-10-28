@@ -2,7 +2,8 @@
  * GroupBuying India — Connection Fee Operational Utility
  *
  * Rule specification:
- * - Proposed operational rule: max(₹99, 0.10% × owner-approved fee basis).
+ * - Proposed operational rule: max(₹99, round(0.10% × owner-approved fee basis)).
+ * - If basis is unavailable, null, or <= 0, returns null (fee calculation disabled).
  * - Rounded to the nearest whole rupee (Math.round).
  * - Disclosed to buyer before any agreement.
  * - Manual confirmation and recording only; no automatic payment collection in MVP.
@@ -15,10 +16,11 @@ export const FEE_PERCENTAGE = 0.001; // 0.10%
 /**
  * Calculates suggested connection fee in whole INR based on an approved fee basis.
  * Formula: max(₹99, round(0.10% × feeBasis))
+ * If fee basis is missing, null, NaN or non-positive, returns null to prevent arbitrary fallback.
  */
-export function calculateSuggestedConnectionFee(feeBasis: number): number {
-  if (isNaN(feeBasis) || feeBasis <= 0) {
-    return MIN_FEE_INR;
+export function calculateSuggestedConnectionFee(feeBasis: number | null | undefined): number | null {
+  if (feeBasis == null || isNaN(feeBasis) || feeBasis <= 0) {
+    return null;
   }
   const calculated = Math.round(feeBasis * FEE_PERCENTAGE);
   return Math.max(MIN_FEE_INR, calculated);
