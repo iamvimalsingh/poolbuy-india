@@ -2979,7 +2979,8 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 - Code implementation: **PASS** — Full system reconciliation, All-India discovery redesign, canonical location rollout across 28 states & 8 UTs, fee formula guardrails, Admin city harmonization, local D1 schema establishment, and real disk persistence test suite completed.
 - Local tests/build: **PASS** — **114 tests passing across 40 test suites, 0 failing** (including new `lib/__tests__/real-d1-persistence.test.ts`), `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, `npm run build` (**45 pages compiled**, discovering all 10 operational cities and 8 categories from real D1) exit 0, and `npm run build:worker` (`.open-next/worker.js`) exit 0.
 - Local D1 persistence: **PASS & VERIFIED ON REAL DISK** (`.wrangler/state/v3/d1/miniflare-D1DatabaseObject/7903b755904049be769518c2a21a3cb0f2b71d7041d5eac0c5ee8b3911471260.sqlite`, 233 KB). Applied migrations `0001_initial_schema.sql` and `0002_add_variants_and_capacity_limits.sql`. Replaced unmigrated empty state. All "no such table" errors eliminated.
-- Cloudflare deployment: **PENDING OPERATOR RELEASE ACTION** — Local OpenNext bundle `.open-next/worker.js` built and verified. Operator manual cutover required for live deployment to safeguard secrets and production D1 state.
+- Git Push to GitHub: **PASS** — Commits `c107b5a` and `3504487` pushed to `origin/main` (HEAD synchronized with remote at SHA `3504487b9273c52e1281dbd9e79308dcfa58bf23`).
+- Cloudflare deployment: **BLOCKED BY CLOUDFLARE_API_TOKEN** — Artifacts (`.open-next/worker.js` and 53 static assets) compiled and verified. `npx wrangler deploy` halted due to missing `CLOUDFLARE_API_TOKEN` in non-interactive environment.
 - Remote production D1: **READ-ONLY CHECKED; PENDING OPERATOR CREDENTIAL PROVISIONING & MIGRATION**. Wrangler unauthenticated in non-interactive environment; `CLOUDFLARE_API_TOKEN` and remote migration execution pending operator action.
 - Public UX defects reported by owner: **RESOLVED & VERIFIED**. Authoritative location store `lib/location-store.ts` defaults strictly to `null` (All India). No forced Bhopal preselection. Duplicate lower city selector removed. "Start a Pool" community proposal flow rewritten with canonical 28-state directory, existing pool checks, and review disclosures.
 - Launch verdict: **READY FOR LOCAL/STAGING OPERATOR VERIFICATION. Production credential rotation REQUIRED before public launch.**
@@ -2992,6 +2993,7 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 | 6.0.0 / 28 Oct 2026 | Reframed product as product-agnostic; Solar explicitly only the initial rollout; embedded subsystem specs in this one file; added permanent as-built evidence ledger/update contract; incorporated latest audit/release facts and known UX issues. | Produced from uploaded v5 blueprint/specs and owner-provided audit/report. Not a code or deployment change. |
 | 6.0.0 / 28 Oct 2026 | Full-system implementation of v6.0: All-India discovery redesign, unified LocationStore, nationwide Solar rollout across 28 states & 8 UTs, fee guardrails, Admin city harmonization, and test regression suite. | Local verification PASS: 109 tests, lint 0 errors, tsc 0 errors, Next build 35 routes PASS, OpenNext worker PASS. Git commit c107b5a created. |
 | 6.0.0 / 28 Oct 2026 | Post-implementation blocker verification: resolved local D1 unmigrated schema; applied migrations 0001 & 0002; eliminated all missing table build errors; verified real disk SQLite persistence with 114 tests; confirmed remote read-only unauthenticated state. | Local verification PASS: 114 tests across 40 suites, 45 routes compiled, .open-next/worker.js created. Remote deployment pending operator authentication. |
+| 6.0.0 / 28 Oct 2026 | Git push to origin/main (commits c107b5a & 3504487). Cloudflare deployment attempted via `npx wrangler deploy`; halted closed due to missing `CLOUDFLARE_API_TOKEN` in non-interactive runner. | Git push PASS (origin/main synchronized). Wrangler deployment BLOCKED on authentication token. |
 
 ## 30.5 Required update rule
 
@@ -3144,6 +3146,25 @@ At the end of every implementation phase, update this section in the same change
   - Inspected `git log origin/main..HEAD`: commit `c107b5a` is local only. Not pushed to remote.
 - **Status:** **PASS**
 
+### Phase 12 — Git Push & Production Deployment Attempt
+- **Timestamp (UTC):** 2026-10-28 05:56:00 UTC
+- **Branch / Commit:** `main` @ `3504487b9273c52e1281dbd9e79308dcfa58bf23`
+- **Git Push to GitHub:**
+  - Command: `git push origin main`
+  - Result: **PASS** (exited code 0).
+  - Output: `6890931..3504487 main -> main`.
+  - Evidence: Commits `c107b5a` and `3504487` successfully published to `origin/main`. Working tree is synchronized.
+- **Production Deployment Attempt:**
+  - Command: `npx wrangler deploy` (invoking `opennextjs-cloudflare deploy`)
+  - Result: **BLOCKED / FAILED (Exit Code 1)**
+  - Error Output:
+    ```text
+    X [ERROR] In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work. Please go to https://developers.cloudflare.com/fundamentals/api/get-started/create-token/ for instructions on how to create an api token, and assign its value to CLOUDFLARE_API_TOKEN.
+    ```
+  - Root Cause: Wrangler requires `CLOUDFLARE_API_TOKEN` to authenticate deployments in headless / non-interactive terminal sessions.
+  - Safe Next Action: The repository owner/operator must either set `CLOUDFLARE_API_TOKEN` in the runner or run `npx wrangler deploy` and `npx wrangler d1 migrations apply DB --remote` directly in their local authenticated terminal.
+- **Status:** **GIT PUSH PASS; DEPLOYMENT BLOCKED ON CLOUDFLARE_API_TOKEN**
+
 ## 30.7 Acceptance Criteria Checklist (v6.0.0)
 
 - [x] Canonical documentation consolidated in root `MASTER_BLUEPRINT.md` (v6.0.0). Legacy specs archived.
@@ -3168,6 +3189,7 @@ At the end of every implementation phase, update this section in the same change
 - [x] ESLint clean (0 errors, 0 warnings).
 - [x] Next.js 16.4.3 production build compiles 45/45 routes with live D1 city discovery.
 - [x] OpenNext Cloudflare Worker build succeeds and creates `.open-next/worker.js`.
+- [x] Git commits c107b5a and 3504487 pushed and synchronized with origin/main.
 - [ ] Operator credential rotation executed on remote production accounts before public launch.
 - [ ] Remote Cloudflare Workers and D1 production migrations executed by operator.
 

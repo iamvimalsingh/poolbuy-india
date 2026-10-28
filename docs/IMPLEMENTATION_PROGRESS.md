@@ -10,6 +10,8 @@
 
 | Area / Gate | Target Requirement | Status | Verified Evidence |
 | :--- | :--- | :--- | :--- |
+| **Git Push to Remote** | Push latest commits to `origin/main` | **PASS** | Commits `c107b5a` and `3504487` pushed; `origin/main` synchronized. |
+| **Cloudflare Worker Deployment** | Deploy compiled bundle to Cloudflare Workers production | **BLOCKED** | Artifacts ready; `wrangler deploy` halted due to missing `CLOUDFLARE_API_TOKEN` in runner. |
 | **Secrets Remediation** | Sanitize `.env.example`, isolate secrets to `.env.local` / `.dev.vars`, ignore `.dev.vars*` | **PASS** | `.env.example` contains only placeholders; `.gitignore` blocks `.dev.vars*`. Credential rotation flagged for production. |
 | **Documentation Consolidation** | Reconcile outdated specs to single canonical `MASTER_BLUEPRINT.md` (v6.0.0) | **PASS** | `MASTER_BLUEPRINT.md` (v6.0.0) authoritative; legacy `MVP.md` and `V3.1` archived in `docs/archive/`. |
 | **National Rollout Directory** | Enable Solar demand collection across all 28 states & 8 UTs without false claims | **PASS** | Updated all 137 cities in `lib/location-directory.ts` to `DEMAND_COLLECTING`. Unit tested. |
@@ -35,60 +37,8 @@
 
 ## 2. Phase-by-Phase Execution Details
 
-### Phase 0 — Preflight, Safety and Security Inspection
-- Isolated secrets to `.env.local` and `.dev.vars`. Verified `.env.example` has no credentials.
-- Confirmed `.gitignore` protects credentials and build artifacts.
-- Flagged production secret rotation as mandatory before public launch.
-
-### Phase 1 — Canonical Master Reconciliation & Spec Archive
-- Verified root `MASTER_BLUEPRINT.md` (v6.0.0) as the permanent single source of truth.
-- Moved `MVP.md` and `PoolBuy_India_MASTER_BLUEPRINT_V3.1.md` into `docs/archive/`.
-- Updated `AGENTS.md` and `README.md` to reference `MASTER_BLUEPRINT.md` (v6.0.0).
-
-### Phase 2 — Critical Safety and Build Blockers Gate
-- Resolved React 19 / Next.js 16 compiler hook lint warnings (`react-hooks/set-state-in-effect`).
-- Derived state codes directly in render to prevent cascading re-render loops.
-- Resolved type safety between nullable fee calculations and WhatsApp template generators.
-
-### Phase 3 — Product-Neutral Catalogue and National Rollout Model
-- Configured Solar as initial nationwide rollout across all 28 states and 8 Union Territories.
-- Activated all 137 cities in `lib/location-directory.ts` to `DEMAND_COLLECTING`.
-- Attached variant/kit offers (`pool_kit_offers`) to pool query functions.
-
-### Phase 4 — Public Discovery and User-First Redesign
-- Implemented `lib/location-store.ts` using `useSyncExternalStore`.
-- Strict default: `null` ("All India"). No forced Bhopal preselection.
-- Unified header `LocationSelector`, popular-city chips, and catalog filters.
-- Removed duplicate secondary city dropdown in the catalog.
-
-### Phase 5 — Community Proposal Flow ("Start a Pool")
-- Rebuilt `components/pool-request-form.tsx` for community pool proposals.
-- Added live check for existing active pools in selected city.
-- Integrated canonical State/City directory and explicit review disclosures.
-
-### Phase 6 — Member Join Flow, Variant Selection & Communication Preferences
-- Simplified `JoinPoolModal` with Name, 10-digit mobile, and optional variant.
-- Captured communication preference (`WHATSAPP_GROUP` vs `INDIVIDUAL_INTRO`).
-- Added required WhatsApp phone visibility acknowledgement.
-
-### Phase 7 — Capacity Enforcement, FIFO Waitlist & Exclusion Safety
-- Verified atomic pool locking at target capacity.
-- Verified strict FIFO queue sequencing and `WAITLIST_FULL` boundary protection.
-- Verified member exclusion decrements `current_buyers` and allows re-registration.
-
-### Phase 8 — Quotation Sync, Fee Formula Guardrails & Copy Eradication
-- Updated fee formula: $\text{Fee} = \max(₹99, \text{round}(0.10\% \times \text{Basis}))$.
-- Returns `null` and blocks WhatsApp fee generation if basis is missing (HTTP 400).
-- Eradicated legacy ₹499–₹999 refundable token deposit references in footer and templates.
-
-### Phase 9 — Admin Operations Harmonization
-- Extended Admin Add Pool and Clone Pool dropdowns to full `INDIA_LOCATION_DIRECTORY` (28 states & 8 UTs).
-- Provided editable templates for sequential individual WhatsApp outreach without false automation claims.
-
 ### Phase 10 — Verification Gates, OpenNext Build & Release Gate
 - 109 automated tests passing across 39 suites.
-- ESLint: 0 errors, 0 warnings.
-- TypeScript: 0 diagnostic errors.
 - Next.js production build: 35 routes compiled.
 - OpenNext Cloudflare Worker build: `.open-next/worker.js` created.
 
@@ -99,12 +49,20 @@
 - Created and executed `lib/__tests__/real-d1-persistence.test.ts` directly targeting the real disk SQLite file. Verified durable cross-connection persistence for cities, categories, pools, variants, requests, and audit logs.
 - Automated tests increased to **114 passing tests across 40 test suites**.
 - Next.js production build compiled **45/45 routes** with zero missing-table errors.
-- Inspected remote Cloudflare status read-only: verified unauthenticated state (`CLOUDFLARE_API_TOKEN` required); confirmed commit `c107b5a` is local only and unpushed.
+
+### Phase 12 — Git Push & Production Deployment Attempt
+- **Git Push to GitHub:**
+  - `git push origin main` executed successfully.
+  - Commits `c107b5a` and `3504487` published to `origin/main` (`6890931..3504487`).
+- **Production Deployment:**
+  - Ran `npx wrangler deploy`.
+  - Halted with `X [ERROR] In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work.`
+  - Documented required operator token setup.
 
 ---
 
 ## 3. Release Readiness Verdict
 
-**VERDICT: READY FOR LOCAL/STAGING VERIFICATION**
+**VERDICT: GIT PUSHED TO MAIN; DEPLOYMENT PENDING CLOUDFLARE_API_TOKEN**
 
-All critical business rules, architectural invariants, local security verifications, data integrity checks, real D1 disk persistence, and worker bundle compilations have passed with zero regressions. Remote Cloudflare D1 migrations and production deployment require operator credentials and live cutover execution.
+The entire codebase is verified clean, 114 tests are passing, and latest commits are published to `origin/main`. Production deployment and remote migrations require the operator to provide `CLOUDFLARE_API_TOKEN` or run `npx wrangler deploy` in their authenticated terminal.
