@@ -1,10 +1,24 @@
-export type PoolCategory =
+export type KnownPoolCategory =
+  | 'rooftop-solar'
+  | 'ev-scooters'
+  | 'cars'
+  | 'home-power-backup'
+  | 'water-softeners'
+  | 'laptops'
+  | 'smart-tvs'
+  | 'tractors-commercial'
   | 'EV_SCOOTERS'
   | 'CARS'
   | 'ROOFTOP_SOLAR'
   | 'LAPTOPS'
   | 'SMART_TVS'
   | 'TRACTORS_COMMERCIAL';
+
+/**
+ * Dynamic category identifier for group buying pools.
+ * Configured dynamically in Cloudflare D1 categories table.
+ */
+export type PoolCategory = KnownPoolCategory | (string & {});
 
 export type PoolStatus = 'ACTIVE' | 'UNLOCKED' | 'LEAD_FALLBACK' | 'CLOSED';
 
@@ -311,6 +325,8 @@ export interface PublicPool {
   id: string;
   slug: string;
   name: string;
+  productTitle?: string;
+  variantName?: string;
   shortDescription: string;
   longDescription: string;
   category: PoolCategory;
@@ -349,6 +365,7 @@ export interface PublicPool {
   cityLabels?: string[];
   remainingBuyers?: number;
   waitlistCount?: number;
+  quoteValidUntil?: string | null;
 }
 
 /** Private server-only shape. Never serialize this to a public page or public API. */
@@ -499,8 +516,14 @@ export interface PoolRequest {
   targetBuyersRequested?: number | null;
   requestedDeadline?: string | null;
   contactConsent?: boolean;
+  joinPoolConsent?: boolean;
   consentAt?: string | null;
   requestType?: PoolRequestType;
+  categorySlug?: string | null;
+  cityText?: string | null;
+  stateText?: string | null;
+  isArchived?: boolean;
+  archivedAt?: string | null;
 }
 
 export interface AdminAuditLog {

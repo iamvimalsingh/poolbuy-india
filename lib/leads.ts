@@ -308,12 +308,17 @@ export async function getLeadsForExport(
 
 /**
  * Updates a lead status (e.g. NEW -> CONTACTED -> QUALIFIED -> CONVERTED -> DO_NOT_CONTACT)
+ * When status is set to DO_NOT_CONTACT, do_not_contact is atomically set to 1.
  */
 export async function updateLeadStatus(leadId: string, status: LeadStatus): Promise<void> {
+  const isDoNotContact = status === 'DO_NOT_CONTACT';
   if (isDemoMode()) {
     const lead = DEMO_LEADS.find((l) => l.id === leadId);
     if (lead) {
       lead.status = status;
+      if (isDoNotContact) {
+        lead.doNotContact = true;
+      }
     }
     return;
   }
@@ -321,8 +326,15 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus): Prom
   const db = await requireD1Database();
   const now = new Date().toISOString();
 
-  await db
-    .prepare('UPDATE pool_leads SET status = ?, updated_at = ? WHERE id = ?')
-    .bind(status, now, leadId)
-    .run();
+  if (isDoNotContact) {
+    await db
+      .prepare('UPDATE pool_leads SET status = ?, do_not_contact = 1, updated_at = ? WHERE id = ?')
+      .bind(status, now, leadId)
+      .run();
+  } else {
+    await db
+      .prepare('UPDATE pool_leads SET status = ?, updated_at = ? WHERE id = ?')
+      .bind(status, now, leadId)
+      .run();
+  }
 }

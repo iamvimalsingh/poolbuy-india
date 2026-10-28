@@ -4,6 +4,7 @@ import { isDemoMode } from '@/lib/data-mode';
 import { getDemoLeads } from '@/lib/mock-data';
 import { requireD1Database } from '@/lib/d1/db';
 import { PoolLead } from '@/types';
+import { getPoolMemberDecisionSummary } from '@/lib/quotes';
 
 type RouteContext = {
   params: Promise<{ poolId: string }>;
@@ -55,6 +56,8 @@ export async function GET(
       const offset = (page - 1) * pageSize;
       const paginated = leads.slice(offset, offset + pageSize);
 
+      const summary = await getPoolMemberDecisionSummary(poolId);
+
       return NextResponse.json(
         {
           success: true,
@@ -64,6 +67,7 @@ export async function GET(
             page,
             pageSize,
             totalPages,
+            summary,
           },
         },
         { headers: { 'Cache-Control': 'no-store' } }
@@ -165,6 +169,8 @@ export async function GET(
       lastContactNote: (row.last_contact_note as string) || undefined,
     }));
 
+    const summary = await getPoolMemberDecisionSummary(poolId);
+
     return NextResponse.json(
       {
         success: true,
@@ -174,6 +180,7 @@ export async function GET(
           page,
           pageSize,
           totalPages,
+          summary,
         },
       },
       { headers: { 'Cache-Control': 'no-store' } }

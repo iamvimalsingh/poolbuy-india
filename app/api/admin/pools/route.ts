@@ -246,6 +246,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         id: `demo-${Date.now()}`,
         slug: finalSlug,
         name: val.name,
+        productTitle: val.name,
+        categorySlug: slugify(val.category),
         shortDescription: val.shortDescription,
         longDescription: val.longDescription,
         category: val.category,
@@ -334,10 +336,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const poolId = `pool-${finalCitySlug}-${finalSlug}-${Date.now().toString(36)}`;
     const priceVerifiedAt = val.priceIsVerified ? now : null;
 
+    const catSlug = slugify(val.category);
+
     await db
       .prepare(
         `INSERT INTO pools (
-          id, slug, name, short_description, long_description, category,
+          id, slug, name, product_title, variant_name, short_description, long_description,
+          category, category_slug,
           city, city_slug, product_brand, product_model, image_url,
           market_price, group_price, target_buyers, current_buyers,
           deadline, status, price_is_verified, price_verified_at,
@@ -348,7 +353,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           payment_config_state, connection_notes, source_request_id,
           created_at, updated_at
         ) VALUES (
-          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?,
           ?, ?, ?, ?, ?,
           ?, ?, ?, 0,
           ?, ?, ?, ?,
@@ -364,9 +370,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         poolId,
         finalSlug,
         val.name,
+        val.name,
+        val.productModel || null,
         val.shortDescription,
         val.longDescription,
         val.category,
+        catSlug,
         val.city,
         finalCitySlug,
         val.productBrand,
@@ -400,6 +409,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         now,
         now
       )
+      .run();
+
+    // Map pool to city in pool_cities
+    const mappingId = `pc-${poolId}-${finalCitySlug}`;
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO pool_cities (id, pool_id, city_code, city_name, is_enabled, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 1, ?, ?)`
+      )
+      .bind(mappingId, poolId, finalCitySlug, val.city, now, now)
       .run();
 
     const createdRow = await db

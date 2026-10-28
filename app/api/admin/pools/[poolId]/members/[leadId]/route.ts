@@ -43,6 +43,7 @@ export async function PATCH(
     const enrichedUpdates: Partial<PoolLead> = {
       ...(updates.adminNotes !== undefined && { adminNotes: updates.adminNotes }),
       ...(updates.doNotContact !== undefined && { doNotContact: updates.doNotContact }),
+      ...(updates.doNotContact === true && { status: 'DO_NOT_CONTACT' }),
       ...(updates.quoteResponse && {
         quoteResponse: updates.quoteResponse,
         quoteResponseRecordedAt: now,
@@ -91,6 +92,36 @@ export async function PATCH(
         );
       }
 
+      if ((existing.doNotContact || existing.status === 'DO_NOT_CONTACT') && updates.doNotContact !== false && updates.connectionStatus === 'CONNECTED') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CONTACT_OPTED_OUT',
+              message: 'Cannot mark opted-out member as CONNECTED without first clearing opt-out.',
+            },
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (existing.quoteResponse === 'DECLINED' && updates.quoteResponse !== 'INTERESTED' && updates.connectionStatus === 'CONNECTED') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'MEMBER_DECLINED',
+              message: 'Cannot mark a member who declined the quotation as CONNECTED without updating their quote response to INTERESTED.',
+            },
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (updates.quoteResponse === 'DECLINED' && !updates.connectionStatus && existing.connectionStatus === 'CONNECTED') {
+        enrichedUpdates.connectionStatus = 'OPTED_OUT';
+      }
+
       const updated = updateDemoLead(leadId, enrichedUpdates);
 
       await recordAdminAudit({
@@ -111,15 +142,45 @@ export async function PATCH(
     const db = await requireD1Database();
 
     const existing = await db
-      .prepare('SELECT buyer_number, full_name, member_connection_status, selected_kit_offer_id, selected_variant_id FROM pool_leads WHERE id = ? AND pool_id = ?')
+      .prepare('SELECT buyer_number, full_name, do_not_contact, status, quote_response, member_connection_status, selected_kit_offer_id, selected_variant_id FROM pool_leads WHERE id = ? AND pool_id = ?')
       .bind(leadId, poolId)
-      .first<{ buyer_number: number; full_name: string; member_connection_status?: string | null; selected_kit_offer_id?: string | null; selected_variant_id?: string | null }>();
+      .first<{ buyer_number: number; full_name: string; do_not_contact?: number | null; status?: string | null; quote_response?: string | null; member_connection_status?: string | null; selected_kit_offer_id?: string | null; selected_variant_id?: string | null }>();
 
     if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'MEMBER_NOT_FOUND', message: 'Member not found in pool.' } },
         { status: 404, headers: { 'Cache-Control': 'no-store' } }
       );
+    }
+
+    if ((Boolean(existing.do_not_contact) || existing.status === 'DO_NOT_CONTACT') && updates.doNotContact !== false && updates.connectionStatus === 'CONNECTED') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CONTACT_OPTED_OUT',
+            message: 'Cannot mark opted-out member as CONNECTED without first clearing opt-out.',
+          },
+        },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    if (existing.quote_response === 'DECLINED' && updates.quoteResponse !== 'INTERESTED' && updates.connectionStatus === 'CONNECTED') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'MEMBER_DECLINED',
+            message: 'Cannot mark a member who declined the quotation as CONNECTED without updating their quote response to INTERESTED.',
+          },
+        },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    if (updates.quoteResponse === 'DECLINED' && !updates.connectionStatus && existing.member_connection_status === 'CONNECTED') {
+      enrichedUpdates.connectionStatus = 'OPTED_OUT';
     }
 
     const setClauses: string[] = ['updated_at = ?'];
@@ -132,6 +193,10 @@ export async function PATCH(
     if (enrichedUpdates.doNotContact !== undefined) {
       setClauses.push('do_not_contact = ?');
       values.push(enrichedUpdates.doNotContact ? 1 : 0);
+      if (enrichedUpdates.doNotContact) {
+        setClauses.push('status = ?');
+        values.push('DO_NOT_CONTACT');
+      }
     }
     if (enrichedUpdates.quoteResponse) {
       setClauses.push('quote_response = ?', 'quote_response_recorded_at = ?');
@@ -221,6 +286,121 @@ export async function PATCH(
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Server error updating member decision.';
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message } },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request, { checkCsrf: true });
+  if (authError) return authError;
+
+  try {
+    const { poolId, leadId } = await context.params;
+    const now = new Date().toISOString();
+
+    if (isDemoMode()) {
+      const existing = getDemoLeads().find((l) => l.id === leadId && l.poolId === poolId);
+      if (!existing) {
+        return NextResponse.json(
+          { success: false, error: { code: 'MEMBER_NOT_FOUND', message: 'Member not found in pool.' } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (existing.connectionStatus !== 'EXCLUDED') {
+        updateDemoLead(leadId, {
+          connectionStatus: 'EXCLUDED',
+          status: 'DO_NOT_CONTACT',
+          exclusionReason: 'Removed by administrator.',
+          excludedAt: now,
+        });
+
+        await recordAdminAudit({
+          action: 'MEMBER_REMOVED',
+          targetType: 'LEAD',
+          targetId: leadId,
+          changesSummary: `Removed member #${existing.buyerNumber} (${existing.fullName}) from pool ${poolId}.`,
+          details: { poolId, leadId, previousStatus: existing.status },
+        });
+      }
+
+      return NextResponse.json(
+        { success: true, data: { removed: true, leadId, poolId } },
+        { headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const db = await requireD1Database();
+    const existing = await db
+      .prepare('SELECT buyer_number, full_name, status, member_connection_status, selected_kit_offer_id, selected_variant_id FROM pool_leads WHERE id = ? AND pool_id = ?')
+      .bind(leadId, poolId)
+      .first<{
+        buyer_number: number;
+        full_name: string;
+        status: string;
+        member_connection_status: string | null;
+        selected_kit_offer_id: string | null;
+        selected_variant_id: string | null;
+      }>();
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: { code: 'MEMBER_NOT_FOUND', message: 'Member not found in pool.' } },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // Normal member removal is status-based and preserves audit history
+    if (existing.member_connection_status !== 'EXCLUDED') {
+      await db
+        .prepare(
+          `UPDATE pool_leads
+           SET member_connection_status = 'EXCLUDED',
+               status = 'DO_NOT_CONTACT',
+               exclusion_reason = 'Removed by administrator.',
+               excluded_at = ?,
+               updated_at = ?
+           WHERE id = ? AND pool_id = ?`
+        )
+        .bind(now, now, leadId, poolId)
+        .run();
+
+      await db
+        .prepare('UPDATE pools SET current_buyers = MAX(0, current_buyers - 1), updated_at = ? WHERE id = ?')
+        .bind(now, poolId)
+        .run();
+
+      const kitId = existing.selected_kit_offer_id || existing.selected_variant_id;
+      if (kitId) {
+        try {
+          await db
+            .prepare('UPDATE pool_kit_offers SET current_buyers = MAX(0, current_buyers - 1), updated_at = ? WHERE id = ?')
+            .bind(now, kitId)
+            .run();
+        } catch {}
+      }
+
+      await recordAdminAudit({
+        action: 'MEMBER_REMOVED',
+        targetType: 'LEAD',
+        targetId: leadId,
+        changesSummary: `Removed member #${existing.buyer_number} (${existing.full_name}) from pool ${poolId}.`,
+        details: { poolId, leadId, previousStatus: existing.status },
+      });
+    }
+
+    return NextResponse.json(
+      { success: true, data: { removed: true, leadId, poolId } },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Server error removing member.';
     return NextResponse.json(
       { success: false, error: { code: 'INTERNAL_ERROR', message } },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }

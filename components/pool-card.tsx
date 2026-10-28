@@ -2,9 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { MapPin, ArrowRight, ShieldCheck, Users, Clock } from 'lucide-react';
+import { MapPin, ArrowRight, ShieldCheck, Users, Clock, CheckCircle2 } from 'lucide-react';
 import { PublicPool } from '@/types';
-import { getCountdownParts } from '@/lib/format';
+import { getCountdownParts, formatINR } from '@/lib/format';
 import { PoolImage } from './pool-image';
 
 interface PoolCardProps {
@@ -19,16 +19,19 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
   const isClosed = pool.status === 'CLOSED';
 
   const activeCount = pool.currentBuyers ?? 0;
-  const waitlistCount = (pool as unknown as { waitlistCount?: number }).waitlistCount ?? 0;
-  const isCapacityFull = activeCount >= 10;
-  const isWaitlistFull = waitlistCount >= 5;
+  const targetBuyers = pool.targetBuyers && pool.targetBuyers > 0 ? pool.targetBuyers : 10;
+  const waitlistCount = pool.waitlistCount ?? 0;
+  const maxWaitlistSize = pool.maxWaitlistSize !== undefined ? pool.maxWaitlistSize : 5;
+
+  const isCapacityFull = activeCount >= targetBuyers;
+  const isWaitlistFull = maxWaitlistSize > 0 ? waitlistCount >= maxWaitlistSize : false;
   const isCompletelyFull = isCapacityFull && isWaitlistFull;
 
-  // City labels
-  const cityLabels: string[] = (pool as unknown as { cityLabels?: string[] }).cityLabels || [pool.city];
+  // Primary city
+  const city = pool.city || 'India';
 
   // Action button label & state
-  let actionLabel = 'Join Pool';
+  let actionLabel = 'Join Free';
   let isActionEnabled = true;
 
   if (isClosed) {
@@ -44,11 +47,15 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
     actionLabel = 'Join Waitlist';
     isActionEnabled = true;
   } else {
-    actionLabel = 'Join Pool';
+    actionLabel = 'Join Free';
     isActionEnabled = true;
   }
 
   const dealUrl = `/deals/${pool.citySlug}/${pool.slug}`;
+
+  // Quote / pricing status evaluation
+  const isVerifiedQuote = Boolean(pool.priceIsVerified || pool.groupPriceType === 'VENDOR_VERIFIED');
+  const hasGroupPrice = typeof pool.groupPrice === 'number' && pool.groupPrice > 0;
 
   return (
     <article className="group bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-md hover:border-emerald-200 transition-all duration-200 flex flex-col overflow-hidden">
@@ -56,7 +63,7 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
       <div className="relative aspect-[16/9] w-full bg-gray-100 overflow-hidden">
         <PoolImage
           src={pool.imageUrl}
-          alt={`${pool.name} in ${pool.city}`}
+          alt={`${pool.productTitle || pool.name} in ${city}`}
           category={pool.category}
           categorySlug={pool.categorySlug}
           slugOrName={pool.slug || pool.name}
@@ -69,12 +76,7 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/95 backdrop-blur-xs text-gray-800 px-2.5 py-1 rounded-full shadow-xs border border-gray-200/50">
             <MapPin className="w-3 h-3 text-emerald-600" aria-hidden="true" />
-            <span className="truncate max-w-[120px]">{cityLabels[0] || pool.city}</span>
-            {cityLabels.length > 1 && (
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1 rounded-full">
-                +{cityLabels.length - 1}
-              </span>
-            )}
+            <span className="truncate max-w-[130px]">{city}</span>
           </span>
 
           <span
@@ -94,19 +96,16 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
       {/* Body */}
       <div className="p-5 flex-1 flex flex-col justify-between">
         <div>
-          {/* City Visibility Labels */}
-          <div className="flex flex-wrap gap-1 mb-2.5">
-            {cityLabels.slice(0, 4).map((city) => (
-              <span
-                key={city}
-                className="text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md"
-              >
-                {city}
+          {/* Brand & Variant Badges */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+            {pool.productBrand && (
+              <span className="text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
+                {pool.productBrand}
               </span>
-            ))}
-            {cityLabels.length > 4 && (
-              <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md">
-                +{cityLabels.length - 4} more
+            )}
+            {pool.variantName && (
+              <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                {pool.variantName}
               </span>
             )}
           </div>
@@ -114,24 +113,51 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
           {/* Title */}
           <h3 className="font-bold text-gray-950 text-base sm:text-lg tracking-tight mb-2 line-clamp-1 group-hover:text-emerald-700 transition-colors">
             <Link href={dealUrl} className="focus:outline-hidden focus:underline">
-              {pool.name}
+              {pool.productTitle || pool.name}
             </Link>
           </h3>
 
           {/* Description */}
-          <p className="text-xs text-gray-500 line-clamp-2 mb-4 leading-relaxed">
-            {pool.shortDescription || 'Community demand pool aggregating buyers across cities for verified group pricing.'}
+          <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed">
+            {pool.shortDescription || 'Independent city-wise pool aggregating local demand for collective supplier pricing.'}
           </p>
 
-          {/* Shared Global Counts Box */}
+          {/* Pricing & Quote Status Badge */}
+          <div className="mb-4 pt-2 border-t border-gray-100 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {isVerifiedQuote
+                  ? 'Verified Supplier Quote'
+                  : hasGroupPrice
+                  ? 'Indicative Target Price'
+                  : 'Supplier Quote Status'}
+              </div>
+              <div className="text-sm font-extrabold text-gray-950 font-mono">
+                {hasGroupPrice ? formatINR(pool.groupPrice) : 'Negotiation in Progress'}
+              </div>
+            </div>
+
+            {isVerifiedQuote ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Verified
+              </span>
+            ) : (
+              <span className="inline-flex items-center text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                Aggregating Demand
+              </span>
+            )}
+          </div>
+
+          {/* Member Counts & Capacity Box */}
           <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-200/70 mb-4 space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="flex items-center gap-1.5 text-gray-700">
                 <Users className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Shared Active Members</span>
+                <span>Confirmed Members</span>
               </span>
               <span className="font-mono text-gray-950 font-bold">
-                {activeCount} / 10
+                {activeCount} / {targetBuyers}
               </span>
             </div>
 
@@ -139,75 +165,83 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${
-                  activeCount >= 10 ? 'bg-emerald-600' : 'bg-emerald-500'
+                  activeCount >= targetBuyers ? 'bg-emerald-600' : 'bg-emerald-500'
                 }`}
-                style={{ width: `${Math.min(100, (activeCount / 10) * 100)}%` }}
+                style={{ width: `${Math.min(100, (activeCount / targetBuyers) * 100)}%` }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-200/60">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-500" />
-                <span>FIFO Waitlist</span>
-              </span>
-              <span className="font-mono font-semibold text-gray-700">
-                {waitlistCount} / 5
-              </span>
-            </div>
+            {maxWaitlistSize > 0 && (
+              <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-200/60">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-500" />
+                  <span>FIFO Waitlist</span>
+                </span>
+                <span className="font-mono font-semibold text-gray-700">
+                  {waitlistCount} / {maxWaitlistSize}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Action Button */}
-        <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
-          {onJoinClick ? (
-            <button
-              type="button"
-              disabled={!isActionEnabled}
-              onClick={() => onJoinClick(pool)}
-              className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
-                isCompletelyFull
-                  ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                  : !isActionEnabled
-                  ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                  : isCapacityFull
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-98'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{actionLabel}</span>
-            </button>
-          ) : (
+        <div>
+          <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+            {onJoinClick ? (
+              <button
+                type="button"
+                disabled={!isActionEnabled}
+                onClick={() => onJoinClick(pool)}
+                className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
+                  isCompletelyFull
+                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                    : !isActionEnabled
+                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                    : isCapacityFull
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-98'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>{actionLabel}</span>
+              </button>
+            ) : (
+              <Link
+                href={dealUrl}
+                className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 ${
+                  isActionEnabled
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>{actionLabel}</span>
+              </Link>
+            )}
+
             <Link
               href={dealUrl}
-              className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 ${
-                isActionEnabled
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-              }`}
+              className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              title="View Details"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{actionLabel}</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
-          )}
+          </div>
 
-          <Link
-            href={dealUrl}
-            className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-            title="View Details"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {isCompletelyFull && (
           <p className="text-[10px] text-gray-400 text-center mt-2">
-            Pool &amp; Waitlist full.{' '}
-            <a href="#request-pool" className="text-emerald-700 underline font-semibold">
-              Request a new pool
-            </a>
+            {isCompletelyFull ? (
+              <>
+                Pool &amp; Waitlist full.{' '}
+                <a href="#request-pool" className="text-emerald-700 underline font-semibold">
+                  Request a new pool
+                </a>
+              </>
+            ) : (
+              '100% Free interest. No purchase commitment.'
+            )}
           </p>
-        )}
+        </div>
       </div>
     </article>
   );

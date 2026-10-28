@@ -110,7 +110,13 @@ export function formatCountdownString(deadlineIso: string): string {
  * Sanitizes and normalizes an Indian phone number to exactly 10 digits
  */
 export function normalizePhone(raw: string): string {
-  const digitsOnly = raw.replace(/\D/g, '');
+  const digitsOnly = (raw || '').replace(/\D/g, '');
+  if (digitsOnly.length === 14 && digitsOnly.startsWith('0091')) {
+    return digitsOnly.slice(4);
+  }
+  if (digitsOnly.length === 13 && digitsOnly.startsWith('091')) {
+    return digitsOnly.slice(3);
+  }
   if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
     return digitsOnly.slice(2);
   }

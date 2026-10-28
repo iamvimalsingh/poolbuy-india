@@ -15,6 +15,7 @@ import {
   UserX,
   Lock,
   Tag,
+  Plus,
 } from 'lucide-react';
 import {
   AdminPool,
@@ -25,7 +26,7 @@ import {
   ConnectionFeeStatus,
   WhatsAppTemplateType,
 } from '@/types';
-import { formatINR } from '@/lib/format';
+import { formatINR, getCountdownParts } from '@/lib/format';
 import { calculateSuggestedConnectionFee, CURRENT_FEE_RULE_VERSION } from '@/lib/fee';
 
 interface AdminGroupDetailModalProps {
@@ -56,9 +57,38 @@ export function AdminGroupDetailModal({
   const [isLoadingWaitlist, setIsLoadingWaitlist] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
+  // Member decision summary state
+  const [memberSummary, setMemberSummary] = useState<{
+    totalMembers: number;
+    interestedCount: number;
+    declinedCount: number;
+    awaitingCount: number;
+    needsInfoCount: number;
+    noResponseCount: number;
+    connectedCount: number;
+    excludedCount: number;
+    optedOutCount: number;
+  } | null>(null);
+
   // Quotes state
   const [quotes, setQuotes] = useState<PoolQuotation[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
+  const [isAddingQuote, setIsAddingQuote] = useState(false);
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+  const [quoteFormError, setQuoteFormError] = useState<string | null>(null);
+  const [quoteForm, setQuoteForm] = useState({
+    vendorName: '',
+    vendorContactRef: '',
+    quotedAmount: '',
+    quoteDate: '',
+    validUntil: '',
+    scope: '',
+    inclusions: 'GST 18% Included, Standard Installation, OEM Warranty',
+    exclusions: 'Structural modifications, Extended wiring',
+    deliveryTerms: 'Doorstep delivery within 7-10 business days upon group confirmation',
+    quantityCondition: 'Valid for minimum cohort of confirmed buyers',
+    internalNotes: '',
+  });
 
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
@@ -97,6 +127,9 @@ export function AdminGroupDetailModal({
       if (data.success) {
         setMembers(data.data.members);
         setMembersTotal(data.data.total);
+        if (data.data.summary) {
+          setMemberSummary(data.data.summary);
+        }
       }
     } catch (e) {
       console.error('Failed to load members:', e);
@@ -246,17 +279,98 @@ export function AdminGroupDetailModal({
       });
       loadQuotes();
       loadAuditLogs();
-      if (onPoolUpdated && nextPublished) {
-        onPoolUpdated({
-          ...pool,
-          groupPrice: quote.quotedAmount,
-          groupPriceType: quote.priceType === 'VENDOR_QUOTED' ? 'VENDOR_QUOTED' : 'INDICATIVE_ESTIMATE',
-          dealerName: quote.vendorName,
-          priceIsVerified: true,
-        });
+      if (onPoolUpdated) {
+        if (nextPublished) {
+          onPoolUpdated({
+            ...pool,
+            groupPrice: quote.quotedAmount,
+            groupPriceType: quote.priceType === 'VENDOR_QUOTED' ? 'VENDOR_QUOTED' : 'INDICATIVE_ESTIMATE',
+            dealerName: quote.vendorName,
+            priceIsVerified: true,
+          });
+        } else {
+          onPoolUpdated({
+            ...pool,
+            priceIsVerified: false,
+            groupPriceType: 'INDICATIVE_ESTIMATE',
+            dealerName: null,
+          });
+        }
       }
     } catch (e) {
       console.error('Failed to update quote publication:', e);
+    }
+  };
+
+  // Handle Create Quote
+  const handleCreateQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quoteForm.vendorName.trim() || !quoteForm.quotedAmount || !quoteForm.scope.trim()) {
+      setQuoteFormError('Vendor name, quoted amount, and scope are required.');
+      return;
+    }
+    const amount = Number(quoteForm.quotedAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setQuoteFormError('Please enter a valid quoted amount in INR.');
+      return;
+    }
+
+    setQuoteFormError(null);
+    setIsSubmittingQuote(true);
+
+    try {
+      const payload = {
+        vendorName: quoteForm.vendorName.trim(),
+        vendorContactRef: quoteForm.vendorContactRef.trim() || undefined,
+        quotedAmount: amount,
+        currency: 'INR',
+        quoteDate: new Date(quoteForm.quoteDate).toISOString(),
+        validUntil: new Date(quoteForm.validUntil).toISOString(),
+        scope: quoteForm.scope.trim(),
+        inclusions: quoteForm.inclusions
+          ? quoteForm.inclusions.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        exclusions: quoteForm.exclusions
+          ? quoteForm.exclusions.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        deliveryTerms: quoteForm.deliveryTerms.trim() || undefined,
+        quantityCondition: quoteForm.quantityCondition.trim() || undefined,
+        internalNotes: quoteForm.internalNotes.trim() || undefined,
+        status: 'RECEIVED',
+      };
+
+      const res = await fetch('/api/admin/pools/' + pool.id + '/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setQuoteFormError(data.error?.message || 'Failed to record quotation.');
+        return;
+      }
+
+      setIsAddingQuote(false);
+      setQuoteForm({
+        vendorName: '',
+        vendorContactRef: '',
+        quotedAmount: '',
+        quoteDate: new Date().toISOString().split('T')[0],
+        validUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        scope: '',
+        inclusions: 'GST 18% Included, Standard Installation, OEM Warranty',
+        exclusions: 'Structural modifications, Extended wiring',
+        deliveryTerms: 'Doorstep delivery within 7-10 business days upon group confirmation',
+        quantityCondition: 'Valid for minimum cohort of confirmed buyers',
+        internalNotes: '',
+      });
+      loadQuotes();
+      loadAuditLogs();
+    } catch {
+      setQuoteFormError('Network error while recording quotation.');
+    } finally {
+      setIsSubmittingQuote(false);
     }
   };
 
@@ -505,6 +619,32 @@ export function AdminGroupDetailModal({
           {/* TAB 2: MEMBERS */}
           {activeTab === 'members' && (
             <div className="space-y-4">
+              {/* Persisted Member Decision Lifecycle Summary */}
+              {memberSummary && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
+                    <div className="text-[11px] font-medium text-slate-500">Confirmed</div>
+                    <div className="text-lg font-bold text-slate-900">{memberSummary.totalMembers}</div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-2.5">
+                    <div className="text-[11px] font-medium text-emerald-700">Interested</div>
+                    <div className="text-lg font-bold text-emerald-800">{memberSummary.interestedCount}</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5">
+                    <div className="text-[11px] font-medium text-amber-700">Declined</div>
+                    <div className="text-lg font-bold text-amber-800">{memberSummary.declinedCount}</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200/80 rounded-xl p-2.5">
+                    <div className="text-[11px] font-medium text-blue-700">Awaiting</div>
+                    <div className="text-lg font-bold text-blue-800">{memberSummary.awaitingCount + memberSummary.needsInfoCount + memberSummary.noResponseCount}</div>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200/80 rounded-xl p-2.5 col-span-2 sm:col-span-1">
+                    <div className="text-[11px] font-medium text-purple-700">Connected</div>
+                    <div className="text-lg font-bold text-purple-800">{memberSummary.connectedCount}</div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
                 <div className="relative flex-1 max-w-sm w-full">
                   <input
@@ -512,7 +652,7 @@ export function AdminGroupDetailModal({
                     placeholder="Search member name or phone..."
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
-                    className="w-full text-xs pl-3.5 pr-3 py-2 rounded-xl border border-gray-200 bg-white"
+                    className="w-full text-xs pl-3.5 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
                   />
                 </div>
 
@@ -520,19 +660,21 @@ export function AdminGroupDetailModal({
                   <select
                     value={memberResponseFilter}
                     onChange={(e) => setMemberResponseFilter(e.target.value)}
-                    className="text-xs px-2.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700"
+                    className="text-xs px-2.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
                   >
                     <option value="">All Quote Responses</option>
                     <option value="NOT_SENT">Not Sent</option>
                     <option value="AWAITING_RESPONSE">Awaiting Response</option>
                     <option value="INTERESTED">Interested</option>
                     <option value="DECLINED">Declined</option>
+                    <option value="NEEDS_INFORMATION">Needs Info</option>
+                    <option value="NO_RESPONSE">No Response</option>
                   </select>
 
                   <select
                     value={memberFeeFilter}
                     onChange={(e) => setMemberFeeFilter(e.target.value)}
-                    className="text-xs px-2.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700"
+                    className="text-xs px-2.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
                   >
                     <option value="">All Fee States</option>
                     <option value="NOT_REQUESTED">Fee Not Requested</option>
@@ -778,73 +920,141 @@ export function AdminGroupDetailModal({
                 <div>
                   <h3 className="text-sm font-bold text-gray-950">Group Supplier Quotations</h3>
                   <p className="text-xs text-gray-500">
-                    Manage vendor quotes, validity periods, and public quote publication.
+                    Manage vendor quotes, taxes, warranties, delivery terms, and public verification publication.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuoteFormError(null);
+                    const now = new Date();
+                    const validDate = new Date(now.getTime() + 30 * 86400000);
+                    setQuoteForm((prev) => ({
+                      ...prev,
+                      quoteDate: now.toISOString().split('T')[0],
+                      validUntil: validDate.toISOString().split('T')[0],
+                    }));
+                    setIsAddingQuote(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Record Quotation</span>
+                </button>
               </div>
 
               {isLoadingQuotes ? (
                 <div className="py-12 text-center text-xs text-gray-500">Loading quotations...</div>
               ) : quotes.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-xs text-gray-500">
-                  No quotations recorded yet.
+                  No quotations recorded yet. Click &quot;Record Quotation&quot; to add a supplier offer.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {quotes.map((q) => (
-                    <div
-                      key={q.id}
-                      className={`rounded-2xl border p-4 bg-white shadow-xs transition-all ${
-                        q.isCurrentPublished ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            q.priceType === 'VENDOR_QUOTED' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {q.priceType}
-                          </span>
-                          <h4 className="text-sm font-bold text-gray-950 mt-1">{q.vendorName}</h4>
+                  {quotes.map((q) => {
+                    const isExpired = getCountdownParts(q.validUntil).isExpired;
+                    return (
+                      <div
+                        key={q.id}
+                        className={`rounded-2xl border p-4 bg-white shadow-xs transition-all space-y-3 ${
+                          q.isCurrentPublished
+                            ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+                            : isExpired
+                            ? 'border-gray-200 opacity-80'
+                            : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              q.priceType === 'VENDOR_QUOTED' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {q.priceType}
+                            </span>
+                            <h4 className="text-sm font-bold text-gray-950 mt-1">{q.vendorName}</h4>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-base font-black text-gray-950">{formatINR(q.quotedAmount)}</div>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                              q.status === 'PUBLISHED' && !isExpired
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : isExpired
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {isExpired ? 'EXPIRED' : q.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-base font-black text-gray-950">{formatINR(q.quotedAmount)}</div>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                            q.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {q.status}
-                          </span>
+
+                        <div className="text-xs text-gray-700">
+                          {q.scope}
                         </div>
-                      </div>
 
-                      <div className="text-xs text-gray-600 mt-2 line-clamp-2">
-                        {q.scope}
-                      </div>
-
-                      <div className="text-[11px] text-gray-400 mt-2 flex items-center justify-between">
-                        <span>Valid until: {new Date(q.validUntil).toLocaleDateString('en-IN')}</span>
-                        {q.isCurrentPublished && (
-                          <span className="font-bold text-emerald-700 flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Published Live
-                          </span>
+                        {/* Inclusions & Exclusions */}
+                        {((q.inclusions && q.inclusions.length > 0) || (q.exclusions && q.exclusions.length > 0)) && (
+                          <div className="space-y-1.5 pt-1 text-[11px]">
+                            {q.inclusions && q.inclusions.length > 0 && (
+                              <div className="flex flex-wrap gap-1 items-center">
+                                <span className="font-semibold text-emerald-700">Includes:</span>
+                                {q.inclusions.map((inc, i) => (
+                                  <span key={i} className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-100">
+                                    {inc}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {q.exclusions && q.exclusions.length > 0 && (
+                              <div className="flex flex-wrap gap-1 items-center">
+                                <span className="font-semibold text-rose-600">Excludes:</span>
+                                {q.exclusions.map((exc, i) => (
+                                  <span key={i} className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-100">
+                                    {exc}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
-                      </div>
 
-                      <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePublishQuote(q)}
-                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-colors ${
-                            q.isCurrentPublished
-                              ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          }`}
-                        >
-                          {q.isCurrentPublished ? 'Unpublish Quote' : 'Publish to Group'}
-                        </button>
+                        {/* Delivery & Quantity Condition */}
+                        {(q.deliveryTerms || q.quantityCondition) && (
+                          <div className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded-xl space-y-0.5">
+                            {q.deliveryTerms && <div><strong>Delivery:</strong> {q.deliveryTerms}</div>}
+                            {q.quantityCondition && <div><strong>Condition:</strong> {q.quantityCondition}</div>}
+                          </div>
+                        )}
+
+                        <div className="text-[11px] text-gray-400 flex items-center justify-between pt-1">
+                          <span className={isExpired ? 'text-rose-600 font-semibold' : ''}>
+                            Valid until: {new Date(q.validUntil).toLocaleDateString('en-IN')} {isExpired && '(Expired)'}
+                          </span>
+                          {q.isCurrentPublished && !isExpired && (
+                            <span className="font-bold text-emerald-700 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Published Live
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={isExpired && !q.isCurrentPublished}
+                            onClick={() => handleTogglePublishQuote(q)}
+                            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-colors ${
+                              q.isCurrentPublished
+                                ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                : isExpired
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            }`}
+                          >
+                            {q.isCurrentPublished ? 'Unpublish Quote' : isExpired ? 'Cannot Publish (Expired)' : 'Publish to Group'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -934,13 +1144,13 @@ export function AdminGroupDetailModal({
                 onChange={(e) => setExclusionReason(e.target.value)}
                 placeholder="Reason for exclusion (e.g. Member opted out, unresponsive after deadline)..."
                 rows={3}
-                className="w-full text-xs p-3 rounded-xl border border-gray-200"
+                className="w-full text-xs p-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-hidden font-medium"
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setExcludingLead(null)}
-                  className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs text-gray-600"
+                  className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -949,17 +1159,30 @@ export function AdminGroupDetailModal({
                   onClick={async () => {
                     if (!exclusionReason.trim()) return;
                     setIsSubmittingExclusion(true);
-                    await handleUpdateMemberDecision(excludingLead.id, {
-                      connectionStatus: 'EXCLUDED',
-                      exclusionReason: exclusionReason.trim(),
-                    });
-                    setIsSubmittingExclusion(false);
-                    setExcludingLead(null);
+                    try {
+                      const res = await fetch(`/api/admin/pools/${pool.id}/members/${excludingLead.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ exclusionReason: exclusionReason.trim() }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        await Promise.all([loadMembers(), loadAuditLogs()]);
+                        if (onPoolUpdated && typeof data.data?.currentBuyers === 'number') {
+                          onPoolUpdated({ ...pool, currentBuyers: data.data.currentBuyers });
+                        }
+                      }
+                    } catch (e) {
+                      console.error('Failed to exclude member:', e);
+                    } finally {
+                      setIsSubmittingExclusion(false);
+                      setExcludingLead(null);
+                    }
                   }}
                   disabled={!exclusionReason.trim() || isSubmittingExclusion}
-                  className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
                 >
-                  Confirm Exclusion
+                  {isSubmittingExclusion ? 'Excluding...' : 'Confirm Exclusion'}
                 </button>
               </div>
             </div>
@@ -1042,7 +1265,151 @@ export function AdminGroupDetailModal({
           </div>
         )}
 
-        {/* WhatsApp Generator & Sent Tracker Sub-dialog */}
+        {/* RECORD QUOTATION MODAL */}
+        {isAddingQuote && (
+          <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                <h4 className="text-sm font-bold text-gray-950">Record Supplier Quotation</h4>
+                <button type="button" onClick={() => setIsAddingQuote(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {quoteFormError && (
+                <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
+                  {quoteFormError}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateQuote} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Supplier / Dealer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Authorized Tata Motors EV Dealership..."
+                    value={quoteForm.vendorName}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, vendorName: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Quoted Price (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="e.g. 145000"
+                      value={quoteForm.quotedAmount}
+                      onChange={(e) => setQuoteForm({ ...quoteForm, quotedAmount: e.target.value })}
+                      className="w-full p-2.5 rounded-xl border border-gray-200 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Valid Until Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={quoteForm.validUntil}
+                      onChange={(e) => setQuoteForm({ ...quoteForm, validUntil: e.target.value })}
+                      className="w-full p-2.5 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Quotation Scope & Specifications *</label>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="Detailed package scope (e.g. 5kW On-Grid Solar System with Bi-Facial Panels & Net-metering setup)..."
+                    value={quoteForm.scope}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, scope: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Inclusions (Taxes, Warranty, Delivery - comma separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 18% GST Included, 5-Year Inverter Warranty, Free Doorstep Delivery..."
+                    value={quoteForm.inclusions}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, inclusions: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Exclusions (comma separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Extended cabling beyond 15m, Civil foundation work..."
+                    value={quoteForm.exclusions}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, exclusions: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Delivery Terms</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Delivery in 7-10 days..."
+                      value={quoteForm.deliveryTerms}
+                      onChange={(e) => setQuoteForm({ ...quoteForm, deliveryTerms: e.target.value })}
+                      className="w-full p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Quantity Condition</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Cohort of 10+ buyers..."
+                      value={quoteForm.quantityCondition}
+                      onChange={(e) => setQuoteForm({ ...quoteForm, quantityCondition: e.target.value })}
+                      className="w-full p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Vendor Contact Reference (Private)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rajesh Kumar (GM Sales, 9826012345)..."
+                    value={quoteForm.vendorContactRef}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, vendorContactRef: e.target.value })}
+                    className="w-full p-2 rounded-xl border border-gray-200"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-gray-100 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingQuote(false)}
+                    className="px-4 py-2 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingQuote}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {isSubmittingQuote ? 'Recording...' : 'Record Quotation'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* WHATSAPP CLICK-TO-CHAT & SENT TRACKER MODAL */}
         {activeWhatsAppLead && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-gray-950/50">
             <div className="bg-white rounded-3xl p-5 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">

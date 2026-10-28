@@ -167,15 +167,11 @@ export function AdminRequestsTab() {
     setConvertError(null);
     setConvertSuccess(null);
 
-    // Initial default city labels: include Delhi, Mumbai, Pune, plus requester's city if in the 25 launch cities
-    const initialCitySlugs = ['delhi', 'mumbai', 'pune'];
-    if (request.city) {
-      const reqCitySlug = request.city.toLowerCase().trim();
-      const inLaunch = LAUNCH_CITIES.find((c) => c.slug === reqCitySlug);
-      if (inLaunch && !initialCitySlugs.includes(inLaunch.slug)) {
-        initialCitySlugs.push(inLaunch.slug);
-      }
-    }
+    // Default to requester's specific city to maintain city-isolated pool integrity
+    const rawReqCity = (request.cityText || request.city || '').toLowerCase().trim();
+    const cleanReqSlug = rawReqCity.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const matchedLaunch = LAUNCH_CITIES.find((c) => c.slug === cleanReqSlug || c.name.toLowerCase() === rawReqCity);
+    const initialCitySlugs = matchedLaunch ? [matchedLaunch.slug] : (cleanReqSlug ? [cleanReqSlug] : ['delhi']);
 
     setConvertForm({
       title: request.productName,
@@ -220,6 +216,7 @@ export function AdminRequestsTab() {
         productName: convertForm.title.trim(),
         shortDescription: convertForm.description.trim() || undefined,
         categorySlug: convertForm.categorySlug || null,
+        citySlug: convertForm.citySlugs[0] || undefined,
         citySlugs: convertForm.citySlugs,
         durationDays: Number(convertForm.durationDays) || 14,
         isPublished: publish,
@@ -350,7 +347,7 @@ export function AdminRequestsTab() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search requirement, location, name..."
-            className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden"
+            className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
           />
         </div>
 
@@ -500,8 +497,17 @@ export function AdminRequestsTab() {
                           {r.whatsappNumber ? `+91 ${r.whatsappNumber}` : 'Not provided'}
                         </div>
                         <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
-                          <Check className="w-3 h-3" /> Consent Confirmed
+                          <Check className="w-3 h-3" /> WhatsApp Opt-in
                         </div>
+                        {r.joinPoolConsent ? (
+                          <div className="text-[10px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded inline-flex items-center gap-1 mt-1">
+                            <Check className="w-3 h-3" /> Buyer #1 Consent: YES
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded inline-flex items-center gap-1 mt-1">
+                            Buyer #1 Consent: NO
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
@@ -651,9 +657,32 @@ export function AdminRequestsTab() {
               </div>
             ) : (
               <div className="space-y-4 text-xs">
+                {/* Consent Status Indicator Banner */}
+                {convertingRequest.joinPoolConsent ? (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-xl p-3 text-xs flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-emerald-900">Requester Membership Consent: YES</span>
+                      <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                        The requester provided explicit consent. Upon pool creation, they will be automatically enrolled as confirmed Buyer #1 (current buyers = 1).
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-3 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-900">Requester Membership Consent: NO</span>
+                      <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                        The requester did NOT give membership consent. This pool will be created with current buyers = 0 and zero customer membership records created.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Public Title */}
                 <div>
-                  <label htmlFor="convert-title" className="block font-semibold text-gray-700 mb-1">
+                  <label htmlFor="convert-title" className="block font-bold text-slate-800 mb-1">
                     Final Public Pool Title <span className="text-emerald-600">*</span>
                   </label>
                   <input
@@ -663,13 +692,13 @@ export function AdminRequestsTab() {
                     value={convertForm.title}
                     onChange={(e) => setConvertForm({ ...convertForm, title: e.target.value })}
                     placeholder="e.g. 2 kW Rooftop Solar System Package"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden font-medium"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label htmlFor="convert-desc" className="block font-semibold text-gray-700 mb-1">
+                  <label htmlFor="convert-desc" className="block font-bold text-slate-800 mb-1">
                     Description (Optional)
                   </label>
                   <textarea
@@ -678,20 +707,20 @@ export function AdminRequestsTab() {
                     value={convertForm.description}
                     onChange={(e) => setConvertForm({ ...convertForm, description: e.target.value })}
                     placeholder="Community buying deal aggregated from verified interest..."
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
                   />
                 </div>
 
                 {/* Optional Category */}
                 <div>
-                  <label htmlFor="convert-cat" className="block font-semibold text-gray-700 mb-1">
+                  <label htmlFor="convert-cat" className="block font-bold text-slate-800 mb-1">
                     Internal Category (Optional Admin Metadata)
                   </label>
                   <select
                     id="convert-cat"
                     value={convertForm.categorySlug}
                     onChange={(e) => setConvertForm({ ...convertForm, categorySlug: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden bg-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
                   >
                     <option value="">None / Optional</option>
                     {categories.map((c) => (
@@ -748,7 +777,7 @@ export function AdminRequestsTab() {
                     max="180"
                     value={convertForm.durationDays}
                     onChange={(e) => setConvertForm({ ...convertForm, durationDays: e.target.value })}
-                    className="w-32 px-3 py-1.5 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
+                    className="w-32 px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-900 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
                   />
                 </div>
 

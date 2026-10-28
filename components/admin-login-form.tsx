@@ -71,7 +71,7 @@ export function AdminLoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="admin-passkey" className="block text-xs font-semibold text-gray-800 mb-1.5">
+          <label htmlFor="admin-passkey" className="block text-xs font-bold text-slate-800 mb-1.5">
             Operator Passkey
           </label>
           <input
@@ -82,7 +82,7 @@ export function AdminLoginForm() {
             value={passkey}
             onChange={(e) => setPasskey(e.target.value)}
             placeholder="••••••••••••••••"
-            className="w-full text-sm px-4 py-3 rounded-xl border border-gray-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
+            className="w-full text-sm px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium transition-all"
           />
         </div>
 

@@ -132,42 +132,44 @@ describe('Phase 4: Brand & SEO Alignment Tests', () => {
     });
   });
 
-  describe('Migration Reconciliation Integrity', () => {
-    test('Tracked migrations chain starts with baseline 000 and has sequential additive files', () => {
-      const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations');
-      assert.ok(fs.existsSync(migrationsDir), 'supabase/migrations directory must exist');
+  describe('Active D1 SQLite Migration Chain Integrity', () => {
+    test('Tracked migrations chain in migrations/d1 has sequential additive files', () => {
+      const migrationsDir = path.resolve(process.cwd(), 'migrations/d1');
+      assert.ok(fs.existsSync(migrationsDir), 'migrations/d1 directory must exist');
 
       const files = fs.readdirSync(migrationsDir).sort();
-      assert.ok(files.length >= 8, 'Must have at least 8 versioned migrations');
+      assert.ok(files.length >= 4, 'Must have at least 4 versioned D1 migrations');
 
-      assert.ok(files[0].includes('000000_baseline_schema.sql'));
-      assert.ok(files[1].includes('000001_cities_and_multicity_pools.sql'));
-      assert.ok(files[2].includes('000002_dynamic_categories_and_pool_requests.sql'));
-      assert.ok(files[3].includes('000003_fixed_kits_and_price_tiers.sql'));
-      assert.ok(files[4].includes('000004_location_directory_states_and_cities.sql'));
-      assert.ok(files[5].includes('000005_pool_lifecycle_and_expiry.sql'));
-      assert.ok(files[6].includes('000006_blog_cms.sql'));
-      assert.ok(files[7].includes('20261027000000_mvp_community_groupbuying.sql'));
-      if (files[8]) {
-        assert.ok(files[8].includes('20261027000001_admin_manual_operations.sql'));
-      }
+      assert.ok(files[0].includes('0001_initial_schema.sql'));
+      assert.ok(files[1].includes('0002_add_variants_and_capacity_limits.sql'));
+      assert.ok(files[2].includes('0003_v73_shared_pool_cities.sql'));
+      assert.ok(files[3].includes('0004_category_agnostic_city_pools.sql'));
     });
 
-    test('Baseline migration contains core tables, RPCs, and RLS', () => {
-      const baselinePath = path.resolve(
+    test('Initial D1 migration contains core tables and category-agnostic support', () => {
+      const initialPath = path.resolve(
         process.cwd(),
-        'supabase/migrations/20261026000000_baseline_schema.sql'
+        'migrations/d1/0001_initial_schema.sql'
       );
-      const sql = fs.readFileSync(baselinePath, 'utf8');
+      const sql = fs.readFileSync(initialPath, 'utf8');
 
-      assert.ok(sql.includes('create table if not exists public.pools'));
-      assert.ok(sql.includes('create table if not exists public.pool_leads'));
-      assert.ok(sql.includes('create table if not exists public.pool_requests'));
-      assert.ok(sql.includes('function public.join_pool'));
-      assert.ok(sql.includes('function public.submit_pool_request'));
-      assert.ok(sql.includes('alter table public.pools enable row level security'));
-      assert.ok(sql.includes('alter table public.pool_leads enable row level security'));
-      assert.ok(sql.includes('alter table public.pool_requests enable row level security'));
+      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS pools'));
+      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS pool_leads'));
+      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS pool_requests'));
+      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS categories'));
+      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS pool_quotations'));
+    });
+
+    test('Additive D1 migration 0004 contains category-agnostic columns and indexes', () => {
+      const migration4Path = path.resolve(
+        process.cwd(),
+        'migrations/d1/0004_category_agnostic_city_pools.sql'
+      );
+      const sql = fs.readFileSync(migration4Path, 'utf8');
+
+      assert.ok(sql.includes('product_title'));
+      assert.ok(sql.includes('variant_name'));
+      assert.ok(sql.includes('idx_pools_city_cat'));
     });
   });
 });

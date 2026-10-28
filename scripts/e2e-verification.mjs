@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 
-const BASE_URL = 'http://127.0.0.1:8787';
-const ADMIN_PASSKEY = 'velvet-cobalt-orbit-falcon-9284';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://127.0.0.1:8787';
+const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY;
+
+if (!ADMIN_PASSKEY) {
+  console.error('[SECURITY ERROR] Required environment variable ADMIN_PASSKEY is not set.');
+  console.error('Aborting verification script to fail closed and protect test environment.');
+  process.exit(1);
+}
 
 async function runE2E() {
   console.log('--- Starting GroupBuying / PoolBuy India E2E Verification against ' + BASE_URL + ' ---');

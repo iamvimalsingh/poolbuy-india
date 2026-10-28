@@ -19,6 +19,7 @@ import { AdminOverviewTab } from './admin-overview-tab';
 import { AdminPoolsTab } from './admin-pools-tab';
 import { AdminLeadsTab } from './admin-leads-tab';
 import { AdminRequestsTab } from './admin-requests-tab';
+import { AdminCategoriesTab } from './admin-categories-tab';
 import { AdminCitiesTab } from './admin-cities-tab';
 import { AdminBlogTab } from './admin-blog-tab';
 import { AdminSettingsTab } from './admin-settings-tab';
@@ -26,7 +27,7 @@ import { AdminSettingsTab } from './admin-settings-tab';
 export function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'pools' | 'leads' | 'requests' | 'cities' | 'blog' | 'settings'
+    'overview' | 'pools' | 'leads' | 'requests' | 'categories' | 'cities' | 'blog' | 'settings'
   >('overview');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -141,6 +142,19 @@ export function AdminDashboard() {
 
         <button
           type="button"
+          onClick={() => setActiveTab('categories')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'categories'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
+        >
+          <Layers className="w-4 h-4" aria-hidden="true" />
+          <span>Product Categories</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('cities')}
           className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'cities'
@@ -186,6 +200,7 @@ export function AdminDashboard() {
       {activeTab === 'pools' && <AdminPoolsTab />}
       {activeTab === 'leads' && <AdminLeadsTab />}
       {activeTab === 'requests' && <AdminRequestsTab />}
+      {activeTab === 'categories' && <AdminCategoriesTab />}
       {activeTab === 'cities' && <AdminCitiesTab />}
       {activeTab === 'blog' && <AdminBlogTab />}
       {activeTab === 'settings' && <AdminSettingsTab />}

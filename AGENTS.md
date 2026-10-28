@@ -9,7 +9,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 ## Authoritative Specification
-The product, architecture, and implementation specification is defined in `MASTER_BLUEPRINT.md` (v6.0.0). It is the single source of truth and supersedes all older documentation. The primary brand identity is **GroupBuying** (`https://groupbuying.store`), retaining natural/useful **PoolBuy India** context and stable URLs. The active runtime architecture is Next.js 16 App Router on Cloudflare Workers (via OpenNext) backed by Cloudflare D1 SQLite. All coding decisions, data models, routes, UI requirements, and security rules must adhere strictly to `MASTER_BLUEPRINT.md` v6.0.0.
+The product scope, domain rules, and user journeys are canonically defined in `docs/PRODUCT_CONTRACT.md` and `docs/IMPLEMENTATION_PLAN.md` (v1.0.0). These documents supersede all older specifications. The primary brand identity is **GroupBuying** (`https://groupbuying.store`), retaining natural/useful **PoolBuy India** context and stable URLs. The active runtime architecture is Next.js 16 App Router on Cloudflare Workers (via OpenNext) backed by Cloudflare D1 SQLite. All coding decisions, data models, routes, UI requirements, and security rules must adhere strictly to `docs/PRODUCT_CONTRACT.md`.
 
 <!-- BEGIN:nextjs-agent-feedback -->
 

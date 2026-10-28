@@ -10,7 +10,12 @@
  */
 
 const BASE_URL = 'http://localhost:3000';
-const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || 'PoolBuy@India2026!';
+const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY;
+
+if (!ADMIN_PASSKEY) {
+  console.error('[SECURITY ERROR] Required environment variable ADMIN_PASSKEY is not set. Failing closed.');
+  process.exit(1);
+}
 
 let passCount = 0;
 let failCount = 0;

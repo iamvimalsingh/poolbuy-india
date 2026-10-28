@@ -13,14 +13,7 @@ export const buyingTimelineEnum = z.enum([
   'WITHIN_30_45_DAYS',
 ]);
 
-export const poolCategoryEnum = z.enum([
-  'EV_SCOOTERS',
-  'CARS',
-  'ROOFTOP_SOLAR',
-  'LAPTOPS',
-  'SMART_TVS',
-  'TRACTORS_COMMERCIAL',
-]);
+export const poolCategoryEnum = z.string().min(1);
 
 export const poolStatusEnum = z.enum([
   'ACTIVE',
@@ -305,6 +298,7 @@ export const poolRequestSchema = z.object({
     .max(180)
     .optional(),
   category: z.string().trim().max(80).nullable().optional(),
+  categorySlug: z.string().trim().max(80).nullable().optional(),
   categoryName: z.string().trim().max(100).nullable().optional(),
   brandPreference: z.string().trim().max(100).nullable().optional(),
   modelPreference: z.string().trim().max(100).nullable().optional(),
@@ -320,6 +314,7 @@ export const poolRequestSchema = z.object({
   contactConsent: z.boolean().default(true).refine((val) => val === true, {
     message: 'Explicit consent to receive relevant contact is required.',
   }),
+  joinPoolConsent: z.boolean().default(false),
   requestType: z.enum(['GROUP_PROPOSAL', 'PRODUCT_SUGGESTION']).default('GROUP_PROPOSAL'),
   fullName: z
     .string()

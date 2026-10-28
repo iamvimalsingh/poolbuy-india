@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { AdminPool, PoolCategory, PoolStatus, City } from '@/types';
 import { CATEGORIES, CITIES, STATUS_LABELS } from '@/lib/constants';
-import { STANDARD_PRODUCTS } from '@/lib/products';
+
 import { formatINR } from '@/lib/format';
 import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
 import { AdminGroupDetailModal } from './admin-group-detail-modal';
@@ -493,21 +493,6 @@ export function AdminPoolsTab() {
     setFormLongDescription('');
     setModalError(null);
     setIsCreateOpen(true);
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    const prod = STANDARD_PRODUCTS.find((p) => p.id === templateId);
-    if (!prod) return;
-    setFormName(prod.name);
-    setFormSlug(prod.slug);
-    setFormCategory(prod.category as PoolCategory);
-    setFormBrand(prod.brand);
-    setFormModel(prod.model);
-    setFormMarketPrice(prod.defaultMarketPrice?.toString() || '');
-    setFormGroupPrice(prod.defaultGroupPrice?.toString() || '');
-    setFormTargetBuyers(prod.defaultTargetBuyers);
-    setFormShortDescription(prod.shortDescription);
-    setFormLongDescription(prod.longDescription);
   };
 
   const handleCreatePool = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -1005,7 +990,7 @@ export function AdminPoolsTab() {
                 <select
                   name="status"
                   defaultValue={editingPool.status}
-                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 >
                   <option value="ACTIVE">ACTIVE (Open for buyer joins)</option>
                   <option value="UNLOCKED">UNLOCKED (Target met & terms verified)</option>
@@ -1020,7 +1005,7 @@ export function AdminPoolsTab() {
                 <select
                   name="priceIsVerified"
                   defaultValue={editingPool.priceIsVerified ? 'true' : 'false'}
-                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 >
                   <option value="false">Illustrative / Demo Estimate (Unverified)</option>
                   <option value="true">Verified Authorized Dealer Quotation</option>
@@ -1037,7 +1022,7 @@ export function AdminPoolsTab() {
                     min={2}
                     max={10000}
                     defaultValue={editingPool.targetBuyers}
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -1046,7 +1031,7 @@ export function AdminPoolsTab() {
                     type="number"
                     name="groupPrice"
                     defaultValue={editingPool.groupPrice || ''}
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
@@ -1064,7 +1049,7 @@ export function AdminPoolsTab() {
                     name="dealerName"
                     defaultValue={editingPool.dealerName || ''}
                     placeholder="e.g. TVS Prime Motors Bhopal"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
 
@@ -1075,7 +1060,7 @@ export function AdminPoolsTab() {
                     rows={2}
                     defaultValue={editingPool.dealerTerms || ''}
                     placeholder="e.g. Price includes standard warranty and charger. Insurance extra."
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden resize-none"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden resize-none"
                   />
                 </div>
 
@@ -1087,7 +1072,7 @@ export function AdminPoolsTab() {
                       name="tokenAmount"
                       min={99}
                       defaultValue={editingPool.tokenAmount || 499}
-                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                     />
                   </div>
 
@@ -1098,7 +1083,7 @@ export function AdminPoolsTab() {
                       name="tokenPaymentUrl"
                       defaultValue={editingPool.tokenPaymentUrl || ''}
                       placeholder="https://rzp.io/l/poolbuy-token"
-                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                      className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                     />
                   </div>
                 </div>
@@ -1110,7 +1095,7 @@ export function AdminPoolsTab() {
                 <select
                   name="isPublished"
                   defaultValue={editingPool.isPublished !== false ? 'true' : 'false'}
-                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white focus:border-emerald-600 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 >
                   <option value="true">Published (Visible in city catalog and discovery)</option>
                   <option value="false">Draft / Unpublished (Admin only)</option>
@@ -1300,28 +1285,6 @@ export function AdminPoolsTab() {
             )}
 
             <form onSubmit={handleCreatePool} className="space-y-4 text-xs">
-              {/* Product Template Selector */}
-              <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-2xl">
-                <label className="block font-bold text-emerald-950 mb-1">
-                  Standard Product Template <span className="text-emerald-700 font-normal">(Optional Pre-fill)</span>
-                </label>
-                <select
-                  onChange={(e) => handleTemplateSelect(e.target.value)}
-                  defaultValue=""
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-emerald-300 bg-white text-gray-900 outline-hidden font-medium"
-                >
-                  <option value="">-- Choose a standard product template --</option>
-                  {STANDARD_PRODUCTS.map((prod) => (
-                    <option key={prod.id} value={prod.id}>
-                      {prod.name} ({prod.category})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-emerald-800/80 mt-1">
-                  Selecting a template sets standard specs & slug. You can customize target buyers, pricing, or city below.
-                </p>
-              </div>
-
               <div>
                 <label className="block font-semibold text-gray-800 mb-1">Product Title</label>
                 <input
@@ -1331,7 +1294,7 @@ export function AdminPoolsTab() {
                   onChange={(e) => setFormName(e.target.value)}
                   required
                   placeholder="e.g. Ather Rizta Electric Scooter"
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 
@@ -1343,7 +1306,7 @@ export function AdminPoolsTab() {
                     value={formCity}
                     onChange={(e) => setFormCity(e.target.value)}
                     required
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white outline-hidden font-medium"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   >
                     <option value="">Select Authoritative City</option>
                     {INDIA_LOCATION_DIRECTORY.map((state) => (
@@ -1365,7 +1328,7 @@ export function AdminPoolsTab() {
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as PoolCategory)}
                     required
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c.slug} value={c.category}>
@@ -1384,7 +1347,7 @@ export function AdminPoolsTab() {
                     value={formBrand}
                     onChange={(e) => setFormBrand(e.target.value)}
                     placeholder="e.g. Ather"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -1394,7 +1357,7 @@ export function AdminPoolsTab() {
                     value={formModel}
                     onChange={(e) => setFormModel(e.target.value)}
                     placeholder="e.g. Rizta S"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
@@ -1408,7 +1371,7 @@ export function AdminPoolsTab() {
                     max={10000}
                     value={formTargetBuyers}
                     onChange={(e) => setFormTargetBuyers(parseInt(e.target.value, 10) || 10)}
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -1419,7 +1382,7 @@ export function AdminPoolsTab() {
                     max={60}
                     value={formDaysFromNow}
                     onChange={(e) => setFormDaysFromNow(parseInt(e.target.value, 10) || 14)}
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
@@ -1432,7 +1395,7 @@ export function AdminPoolsTab() {
                     value={formMarketPrice}
                     onChange={(e) => setFormMarketPrice(e.target.value)}
                     placeholder="150000"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -1442,7 +1405,7 @@ export function AdminPoolsTab() {
                     value={formGroupPrice}
                     onChange={(e) => setFormGroupPrice(e.target.value)}
                     placeholder="135000"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
@@ -1456,7 +1419,7 @@ export function AdminPoolsTab() {
                   value={formSlug}
                   onChange={(e) => setFormSlug(e.target.value)}
                   placeholder="Auto-generated if left blank"
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden font-mono text-xs text-gray-700"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 
@@ -1468,7 +1431,7 @@ export function AdminPoolsTab() {
                   rows={2}
                   maxLength={300}
                   placeholder="e.g. City-level group quotation pool for the latest electric scooter model."
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden resize-none"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden resize-none"
                 />
               </div>
 

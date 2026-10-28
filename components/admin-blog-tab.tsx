@@ -417,7 +417,7 @@ export function AdminBlogTab() {
                     value={formTitle}
                     onChange={(e) => handleTitleChange(e.target.value)}
                     placeholder="e.g. Complete 2026 Rooftop Solar Subsidy Guide"
-                    className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -428,7 +428,7 @@ export function AdminBlogTab() {
                     value={formSlug}
                     onChange={(e) => setFormSlug(e.target.value)}
                     placeholder="e.g. rooftop-solar-subsidy-guide-2026"
-                    className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-300 font-mono outline-hidden"
+                    className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-mono font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
@@ -442,7 +442,7 @@ export function AdminBlogTab() {
                     value={formTopic}
                     onChange={(e) => setFormTopic(e.target.value)}
                     placeholder="Solar Energy, Home Backup, Water Treatment"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -453,7 +453,7 @@ export function AdminBlogTab() {
                     value={formAuthor}
                     onChange={(e) => setFormAuthor(e.target.value)}
                     placeholder="e.g. Vikram Sengupta"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -461,7 +461,7 @@ export function AdminBlogTab() {
                   <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED')}
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 bg-white outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   >
                     <option value="DRAFT">DRAFT (Internal only)</option>
                     <option value="PUBLISHED">PUBLISHED (Live to public &amp; search engines)</option>
@@ -478,7 +478,7 @@ export function AdminBlogTab() {
                   value={formExcerpt}
                   onChange={(e) => setFormExcerpt(e.target.value)}
                   placeholder="Concise 1-2 sentence summary displayed in article cards and meta description."
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 
@@ -521,7 +521,7 @@ export function AdminBlogTab() {
                     value={formCoverImageUrl}
                     onChange={(e) => setFormCoverImageUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
                 <div>
@@ -531,7 +531,7 @@ export function AdminBlogTab() {
                     value={formTags}
                     onChange={(e) => setFormTags(e.target.value)}
                     placeholder="Solar, Subsidy, Bhopal"
-                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                    className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
               </div>

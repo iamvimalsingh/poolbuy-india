@@ -23,6 +23,7 @@ import {
 import { AdminPool, WhatsAppTemplateType } from '@/types';
 import { whatsAppTemplateTypeEnum } from '@/lib/validation';
 import { calculateSuggestedConnectionFee } from '@/lib/fee';
+import { recordAdminAudit } from '@/lib/audit';
 import { z } from 'zod';
 
 type RouteContext = {
@@ -87,13 +88,18 @@ export async function POST(
         );
       }
 
-      if (demoLead.doNotContact || demoLead.status === 'DO_NOT_CONTACT') {
+      const hasOptedOut = Boolean(demoLead.doNotContact) || demoLead.status === 'DO_NOT_CONTACT';
+      const hasConsent = Boolean(demoLead.consentAt);
+
+      if (hasOptedOut || !hasConsent) {
         return NextResponse.json(
           {
             success: false,
             error: {
               code: 'CONTACT_OPTED_OUT',
-              message: 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
+              message: !hasConsent
+                ? 'Lead has not provided contact consent.'
+                : 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
             },
           },
           { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -123,7 +129,7 @@ export async function POST(
       const leadData = await db
         .prepare(
           `SELECT l.id, l.full_name, l.whatsapp_number, l.city, l.pool_id, l.buyer_number,
-                  l.status, l.do_not_contact,
+                  l.status, l.do_not_contact, l.consent_at,
                   p.id AS p_id, p.slug AS p_slug, p.name AS p_name, p.short_description AS p_short_description,
                   p.long_description AS p_long_description, p.category AS p_category, p.city AS p_city,
                   p.city_slug AS p_city_slug, p.product_brand AS p_product_brand, p.product_model AS p_product_model,
@@ -147,13 +153,18 @@ export async function POST(
         );
       }
 
-      if (Boolean(leadData.do_not_contact) || leadData.status === 'DO_NOT_CONTACT') {
+      const hasOptedOut = Boolean(leadData.do_not_contact) || leadData.status === 'DO_NOT_CONTACT';
+      const hasConsent = Boolean(leadData.consent_at);
+
+      if (hasOptedOut || !hasConsent) {
         return NextResponse.json(
           {
             success: false,
             error: {
               code: 'CONTACT_OPTED_OUT',
-              message: 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
+              message: !hasConsent
+                ? 'Lead has not provided contact consent.'
+                : 'Lead has opted out of direct contact or is marked DO_NOT_CONTACT.',
             },
           },
           { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -228,7 +239,7 @@ export async function POST(
       );
     }
 
-        let messageText = '';
+    let messageText = '';
 
     switch (templateType) {
       case 'UNLOCKED_TOKEN': {
@@ -325,6 +336,20 @@ export async function POST(
     }
 
     const whatsappUrl = buildWhatsAppDirectUrl(buyerPhone, messageText);
+
+    await recordAdminAudit({
+      action: 'WHATSAPP_LINK_GENERATED',
+      targetType: 'LEAD',
+      targetId: leadId,
+      changesSummary: `Generated WhatsApp link (${templateType}) for member #${buyerNumber} (${buyerName}).`,
+      details: {
+        leadId,
+        buyerNumber,
+        templateType,
+        poolName,
+        cityName,
+      },
+    });
 
     return NextResponse.json(
       {

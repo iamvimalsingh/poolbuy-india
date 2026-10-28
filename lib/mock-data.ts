@@ -7,7 +7,6 @@ import {
   City,
   Category,
   PoolRequest,
-  StandardProduct,
   PoolKitOffer,
   VendorPriceTier,
   PriceHistoryEntry,
@@ -17,7 +16,6 @@ import {
   AdminOverviewMetrics,
   BuyingTimeline,
 } from '@/types';
-import { STANDARD_PRODUCTS } from './products';
 
 // Static ISO timestamps for stable prerendering
 const addDays = (days: number) => {
@@ -760,7 +758,6 @@ interface GlobalMockStore {
   __poolbuy_cities?: City[];
   __poolbuy_categories?: Category[];
   __poolbuy_requests?: PoolRequest[];
-  __poolbuy_standard_products?: StandardProduct[];
   __poolbuy_blog_posts?: BlogPost[];
   __poolbuy_waitlist?: WaitlistEntry[];
   __poolbuy_quotations?: PoolQuotation[];
@@ -873,9 +870,6 @@ if (!g.__poolbuy_categories) {
 }
 if (!g.__poolbuy_requests) {
   g.__poolbuy_requests = INITIAL_MOCK_REQUESTS;
-}
-if (!g.__poolbuy_standard_products) {
-  g.__poolbuy_standard_products = [...STANDARD_PRODUCTS];
 }
 if (!g.__poolbuy_mock_pools) {
   g.__poolbuy_mock_pools = INITIAL_MOCK_POOLS;
@@ -1065,6 +1059,10 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
 /**
  * Returns all recorded demo leads
  */
+export function addDemoLead(lead: PoolLead): void {
+  DEMO_LEADS.unshift(lead);
+}
+
 export function getDemoLeads(): PoolLead[] {
   return [...DEMO_LEADS];
 }
@@ -1770,40 +1768,6 @@ export function updateDemoRequest(requestId: string, updates: Partial<PoolReques
         : current.reviewedAt,
   };
   g.__poolbuy_requests[index] = updated;
-  return updated;
-}
-
-/**
- * Standard products demo store accessors
- */
-export function getDemoStandardProducts(): StandardProduct[] {
-  return [...(g.__poolbuy_standard_products || STANDARD_PRODUCTS)];
-}
-
-export function addDemoStandardProduct(product: StandardProduct): void {
-  if (!g.__poolbuy_standard_products) {
-    g.__poolbuy_standard_products = [...STANDARD_PRODUCTS];
-  }
-  g.__poolbuy_standard_products.unshift(product);
-}
-
-export function updateDemoStandardProduct(
-  productId: string,
-  updates: Partial<StandardProduct>
-): StandardProduct | null {
-  if (!g.__poolbuy_standard_products) {
-    g.__poolbuy_standard_products = [...STANDARD_PRODUCTS];
-  }
-  const index = g.__poolbuy_standard_products.findIndex(
-    (p) => p.id === productId || p.slug === productId
-  );
-  if (index === -1) return null;
-  const current = g.__poolbuy_standard_products[index];
-  const updated: StandardProduct = {
-    ...current,
-    ...updates,
-  };
-  g.__poolbuy_standard_products[index] = updated;
   return updated;
 }
 

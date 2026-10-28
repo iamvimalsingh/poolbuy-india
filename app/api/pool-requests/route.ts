@@ -31,7 +31,7 @@ function isRateLimited(ip: string): boolean {
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<ApiResponse<{ id: string; isDemo: boolean }>>> {
+): Promise<NextResponse<ApiResponse<{ id: string; isDemo: boolean; isDuplicate?: boolean; existingRequestId?: string }>>> {
   try {
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
@@ -69,9 +69,41 @@ export async function POST(
     }
 
     const result = await executePoolRequest(parseResult.data);
+
+    if (result.isDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'DUPLICATE_ACTIVE_REQUEST',
+            message: 'You already have an active interest request for this product in this city.',
+          },
+          data: {
+            id: result.id,
+            isDemo: result.isDemo,
+            isDuplicate: true,
+            existingRequestId: result.existingRequestId,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
     const err = error as { message?: string };
+    if (err.message === 'CATEGORY_INACTIVE') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CATEGORY_INACTIVE',
+            message: 'The selected category is currently inactive and not accepting new pool requests.',
+          },
+        },
+        { status: 400 }
+      );
+    }
     console.error('API Error in /api/pool-requests:', err.message);
 
     return NextResponse.json(

@@ -4,7 +4,12 @@
 // ==============================================================================
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
-const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || 'PB_Z0Mfc8c3jzAh1Ch_Aq8j6IZm#2026';
+const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY;
+
+if (!ADMIN_PASSKEY) {
+  console.error('[SECURITY ERROR] Required environment variable ADMIN_PASSKEY is not set. Failing closed.');
+  process.exit(1);
+}
 
 let adminCookie = '';
 let passedCount = 0;

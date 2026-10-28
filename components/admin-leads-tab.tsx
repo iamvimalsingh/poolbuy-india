@@ -194,12 +194,12 @@ export function AdminLeadsTab() {
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Search by buyer name, phone, or notes..."
-              className="w-full text-xs pl-10 pr-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-emerald-600 outline-hidden"
+              className="w-full text-xs pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
             />
           </div>
           <button
             type="submit"
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700 transition-colors"
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors cursor-pointer"
           >
             Search
           </button>
@@ -210,7 +210,7 @@ export function AdminLeadsTab() {
           <select
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 outline-hidden"
+            className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium outline-hidden"
           >
             <option value="">All Cities</option>
             {CITIES.map((c) => (
@@ -224,7 +224,7 @@ export function AdminLeadsTab() {
           <select
             value={timelineFilter}
             onChange={(e) => setTimelineFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 outline-hidden"
+            className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium outline-hidden"
           >
             <option value="">All Timelines</option>
             <option value="WITHIN_7_DAYS">Within 7 Days</option>
@@ -236,7 +236,7 @@ export function AdminLeadsTab() {
           <select
             value={quoteFilter}
             onChange={(e) => setQuoteFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 outline-hidden"
+            className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium outline-hidden"
           >
             <option value="">Quote Status (Any)</option>
             <option value="true">Has Existing Quote</option>
@@ -247,7 +247,7 @@ export function AdminLeadsTab() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 outline-hidden"
+            className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium outline-hidden"
           >
             <option value="">All Lead Statuses</option>
             <option value="NEW">New Lead</option>

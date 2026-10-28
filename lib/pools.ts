@@ -1,6 +1,6 @@
 import { PublicPool, JoinPoolInput, JoinPoolResult, PoolFilters } from '@/types';
 import { isDemoMode } from './data-mode';
-import { MOCK_POOLS } from './mock-data';
+import { MOCK_POOLS, MOCK_ADMIN_POOLS, getDemoLeads } from './mock-data';
 import { getD1Database, requireD1Database } from './d1/db';
 import { CATEGORY_SLUG_MAP } from './constants';
 
@@ -57,6 +57,9 @@ function mapRowToKitOffer(row: D1KitOfferRow) {
 }
 
 interface D1PoolRow {
+  category_slug?: string | null;
+  product_title?: string | null;
+  variant_name?: string | null;
   id: string;
   slug: string;
   name: string;
@@ -77,6 +80,7 @@ interface D1PoolRow {
   closure_reason?: string | null;
   closed_at?: string | null;
   offer_valid_until?: string | null;
+  quote_valid_until?: string | null;
   is_archived?: number;
   deleted_at?: string | null;
   price_is_verified: number;
@@ -101,6 +105,13 @@ interface D1PoolRow {
 }
 
 function mapRowToPublicPool(row: D1PoolRow): PublicPool {
+  const quoteExpiry = row.quote_valid_until || row.offer_valid_until;
+  const isQuoteExpired = quoteExpiry ? new Date(quoteExpiry).getTime() < Date.now() : false;
+  const priceIsVerified = Boolean(row.price_is_verified) && !isQuoteExpired;
+  const groupPriceType = isQuoteExpired && row.group_price_type === 'VENDOR_QUOTED'
+    ? 'INDICATIVE_ESTIMATE'
+    : ((row.group_price_type || 'INDICATIVE_ESTIMATE') as PublicPool['groupPriceType']);
+
   return {
     id: row.id,
     slug: row.slug,
@@ -119,18 +130,22 @@ function mapRowToPublicPool(row: D1PoolRow): PublicPool {
     currentBuyers: Number(row.current_buyers),
     deadline: row.deadline,
     status: row.status as PublicPool['status'],
-    priceIsVerified: Boolean(row.price_is_verified),
-    priceVerifiedAt: row.price_verified_at,
+    priceIsVerified,
+    priceVerifiedAt: isQuoteExpired ? null : row.price_verified_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     isPublished: Boolean(row.is_published),
     marketPriceType: (row.market_price_type || 'INDICATIVE_ESTIMATE') as PublicPool['marketPriceType'],
-    groupPriceType: (row.group_price_type || 'INDICATIVE_ESTIMATE') as PublicPool['groupPriceType'],
+    groupPriceType,
     targetReachedAt: row.target_reached_at || null,
     connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as PublicPool['connectionStatus'],
     savingsDisplayApproved: Boolean(row.savings_display_approved),
     sourceRequestId: row.source_request_id || null,
     maxWaitlistSize: row.max_waitlist_size !== null && row.max_waitlist_size !== undefined ? Number(row.max_waitlist_size) : undefined,
+    categorySlug: row.category_slug || undefined,
+    productTitle: row.product_title || row.name,
+    variantName: row.variant_name || undefined,
+    quoteValidUntil: quoteExpiry || null,
   };
 }
 
@@ -245,23 +260,23 @@ export async function getPublicPools(filters?: PoolFilters | string): Promise<Pu
   if (resolvedFilters?.categorySlug && resolvedFilters.categorySlug !== 'all') {
     const catSlug = resolvedFilters.categorySlug;
     if (catSlug === 'home-power-backup') {
-      whereClauses.push("(category = 'ROOFTOP_SOLAR' AND (slug LIKE '%power-backup%' OR slug LIKE '%inverter%' OR name LIKE '%Inverter%'))");
+      whereClauses.push("((category_slug = 'home-power-backup') OR (category = 'ROOFTOP_SOLAR' AND (slug LIKE '%power-backup%' OR slug LIKE '%inverter%' OR name LIKE '%Inverter%')))");
     } else if (catSlug === 'water-softeners' || catSlug === 'water-softener') {
-      whereClauses.push("(category = 'ROOFTOP_SOLAR' AND (slug LIKE '%water-softener%' OR slug LIKE '%softener%' OR name LIKE '%Softener%'))");
+      whereClauses.push("((category_slug IN ('water-softeners', 'water-softener')) OR (category = 'ROOFTOP_SOLAR' AND (slug LIKE '%water-softener%' OR slug LIKE '%softener%' OR name LIKE '%Softener%')))");
     } else if (catSlug === 'rooftop-solar') {
-      whereClauses.push("(category = 'ROOFTOP_SOLAR' AND slug NOT LIKE '%power-backup%' AND slug NOT LIKE '%inverter%' AND slug NOT LIKE '%softener%')");
+      whereClauses.push("((category_slug = 'rooftop-solar') OR (category = 'ROOFTOP_SOLAR' AND slug NOT LIKE '%power-backup%' AND slug NOT LIKE '%inverter%' AND slug NOT LIKE '%softener%'))");
     } else {
       const mapped = CATEGORY_SLUG_MAP[catSlug];
       if (Array.isArray(mapped)) {
         const placeholders = mapped.map(() => '?').join(', ');
-        whereClauses.push(`category IN (${placeholders})`);
-        params.push(...mapped);
+        whereClauses.push(`(category_slug = ? OR category IN (${placeholders}))`);
+        params.push(catSlug, ...mapped);
       } else if (mapped) {
-        whereClauses.push('category = ?');
-        params.push(mapped);
+        whereClauses.push('(category_slug = ? OR category = ?)');
+        params.push(catSlug, mapped);
       } else {
-        whereClauses.push('slug = ?');
-        params.push(catSlug);
+        whereClauses.push('(category_slug = ? OR category = ?)');
+        params.push(catSlug, catSlug);
       }
     }
   }
@@ -366,6 +381,25 @@ export async function getPublicPoolBySlug(
 
     if (!row) return null;
     const pool = mapRowToPublicPool(row);
+    try {
+      const leadCountRow = await db
+        .prepare("SELECT COUNT(*) as c FROM pool_leads WHERE pool_id = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
+        .bind(pool.id)
+        .first<{ c: number }>();
+      if (leadCountRow) {
+        pool.currentBuyers = Number(leadCountRow.c);
+      }
+      pool.remainingBuyers = Math.max(0, pool.targetBuyers - pool.currentBuyers);
+
+      const wlCountRow = await db
+        .prepare("SELECT COUNT(*) as c FROM pool_waitlist WHERE pool_id = ? AND status = 'WAITING'")
+        .bind(pool.id)
+        .first<{ c: number }>();
+      if (wlCountRow) {
+        pool.waitlistCount = Number(wlCountRow.c);
+      }
+    } catch {}
+
     try {
       const { results: kitRows } = await db
         .prepare('SELECT * FROM pool_kit_offers WHERE pool_id = ? AND is_available = 1 ORDER BY sort_order ASC, name ASC')
@@ -553,53 +587,62 @@ export async function executeJoinPool(
     } catch {}
   }
 
-  // 5. Insert new lead
-  await db
-    .prepare(
-      `INSERT INTO pool_leads (
-        id, pool_id, buyer_number, full_name, whatsapp_number, city,
-        buying_timeline, has_existing_quote, existing_quote_amount,
-        extra_message, consent_at, privacy_notice_version,
-        selected_kit_offer_id, selected_kit_name, selected_variant_id, selected_variant_name,
-        connection_opt_in, connection_preference, group_privacy_acknowledged,
-        vendor_share_consent, locality, pin_code, status, fee_status,
-        member_connection_status, created_at, updated_at
-      ) VALUES (
-        ?, ?, ?, ?, ?, ?,
-        ?, ?, ?,
-        ?, ?, '2026-10-V4',
-        ?, ?, ?, ?,
-        ?, ?, ?,
-        ?, ?, ?, 'NEW', 'NOT_REQUESTED',
-        'NOT_READY', ?, ?
-      )`
-    )
-    .bind(
-      leadId,
-      poolId,
-      newBuyerNumber,
-      input.fullName.trim(),
-      input.whatsappNumber,
-      pool.city,
-      input.buyingTimeline || 'THIS_MONTH',
-      input.hasExistingQuote ? 1 : 0,
-      input.existingQuoteAmount || null,
-      input.extraMessage?.trim() || '',
-      now,
-      input.selectedKitOfferId || null,
-      selectedKitName,
-      input.selectedKitOfferId || null,
-      selectedKitName,
-      input.connectionOptIn ? 1 : 0,
-      input.connectionPreference || 'WHATSAPP_GROUP',
-      input.groupPrivacyAcknowledged ? 1 : 0,
-      input.vendorShareConsent ? 1 : 0,
-      input.locality?.trim() || null,
-      input.pinCode?.trim() || null,
-      now,
-      now
-    )
-    .run();
+  // 5. Insert new lead with transactional rollback protection
+  try {
+    await db
+      .prepare(
+        `INSERT INTO pool_leads (
+          id, pool_id, buyer_number, full_name, whatsapp_number, city,
+          buying_timeline, has_existing_quote, existing_quote_amount,
+          extra_message, consent_at, privacy_notice_version,
+          selected_kit_offer_id, selected_kit_name, selected_variant_id, selected_variant_name,
+          connection_opt_in, connection_preference, group_privacy_acknowledged,
+          vendor_share_consent, locality, pin_code, status, fee_status,
+          member_connection_status, created_at, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, '2026-10-V4',
+          ?, ?, ?, ?,
+          ?, ?, ?,
+          ?, ?, ?, 'NEW', 'NOT_REQUESTED',
+          'NOT_READY', ?, ?
+        )`
+      )
+      .bind(
+        leadId,
+        poolId,
+        newBuyerNumber,
+        input.fullName.trim(),
+        input.whatsappNumber,
+        pool.city,
+        input.buyingTimeline || 'THIS_MONTH',
+        input.hasExistingQuote ? 1 : 0,
+        input.existingQuoteAmount || null,
+        input.extraMessage?.trim() || '',
+        now,
+        input.selectedKitOfferId || null,
+        selectedKitName,
+        input.selectedKitOfferId || null,
+        selectedKitName,
+        input.connectionOptIn ? 1 : 0,
+        input.connectionPreference || 'WHATSAPP_GROUP',
+        input.groupPrivacyAcknowledged ? 1 : 0,
+        input.vendorShareConsent ? 1 : 0,
+        input.locality?.trim() || null,
+        input.pinCode?.trim() || null,
+        now,
+        now
+      )
+      .run();
+  } catch (insertErr) {
+    // Rollback count increment to maintain transactional consistency
+    await db
+      .prepare('UPDATE pools SET current_buyers = MAX(0, current_buyers - 1), updated_at = ? WHERE id = ?')
+      .bind(now, poolId)
+      .run();
+    throw insertErr;
+  }
 
   // Increment kit offer counter if selected
   if (input.selectedKitOfferId) {
@@ -630,4 +673,57 @@ export async function executeJoinPool(
     alreadyJoined: false,
     poolStatus: (updatedPool?.status || pool.status) as PublicPool['status'],
   };
+}
+/**
+ * Canonical calculation of active confirmed members for a pool.
+ * Definition: Members in pool_leads whose connection status is not 'EXCLUDED'.
+ */
+export async function getCanonicalMemberCount(poolId: string): Promise<number> {
+  if (isDemoMode()) {
+    const leads = getDemoLeads().filter((l) => l.poolId === poolId && l.connectionStatus !== 'EXCLUDED');
+    return leads.length;
+  }
+
+  const db = await requireD1Database();
+  const row = await db
+    .prepare("SELECT COUNT(*) as c FROM pool_leads WHERE pool_id = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
+    .bind(poolId)
+    .first<{ c: number }>();
+
+  return Number(row?.c || 0);
+}
+
+/**
+ * Reconciles the stored current_buyers counter on a pool against the canonical membership records.
+ */
+export async function reconcilePoolBuyerCount(
+  poolId: string
+): Promise<{ poolId: string; previousCount: number; canonicalCount: number }> {
+  const canonicalCount = await getCanonicalMemberCount(poolId);
+  const now = new Date().toISOString();
+
+  if (isDemoMode()) {
+    const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === poolId);
+    const pubPool = MOCK_POOLS.find((p) => p.id === poolId);
+    const previousCount = adminPool?.currentBuyers || 0;
+    if (adminPool) adminPool.currentBuyers = canonicalCount;
+    if (pubPool) pubPool.currentBuyers = canonicalCount;
+    return { poolId, previousCount, canonicalCount };
+  }
+
+  const db = await requireD1Database();
+  const poolRow = await db
+    .prepare('SELECT current_buyers FROM pools WHERE id = ?')
+    .bind(poolId)
+    .first<{ current_buyers: number }>();
+
+  const previousCount = Number(poolRow?.current_buyers || 0);
+  if (previousCount !== canonicalCount) {
+    await db
+      .prepare('UPDATE pools SET current_buyers = ?, updated_at = ? WHERE id = ?')
+      .bind(canonicalCount, now, poolId)
+      .run();
+  }
+
+  return { poolId, previousCount, canonicalCount };
 }

@@ -255,36 +255,36 @@ export function AdminCitiesTab() {
 
             <form onSubmit={handleCreateCity} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-gray-800 mb-1">City Name</label>
+                <label className="block font-bold text-slate-800 mb-1">City Name</label>
                 <input
                   type="text"
                   name="name"
                   required
                   placeholder="e.g. Surat"
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-800 mb-1">State / Region</label>
+                <label className="block font-bold text-slate-800 mb-1">State / Region</label>
                 <input
                   type="text"
                   name="state"
                   required
                   placeholder="e.g. Gujarat"
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-800 mb-1">
-                  Custom Slug <span className="text-gray-400 font-normal">(Optional)</span>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Custom Slug <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   name="slug"
                   placeholder="Leave empty to auto-generate (e.g. surat)"
-                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-gray-300 outline-hidden font-mono text-xs"
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                 />
               </div>
 

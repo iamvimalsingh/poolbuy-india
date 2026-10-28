@@ -187,7 +187,7 @@ export function JoinPoolModal({
 
             {/* Name */}
             <div>
-              <label htmlFor="join-name" className="block font-bold text-gray-800 mb-1">
+              <label htmlFor="join-name" className="block font-bold text-slate-800 mb-1">
                 Your Full Name <span className="text-emerald-600">*</span>
               </label>
               <input
@@ -197,17 +197,17 @@ export function JoinPoolModal({
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Ramesh Patel"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden font-medium"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label htmlFor="join-phone" className="block font-bold text-gray-800 mb-1">
+              <label htmlFor="join-phone" className="block font-bold text-slate-800 mb-1">
                 WhatsApp Mobile Number <span className="text-emerald-600">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 font-semibold text-gray-400">
+                <span className="absolute left-3 top-2.5 font-semibold text-slate-400">
                   +91
                 </span>
                 <input
@@ -217,15 +217,15 @@ export function JoinPoolModal({
                   value={whatsappNumber}
                   onChange={(e) => setWhatsappNumber(e.target.value)}
                   placeholder="9876543210"
-                  className="w-full pl-11 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden font-mono"
+                  className="w-full pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-mono font-medium"
                 />
               </div>
             </div>
 
             {/* Optional note */}
             <div>
-              <label htmlFor="join-note" className="block font-semibold text-gray-700 mb-1">
-                Optional Note <span className="text-gray-400 font-normal">(Optional)</span>
+              <label htmlFor="join-note" className="block font-bold text-slate-800 mb-1">
+                Optional Note <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
               <input
                 id="join-note"
@@ -233,7 +233,7 @@ export function JoinPoolModal({
                 value={extraMessage}
                 onChange={(e) => setExtraMessage(e.target.value)}
                 placeholder="e.g. Preferred delivery month or requirement note"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
               />
             </div>
 

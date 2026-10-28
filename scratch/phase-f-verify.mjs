@@ -11,8 +11,13 @@
  */
 
 const BASE_URL = 'http://localhost:3000';
-const CRON_SECRET = process.env.CRON_SECRET || 'PoolBuyCronSecret2026!';
-const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || 'PoolBuy@India2026!';
+const CRON_SECRET = process.env.CRON_SECRET;
+const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY;
+
+if (!CRON_SECRET || !ADMIN_PASSKEY) {
+  console.error('[SECURITY ERROR] Required environment variables CRON_SECRET and/or ADMIN_PASSKEY are not set. Failing closed.');
+  process.exit(1);
+}
 
 let passCount = 0;
 let failCount = 0;

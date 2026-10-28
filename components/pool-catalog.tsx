@@ -116,29 +116,35 @@ export function PoolCatalog({
         return false;
       }
 
-      // 3. Category filter
+      // 3. Category filter (supports configured D1 categories and backward compatibility)
       if (selectedCategory !== 'all') {
-        if (selectedCategory === 'home-power-backup') {
+        const poolCatSlug = (pool.categorySlug || '').toLowerCase();
+        const poolCat = String(pool.category || '').toLowerCase();
+        const selCat = selectedCategory.toLowerCase();
+
+        if (poolCatSlug === selCat || poolCat === selCat) {
+          // Direct match
+        } else if (selCat === 'home-power-backup') {
           const isBackup =
-            pool.categorySlug === 'home-power-backup' ||
+            poolCatSlug === 'home-power-backup' ||
             pool.slug.includes('power-backup') ||
             pool.slug.includes('inverter') ||
             pool.name.toLowerCase().includes('inverter') ||
             pool.name.toLowerCase().includes('power-backup');
           if (!isBackup) return false;
         } else if (
-          selectedCategory === 'water-softeners' ||
-          selectedCategory === 'water-softener'
+          selCat === 'water-softeners' ||
+          selCat === 'water-softener'
         ) {
           const isSoftener =
-            pool.categorySlug === 'water-softeners' ||
+            poolCatSlug === 'water-softeners' ||
             pool.slug.includes('water-softener') ||
             pool.slug.includes('softener') ||
             pool.name.toLowerCase().includes('softener');
           if (!isSoftener) return false;
-        } else if (selectedCategory === 'rooftop-solar') {
+        } else if (selCat === 'rooftop-solar') {
           const isSolar =
-            (pool.category === 'ROOFTOP_SOLAR' || pool.categorySlug === 'rooftop-solar') &&
+            (pool.category === 'ROOFTOP_SOLAR' || poolCatSlug === 'rooftop-solar') &&
             !pool.slug.includes('power-backup') &&
             !pool.slug.includes('inverter') &&
             !pool.slug.includes('water-softener') &&
@@ -148,20 +154,33 @@ export function PoolCatalog({
           const mapped = CATEGORY_SLUG_MAP[selectedCategory];
           if (Array.isArray(mapped)) {
             if (!mapped.includes(pool.category)) return false;
-          } else if (mapped && pool.category !== mapped && pool.categorySlug !== selectedCategory) {
+          } else if (mapped && pool.category !== mapped) {
+            return false;
+          } else if (!mapped && poolCatSlug !== selCat && poolCat !== selCat) {
             return false;
           }
         }
       }
 
-      // 4. Search query filter
+      // 4. Search query filter across all relevant fields
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchesName = pool.name.toLowerCase().includes(q);
-        const matchesBrand = pool.productBrand.toLowerCase().includes(q);
-        const matchesModel = pool.productModel.toLowerCase().includes(q);
-        const matchesCity = pool.city.toLowerCase().includes(q);
-        if (!matchesName && !matchesBrand && !matchesModel && !matchesCity) {
+        const matchesName = (pool.name || '').toLowerCase().includes(q);
+        const matchesTitle = (pool.productTitle || '').toLowerCase().includes(q);
+        const matchesVariant = (pool.variantName || '').toLowerCase().includes(q);
+        const matchesBrand = (pool.productBrand || '').toLowerCase().includes(q);
+        const matchesModel = (pool.productModel || '').toLowerCase().includes(q);
+        const matchesCity = (pool.city || '').toLowerCase().includes(q);
+        const matchesCategory = (pool.categorySlug || '').toLowerCase().includes(q);
+        if (
+          !matchesName &&
+          !matchesTitle &&
+          !matchesVariant &&
+          !matchesBrand &&
+          !matchesModel &&
+          !matchesCity &&
+          !matchesCategory
+        ) {
           return false;
         }
       }
@@ -209,7 +228,7 @@ export function PoolCatalog({
           <h2 className="text-xl sm:text-2xl font-extrabold text-gray-950 tracking-tight">
             {selectedCity ? (
               <>
-                Group Buying Deals in <span className="text-emerald-700">{currentCityMeta.name}</span>
+                Group Buying Pools in <span className="text-emerald-700">{currentCityMeta.name}</span>
               </>
             ) : (
               <>
@@ -219,7 +238,7 @@ export function PoolCatalog({
           </h2>
           <p className="text-xs text-gray-600 max-w-2xl">
             {selectedCity ? (
-              `Installation, showroom invoicing, and local vendor coordination are strictly local to ${currentCityMeta.name}.`
+              `Installation, fulfillment, and local supplier coordination are strictly local to ${currentCityMeta.name}.`
             ) : (
               'Showing collective buying pools across all Indian cities. Each group has an independent local fulfillment cohort.'
             )}
@@ -250,8 +269,8 @@ export function PoolCatalog({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search solar systems, inverters, softeners, vehicles, or city name..."
-            className="w-full text-sm pl-11 pr-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:border-emerald-600 focus:bg-white focus:ring-1 focus:ring-emerald-600 outline-hidden transition-all"
+            placeholder="Search products, brands, models, or city name..."
+            className="w-full text-sm pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium transition-all"
           />
         </div>
 
@@ -297,14 +316,16 @@ export function PoolCatalog({
           </div>
         </div>
 
-        {/* Prioritized Category Filter Buttons */}
+        {/* Dynamic Category Filter Buttons */}
         <div className="pt-3 border-t border-gray-100">
           <div className="flex items-center justify-between gap-2 mb-2.5">
             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
               <Filter className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-              <span>Priority Product Families</span>
+              <span>Browse Categories</span>
             </div>
-            <span className="text-[11px] text-emerald-700 font-medium">Solar • Backup • Water Softener</span>
+            <span className="text-[11px] text-gray-500 font-medium">
+              {displayCategories.length} Categories Available
+            </span>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -363,7 +384,7 @@ export function PoolCatalog({
           </h3>
           <p className="text-sm text-gray-500 max-w-sm mx-auto mb-6 leading-relaxed">
             {selectedCity
-              ? `Solar demand collection is open across ${currentCityMeta.name}. Be the first in your society or neighborhood to propose a group buy!`
+              ? `Demand collection is open across ${currentCityMeta.name}. Be the first in your community or neighborhood to propose a group buy!`
               : 'Try clearing your filters or propose a new group buying pool in your city.'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
