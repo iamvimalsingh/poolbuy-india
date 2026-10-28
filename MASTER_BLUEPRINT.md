@@ -2976,10 +2976,11 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 ## 30.3 Current overall status
 
 - Product specification v6.0.0: **IMPLEMENTED & VERIFIED LOCALLY**; living as-built record and verification ledger updated in this permanent master.
-- Code implementation: **PASS** — Full system reconciliation, All-India discovery redesign, canonical location rollout across 28 states & 8 UTs, fee formula guardrails, Admin city harmonization, and test regression suite completed.
-- Local tests/build: **PASS** — 109 tests passing across 39 test suites, `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, `npm run build` (35 routes) exit 0, and `npm run build:worker` (`.open-next/worker.js`) exit 0.
+- Code implementation: **PASS** — Full system reconciliation, All-India discovery redesign, canonical location rollout across 28 states & 8 UTs, fee formula guardrails, Admin city harmonization, local D1 schema establishment, and real disk persistence test suite completed.
+- Local tests/build: **PASS** — **114 tests passing across 40 test suites, 0 failing** (including new `lib/__tests__/real-d1-persistence.test.ts`), `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, `npm run build` (**45 pages compiled**, discovering all 10 operational cities and 8 categories from real D1) exit 0, and `npm run build:worker` (`.open-next/worker.js`) exit 0.
+- Local D1 persistence: **PASS & VERIFIED ON REAL DISK** (`.wrangler/state/v3/d1/miniflare-D1DatabaseObject/7903b755904049be769518c2a21a3cb0f2b71d7041d5eac0c5ee8b3911471260.sqlite`, 233 KB). Applied migrations `0001_initial_schema.sql` and `0002_add_variants_and_capacity_limits.sql`. Replaced unmigrated empty state. All "no such table" errors eliminated.
 - Cloudflare deployment: **PENDING OPERATOR RELEASE ACTION** — Local OpenNext bundle `.open-next/worker.js` built and verified. Operator manual cutover required for live deployment to safeguard secrets and production D1 state.
-- Production D1 persistence and nationwide Solar rollout: **MIGRATIONS PREPARED & TESTED LOCALLY** (`migrations/d1/0001_initial_schema.sql` and `0002_add_variants_and_capacity_limits.sql`). Verified against D1 test harness. Remote production execution pending operator credential provisioning.
+- Remote production D1: **READ-ONLY CHECKED; PENDING OPERATOR CREDENTIAL PROVISIONING & MIGRATION**. Wrangler unauthenticated in non-interactive environment; `CLOUDFLARE_API_TOKEN` and remote migration execution pending operator action.
 - Public UX defects reported by owner: **RESOLVED & VERIFIED**. Authoritative location store `lib/location-store.ts` defaults strictly to `null` (All India). No forced Bhopal preselection. Duplicate lower city selector removed. "Start a Pool" community proposal flow rewritten with canonical 28-state directory, existing pool checks, and review disclosures.
 - Launch verdict: **READY FOR LOCAL/STAGING OPERATOR VERIFICATION. Production credential rotation REQUIRED before public launch.**
 
@@ -2989,7 +2990,8 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 |---|---|---|
 | 5.0.0 / 28 Oct 2026 | Previous consolidated architecture and subsystem pack. | Baseline content used; it referenced separate companion specs. |
 | 6.0.0 / 28 Oct 2026 | Reframed product as product-agnostic; Solar explicitly only the initial rollout; embedded subsystem specs in this one file; added permanent as-built evidence ledger/update contract; incorporated latest audit/release facts and known UX issues. | Produced from uploaded v5 blueprint/specs and owner-provided audit/report. Not a code or deployment change. |
-| 6.0.0 / 28 Oct 2026 | Full-system implementation of v6.0: All-India discovery redesign, unified LocationStore, nationwide Solar rollout across 28 states & 8 UTs, fee guardrails, Admin city harmonization, and test regression suite. | Local verification PASS: 109 tests, lint 0 errors, tsc 0 errors, Next build 35 routes PASS, OpenNext worker PASS. Git commit prepared. |
+| 6.0.0 / 28 Oct 2026 | Full-system implementation of v6.0: All-India discovery redesign, unified LocationStore, nationwide Solar rollout across 28 states & 8 UTs, fee guardrails, Admin city harmonization, and test regression suite. | Local verification PASS: 109 tests, lint 0 errors, tsc 0 errors, Next build 35 routes PASS, OpenNext worker PASS. Git commit c107b5a created. |
+| 6.0.0 / 28 Oct 2026 | Post-implementation blocker verification: resolved local D1 unmigrated schema; applied migrations 0001 & 0002; eliminated all missing table build errors; verified real disk SQLite persistence with 114 tests; confirmed remote read-only unauthenticated state. | Local verification PASS: 114 tests across 40 suites, 45 routes compiled, .open-next/worker.js created. Remote deployment pending operator authentication. |
 
 ## 30.5 Required update rule
 
@@ -3110,6 +3112,38 @@ At the end of every implementation phase, update this section in the same change
 - **Deployment Status:** OpenNext artifact `.open-next/worker.js` generated and ready. Cloudflare remote deployment pending operator production credential review and confirmation.
 - **Status:** **READY FOR OPERATOR STAGING/PRODUCTION CUTOVER**
 
+### Phase 11 — Post-Implementation Blocker Verification & Local D1 Real Schema Establishment
+- **Timestamp (UTC):** 2026-10-28 05:40:00 UTC
+- **Branch / Commit:** `main` @ `c107b5a7a500aa6ad1b74b6f16bd62044e6aedf6` (ahead 1 of origin/main; not pushed).
+- **Working Tree:** Clean. User changes in `README.md` preserved.
+- **Root Cause Analysis of Prior Build Log Warnings:**
+  - **Missing D1 Tables (`categories`, `blog_posts`, `cities`, `pools`):**
+    - Investigation revealed that the local D1 SQLite file (`.wrangler/state/v3/d1/miniflare-D1DatabaseObject/7903b755904049be769518c2a21a3cb0f2b71d7041d5eac0c5ee8b3911471260.sqlite`) had never been migrated locally.
+    - `npx wrangler d1 migrations list DB --local` confirmed that `0001_initial_schema.sql` and `0002_add_variants_and_capacity_limits.sql` were unapplied.
+    - During SSG static page generation of `/sitemap.xml`, `/city/[citySlug]`, `/category/[categorySlug]`, and `/blog`, Next.js queried the unmigrated database, triggering `D1_ERROR: no such table`.
+  - **SQLite Lock Contention (`SQLITE_BUSY (extended: SQLITE_BUSY_RECOVERY)`):**
+    - Next.js parallel page data collection spawns 7 worker threads.
+    - Each worker initializes an isolated `workerd` Miniflare proxy instance connecting simultaneously to the same local SQLite file.
+    - On Windows, concurrent opening during WAL recovery or shared-memory (`.sqlite-shm`) initialization causes Windows mandatory lock contention, raising `SQLITE_BUSY_RECOVERY` in workerd's C++ layer (`workerd/util/sqlite.c++:910`).
+- **Remediation & Execution:**
+  - Applied migrations locally: `npx wrangler d1 migrations apply DB --local` successfully executed 33 commands from `0001_initial_schema.sql` and 8 commands from `0002_add_variants_and_capacity_limits.sql`.
+  - Consolidated and checkpointed the SQLite database via `DatabaseSync` (`PRAGMA wal_checkpoint(TRUNCATE)`), expanding the database file from 4 KB to 233 KB and merging all tables into disk storage.
+  - Confirmed 10 operational cities and 8 categories seeded and active in local D1.
+  - Re-ran `npm run build` and `npm run build:worker`: All missing-table errors completely eliminated. The build discovered all 10 cities and compiled **45/45 routes** (up from 35).
+- **Real D1 Disk Persistence Test Suite:**
+  - Implemented `lib/__tests__/real-d1-persistence.test.ts` directly targeting the real persistent SQLite file on disk.
+  - Tested 5 real database operations: reading 10 cities, reading 8 categories, inserting/re-reading pools and attached kit offers across connection resets, inserting real pool requests, and recording admin audit events.
+  - **Result: 5/5 passed on real disk D1.**
+- **Total Test Suite:**
+  - `npm test`: **114 passed across 40 test suites, 0 failed.**
+- **Remote D1 & Cloudflare Read-Only Audit:**
+  - Ran `npx wrangler whoami`: returned `You are not authenticated. Please run wrangler login`.
+  - Ran `npx wrangler d1 migrations list DB --remote`: failed closed (`CLOUDFLARE_API_TOKEN` required in non-interactive environment).
+  - Confirmed zero remote mutations or deployments were performed. Production migrations and credential rotation remain operator-pending.
+- **Git Push Verification:**
+  - Inspected `git log origin/main..HEAD`: commit `c107b5a` is local only. Not pushed to remote.
+- **Status:** **PASS**
+
 ## 30.7 Acceptance Criteria Checklist (v6.0.0)
 
 - [x] Canonical documentation consolidated in root `MASTER_BLUEPRINT.md` (v6.0.0). Legacy specs archived.
@@ -3127,10 +3161,12 @@ At the end of every implementation phase, update this section in the same change
 - [x] Admin "Add Pool" and "Clone Pool" harmonized with full 28-state India directory.
 - [x] Admin WhatsApp messaging uses truthful click-to-chat templates without false automation claims.
 - [x] Rate limiting active on authentication and join endpoints.
-- [x] Local test suite passes 109/109 tests across 39 suites.
+- [x] Local D1 schema migrated (`0001` and `0002`); all missing-table errors eliminated from build.
+- [x] Real disk D1 SQLite persistence verified across connection resets (5/5 tests in `real-d1-persistence.test.ts`).
+- [x] Local automated test suite passes 114/114 tests across 40 suites.
 - [x] TypeScript strict typecheck clean (0 errors).
 - [x] ESLint clean (0 errors, 0 warnings).
-- [x] Next.js 16.4.3 production build compiles 35/35 routes.
+- [x] Next.js 16.4.3 production build compiles 45/45 routes with live D1 city discovery.
 - [x] OpenNext Cloudflare Worker build succeeds and creates `.open-next/worker.js`.
 - [ ] Operator credential rotation executed on remote production accounts before public launch.
 - [ ] Remote Cloudflare Workers and D1 production migrations executed by operator.
