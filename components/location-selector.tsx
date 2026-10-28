@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { MapPin, Navigation, Search, Check, ChevronDown, AlertCircle, Globe } from 'lucide-react';
 import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
 import { useSelectedCity } from '@/lib/location-store';
@@ -27,6 +27,7 @@ export function LocationSelector({
   className = '',
 }: LocationSelectorProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [storeCity, setStoreCity] = useSelectedCity();
   const effectiveCitySlug = propCitySlug !== undefined ? propCitySlug : storeCity;
 
@@ -133,10 +134,17 @@ export function LocationSelector({
     if (onSelectCity) {
       onSelectCity(isAllIndia ? '' : citySlug);
     } else {
-      if (isAllIndia) {
-        router.push('/');
+      if (pathname === '/') {
+        const poolsElem = document.getElementById('pools');
+        if (poolsElem) {
+          poolsElem.scrollIntoView({ behavior: 'smooth' });
+        }
       } else {
-        router.push(`/city/${citySlug}`);
+        if (isAllIndia) {
+          router.push('/');
+        } else {
+          router.push(`/city/${citySlug}`);
+        }
       }
     }
   };

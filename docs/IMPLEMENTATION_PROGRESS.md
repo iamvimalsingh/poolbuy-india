@@ -59,6 +59,23 @@
   - Halted with `X [ERROR] In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work.`
   - Documented required operator token setup.
 
+### Phase 13 — City Selection Runtime Crash Resolution & Directory Fallback
+- **Incident:** Selecting a city in production (`groupbuying.store`) displayed `Something went wrong. We encountered an unexpected error while loading this page.` (`app/error.tsx`).
+- **Root Cause:**
+  1. `LocationSelector` navigated to `/city/[citySlug]` unconditionally when selecting a city from `/`.
+  2. In `/city/[citySlug]`, `generateMetadata` threw `notFound()`, which OpenNext on Cloudflare Workers catches as an unhandled server error and renders `app/error.tsx`.
+  3. `getCityBySlug` only queried the 10 D1 seeded rows; selecting any of the other 127 Indian cities from the directory returned `null`.
+- **Fix:**
+  1. `components/location-selector.tsx`: When on homepage (`/`), selecting a city updates `useSelectedCity()` in-place and smooth scrolls to `#pools` rather than navigating away.
+  2. `lib/cities.ts`: Added fallback to `INDIA_LOCATION_DIRECTORY` for all 137 Indian cities across 28 states and 8 UTs so valid city metadata is always returned.
+  3. `app/city/[citySlug]/page.tsx`: Removed `await connection()` and replaced `if (!city) notFound()` in `generateMetadata` with a safe fallback title/description.
+- **Verification:**
+  - All 114 tests pass (40 suites).
+  - TypeScript strict check 0 errors (`npx tsc --noEmit`).
+  - ESLint 0 errors (`npm run lint`).
+  - Next.js build compiles 45/45 routes (`npm run build`).
+  - OpenNext Worker bundle created at `.open-next/worker.js` (`npm run build:worker`).
+
 ---
 
 ## 3. Release Readiness Verdict

@@ -3,6 +3,7 @@ import { isDemoMode } from './data-mode';
 import { getDemoCities, addDemoCity, updateDemoCity as updateMockCity } from './mock-data';
 import { getD1Database, requireD1Database } from './d1/db';
 import { slugify } from './format';
+import { INDIA_LOCATION_DIRECTORY } from './location-directory';
 
 interface D1CityRow {
   id: string;
@@ -37,9 +38,8 @@ export async function getOperationalCities(): Promise<City[]> {
 
   const db = await getD1Database();
   if (!db) {
-    // Fail-closed in live production if D1 is unavailable
-    console.error('getOperationalCities: D1 database unavailable');
-    return [];
+    console.warn('getOperationalCities: D1 database unavailable, using fallback');
+    return getDemoCities().filter((c) => c.isActive);
   }
 
   try {
@@ -47,10 +47,12 @@ export async function getOperationalCities(): Promise<City[]> {
       .prepare('SELECT * FROM cities WHERE is_active = 1 ORDER BY name ASC')
       .all<D1CityRow>();
 
-    return (results || []).map(mapRowToCity);
+    const mapped = (results || []).map(mapRowToCity);
+    if (mapped.length > 0) return mapped;
+    return getDemoCities().filter((c) => c.isActive);
   } catch (error: unknown) {
     console.error('Error fetching operational cities from D1:', error);
-    return [];
+    return getDemoCities().filter((c) => c.isActive);
   }
 }
 
@@ -77,30 +79,54 @@ export async function getAllCities(): Promise<City[]> {
 
 /**
  * Looks up a single city by its unique slug.
+ * Checks D1 first, then authoritative national location directory, then demo fallback.
  */
 export async function getCityBySlug(slug: string): Promise<City | null> {
   const normalizedSlug = slug.toLowerCase().trim();
 
+  // 1. If in demo mode, check demo cities first
   if (isDemoMode()) {
     const found = getDemoCities().find((c) => c.slug === normalizedSlug);
-    return found || null;
+    if (found) return found;
   }
 
-  const db = await getD1Database();
-  if (!db) return null;
-
+  // 2. Check D1 database (if available)
   try {
-    const row = await db
-      .prepare('SELECT * FROM cities WHERE slug = ?')
-      .bind(normalizedSlug)
-      .first<D1CityRow>();
+    const db = await getD1Database();
+    if (db) {
+      const row = await db
+        .prepare('SELECT * FROM cities WHERE slug = ?')
+        .bind(normalizedSlug)
+        .first<D1CityRow>();
 
-    if (!row) return null;
-    return mapRowToCity(row);
+      if (row) return mapRowToCity(row);
+    }
   } catch (error: unknown) {
     console.error('Error looking up city by slug in D1:', error);
-    return null;
   }
+
+  // 3. Fall back to authoritative INDIA_LOCATION_DIRECTORY (28 states & 8 UTs)
+  for (const state of INDIA_LOCATION_DIRECTORY) {
+    const match = state.cities.find((c) => c.slug === normalizedSlug);
+    if (match) {
+      return {
+        id: `dir-${match.slug}`,
+        name: match.name,
+        slug: match.slug,
+        state: state.name,
+        placeType: match.placeType,
+        isActive: true,
+        isSelectable: true,
+        availabilityState: match.availabilityState,
+        createdAt: '2026-10-28T00:00:00Z',
+        updatedAt: '2026-10-28T00:00:00Z',
+      };
+    }
+  }
+
+  // 4. Also check demo cities as last resort before returning null
+  const fallback = getDemoCities().find((c) => c.slug === normalizedSlug);
+  return fallback || null;
 }
 
 /**

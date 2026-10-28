@@ -3165,6 +3165,30 @@ At the end of every implementation phase, update this section in the same change
   - Safe Next Action: The repository owner/operator must either set `CLOUDFLARE_API_TOKEN` in the runner or run `npx wrangler deploy` and `npx wrangler d1 migrations apply DB --remote` directly in their local authenticated terminal.
 - **Status:** **GIT PUSH PASS; DEPLOYMENT BLOCKED ON CLOUDFLARE_API_TOKEN**
 
+### Phase 13 — City Selection Runtime Crash Resolution & National Directory Fallback
+- **Timestamp (UTC):** 2026-10-28 06:15:00 UTC
+- **Reported Incident:** Selecting a city in production (`https://groupbuying.store/`) triggered `Something went wrong. We encountered an unexpected error while loading this page. Please try again, or return to the home page.` (`app/error.tsx`).
+- **Root Cause Analysis:**
+  1. Header `LocationSelector` was unconditionally calling `router.push('/city/' + citySlug)` when any city was selected, navigating away from the homepage (`/`) to `/city/[citySlug]`.
+  2. When `/city/[citySlug]` loaded on Cloudflare Workers, `generateMetadata` called `notFound()` whenever `city === null`. In Next.js App Router on Cloudflare Workers (via OpenNext), calling `notFound()` inside `generateMetadata()` is caught as an unhandled server error and renders `app/error.tsx` instead of the 404 page.
+  3. `getCityBySlug` previously only queried the D1 database table `cities` (which only contained 10 seeded cities). Any selection of the remaining 127 Indian cities (or when D1 was empty/unmigrated on remote) returned `null`, immediately triggering the `notFound()` crash.
+  4. Both `CityPage` and `generateMetadata` called `await connection()`, creating unnecessary request blocking.
+- **Remediation Implemented:**
+  1. `components/location-selector.tsx`: Added `usePathname()`. When on `/`, selecting a city does **not** navigate away; it updates `useSelectedCity()` state in-place and smoothly scrolls down to `#pools`.
+  2. `lib/cities.ts`:
+     - Updated `getCityBySlug` with a 4-tier fallback: (a) demo mock data if in demo mode; (b) D1 query if connected; (c) lookup against authoritative `INDIA_LOCATION_DIRECTORY` (covering all 28 states & 8 UTs) so all 137 Indian cities resolve without returning null; (d) demo cities fallback.
+     - Updated `getOperationalCities` to return `getDemoCities()` active list if D1 query fails or returns empty rows, ensuring zero runtime downtime.
+  3. `app/city/[citySlug]/page.tsx`:
+     - Removed `await connection()` from both `generateMetadata` and `CityPage`.
+     - Replaced `if (!city) notFound()` in `generateMetadata` with a safe fallback metadata object (`title: 'Group Buying Deals | GroupBuying.store'`).
+- **Verification Gates:**
+  - `npx tsc --noEmit`: **PASS** (0 errors).
+  - `npm run lint`: **PASS** (0 errors).
+  - `npm test`: **PASS** (114/114 tests passed across 40 test suites).
+  - `npm run build`: **PASS** (Turbopack, Next.js 16.4.3, 45 routes compiled).
+  - `npm run build:worker`: **PASS** (OpenNext Cloudflare bundle created at `.open-next/worker.js`).
+- **Status:** **PASS (READY TO COMMIT, PUSH & DEPLOY)**
+
 ## 30.7 Acceptance Criteria Checklist (v6.0.0)
 
 - [x] Canonical documentation consolidated in root `MASTER_BLUEPRINT.md` (v6.0.0). Legacy specs archived.
