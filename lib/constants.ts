@@ -82,14 +82,35 @@ export interface CityMeta {
   state: string;
 }
 
-export const CITIES: CityMeta[] = [
-  { name: 'Bhopal', slug: 'bhopal', state: 'Madhya Pradesh' },
-  { name: 'Indore', slug: 'indore', state: 'Madhya Pradesh' },
-  { name: 'Pune', slug: 'pune', state: 'Maharashtra' },
-  { name: 'Delhi', slug: 'delhi', state: 'Delhi NCR' },
+export const LAUNCH_CITIES: CityMeta[] = [
+  { name: 'Delhi', slug: 'delhi', state: 'Delhi' },
   { name: 'Mumbai', slug: 'mumbai', state: 'Maharashtra' },
-  { name: 'Banda', slug: 'banda', state: 'Uttar Pradesh' },
+  { name: 'Bengaluru', slug: 'bengaluru', state: 'Karnataka' },
+  { name: 'Hyderabad', slug: 'hyderabad', state: 'Telangana' },
+  { name: 'Chennai', slug: 'chennai', state: 'Tamil Nadu' },
+  { name: 'Kolkata', slug: 'kolkata', state: 'West Bengal' },
+  { name: 'Pune', slug: 'pune', state: 'Maharashtra' },
+  { name: 'Ahmedabad', slug: 'ahmedabad', state: 'Gujarat' },
+  { name: 'Surat', slug: 'surat', state: 'Gujarat' },
+  { name: 'Jaipur', slug: 'jaipur', state: 'Rajasthan' },
+  { name: 'Lucknow', slug: 'lucknow', state: 'Uttar Pradesh' },
+  { name: 'Kanpur', slug: 'kanpur', state: 'Uttar Pradesh' },
+  { name: 'Nagpur', slug: 'nagpur', state: 'Maharashtra' },
+  { name: 'Indore', slug: 'indore', state: 'Madhya Pradesh' },
+  { name: 'Bhopal', slug: 'bhopal', state: 'Madhya Pradesh' },
+  { name: 'Patna', slug: 'patna', state: 'Bihar' },
+  { name: 'Vadodara', slug: 'vadodara', state: 'Gujarat' },
+  { name: 'Coimbatore', slug: 'coimbatore', state: 'Tamil Nadu' },
+  { name: 'Kochi', slug: 'kochi', state: 'Kerala' },
+  { name: 'Ludhiana', slug: 'ludhiana', state: 'Punjab' },
+  { name: 'Chandigarh', slug: 'chandigarh', state: 'Chandigarh' },
+  { name: 'Gurugram', slug: 'gurugram', state: 'Haryana' },
+  { name: 'Noida', slug: 'noida', state: 'Uttar Pradesh' },
+  { name: 'Visakhapatnam', slug: 'visakhapatnam', state: 'Andhra Pradesh' },
+  { name: 'Bhubaneswar', slug: 'bhubaneswar', state: 'Odisha' },
 ];
+
+export const CITIES: CityMeta[] = LAUNCH_CITIES;
 
 export const TIMELINE_LABELS: Record<BuyingTimeline, string> = {
   THIS_MONTH: 'This month',
@@ -139,6 +160,7 @@ export const REQUEST_STATUS_LABELS: Record<PoolRequestStatus, string> = {
   APPROVED: 'Approved for Pool',
   REJECTED: 'Declined',
   NEEDS_INFO: 'Needs Information',
+  ARCHIVED: 'Archived',
 };
 
 export const PRIVACY_NOTICE_VERSION = '2026-10-26-v1';

@@ -295,24 +295,31 @@ export const poolRequestSchema = z.object({
   productName: z
     .string()
     .trim()
-    .min(2, { message: 'Product name must be at least 2 characters.' })
-    .max(180, { message: 'Product name must not exceed 180 characters.' }),
+    .min(2, { message: 'Product name or requirement must be at least 2 characters.' })
+    .max(180, { message: 'Product name must not exceed 180 characters.' })
+    .optional(),
+  requestedTitle: z
+    .string()
+    .trim()
+    .min(2, { message: 'Requirement must be at least 2 characters.' })
+    .max(180)
+    .optional(),
   category: z.string().trim().max(80).nullable().optional(),
   categoryName: z.string().trim().max(100).nullable().optional(),
   brandPreference: z.string().trim().max(100).nullable().optional(),
   modelPreference: z.string().trim().max(100).nullable().optional(),
-  city: z
-    .string()
-    .trim()
-    .min(2, { message: 'City must be at least 2 characters.' })
-    .max(80, { message: 'City must not exceed 80 characters.' }),
+  city: z.string().trim().max(80).optional().default('India'),
+  cityText: z.string().trim().max(80).optional(),
   state: z.string().trim().max(80).optional(),
+  stateText: z.string().trim().max(80).optional(),
   locality: z.string().trim().max(100).optional(),
   pinCode: z.string().trim().max(10).optional(),
   requirementsSummary: z.string().trim().max(1000).optional(),
   targetBuyersRequested: z.number().int().min(2).max(10000).optional(),
   requestedDeadline: z.string().optional(),
-  contactConsent: z.boolean().default(true),
+  contactConsent: z.boolean().default(true).refine((val) => val === true, {
+    message: 'Explicit consent to receive relevant contact is required.',
+  }),
   requestType: z.enum(['GROUP_PROPOSAL', 'PRODUCT_SUGGESTION']).default('GROUP_PROPOSAL'),
   fullName: z
     .string()
@@ -320,18 +327,48 @@ export const poolRequestSchema = z.object({
     .max(100, { message: 'Full name must not exceed 100 characters.' })
     .nullable()
     .optional(),
+  name: z
+    .string()
+    .trim()
+    .max(100)
+    .nullable()
+    .optional(),
   whatsappNumber: z
     .string()
     .optional()
     .transform((val) => (val ? normalizePhone(val) : ''))
     .refine((val) => val === '' || isValidIndianMobile(val), {
-      message: 'Enter a valid 10-digit Indian mobile number, or leave blank.',
+      message: 'Enter a valid 10-digit Indian mobile number.',
     }),
+  phone: z
+    .string()
+    .optional()
+    .transform((val) => (val ? normalizePhone(val) : ''))
+    .refine((val) => val === '' || isValidIndianMobile(val), {
+      message: 'Enter a valid 10-digit Indian mobile number.',
+    }),
+  notes: z.string().trim().max(1000).optional(),
   extraMessage: z
     .string()
     .trim()
     .max(1000, { message: 'Note must not exceed 1,000 characters.' })
     .default(''),
+}).superRefine((data, ctx) => {
+  if (!data.productName && !data.requestedTitle) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Requirement or product name is required (min 2 characters).',
+      path: ['productName'],
+    });
+  }
+  const phone = data.whatsappNumber || data.phone;
+  if (!phone || !isValidIndianMobile(phone)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'A valid 10-digit Indian mobile number is required.',
+      path: ['whatsappNumber'],
+    });
+  }
 });
 
 export type PoolRequestSchemaInput = z.infer<typeof poolRequestSchema>;
@@ -340,10 +377,14 @@ export type PoolRequestSchemaInput = z.infer<typeof poolRequestSchema>;
  * Validation schema for converting a community demand request into an operational pool
  */
 export const convertRequestSchema = z.object({
-  citySlug: z.string().trim().min(2).max(80),
+  citySlug: z.string().trim().min(2).max(80).optional(),
+  citySlugs: z.array(z.string().trim().min(2).max(80)).optional().default([]),
   productSlug: z.string().trim().min(2).max(120).optional(),
-  productName: z.string().trim().min(2).max(180),
-  categorySlug: z.string().trim().min(2).max(80),
+  productName: z.string().trim().min(2).max(180).optional(),
+  title: z.string().trim().min(2).max(180).optional(),
+  poolTitle: z.string().trim().min(2).max(180).optional(),
+  categorySlug: z.string().trim().max(80).nullable().optional(),
+  internalCategoryId: z.string().trim().max(80).nullable().optional(),
   productBrand: z.string().trim().min(1).max(80).default('Standardized Brand'),
   productModel: z.string().trim().min(1).max(80).default('Standardized Model'),
   shortDescription: z.string().trim().max(300).default(''),
@@ -353,6 +394,15 @@ export const convertRequestSchema = z.object({
   targetBuyers: z.number().int().min(1).default(10),
   durationDays: z.number().int().min(1).max(180).default(14),
   dealerName: z.string().trim().max(120).nullable().optional(),
+  isPublished: z.boolean().default(true),
+}).superRefine((data, ctx) => {
+  if (!data.productName && !data.title && !data.poolTitle) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Pool title or product name is required.',
+      path: ['productName'],
+    });
+  }
 });
 
 export type ConvertRequestSchemaInput = z.infer<typeof convertRequestSchema>;

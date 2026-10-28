@@ -1,31 +1,26 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 import {
   Check,
-  Clock,
   X,
   AlertCircle,
-  HelpCircle,
   Search,
   Rocket,
-  ExternalLink,
   MessageSquare,
-  ShieldCheck,
   Loader2,
-  Flame,
+  Trash2,
 } from 'lucide-react';
-import { PoolRequest, PoolRequestStatus, City, Category } from '@/types';
-import { REQUEST_STATUS_LABELS } from '@/lib/constants';
+import { PoolRequest, PoolRequestStatus, Category } from '@/types';
+import { REQUEST_STATUS_LABELS, LAUNCH_CITIES } from '@/lib/constants';
 import { formatDateTime } from '@/lib/format';
 
 export function AdminRequestsTab() {
   const [requests, setRequests] = useState<PoolRequest[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,23 +33,29 @@ export function AdminRequestsTab() {
   const [noteText, setNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
 
+  // Archive confirmation
+  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+
   // Conversion Modal State
   const [convertingRequest, setConvertingRequest] = useState<PoolRequest | null>(null);
   const [convertForm, setConvertForm] = useState({
-    citySlug: '',
-    productName: '',
-    categorySlug: 'ev-scooters',
-    productBrand: '',
-    productModel: '',
-    marketPrice: '',
-    groupPrice: '',
-    targetBuyers: '10',
+    title: '',
+    description: '',
+    categorySlug: '',
+    citySlugs: ['delhi', 'mumbai', 'pune'] as string[],
     durationDays: '14',
-    dealerName: '',
+    isPublished: true,
   });
   const [isConverting, setIsConverting] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
-  const [convertSuccess, setConvertSuccess] = useState<{ poolSlug: string; citySlug: string; dealUrl: string } | null>(null);
+  const [convertSuccess, setConvertSuccess] = useState<{
+    poolId: string;
+    poolSlug: string;
+    citySlugs: string[];
+    isPublished: boolean;
+    dealUrl?: string;
+  } | null>(null);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -77,17 +78,13 @@ export function AdminRequestsTab() {
     async function init() {
       await loadRequests();
       try {
-        const [cRes, catRes] = await Promise.all([
-          fetch('/api/cities'),
-          fetch('/api/categories'),
-        ]);
-        const [cData, catData] = await Promise.all([cRes.json(), catRes.json()]);
-        if (!ignore) {
-          if (cData.success) setCities(cData.data);
-          if (catData.success) setCategories(catData.data);
+        const catRes = await fetch('/api/categories');
+        const catData = await catRes.json();
+        if (!ignore && catData.success) {
+          setCategories(catData.data);
         }
       } catch (err) {
-        console.error('Error fetching admin directory data:', err);
+        console.error('Error fetching categories:', err);
       }
     }
     init();
@@ -97,6 +94,7 @@ export function AdminRequestsTab() {
   }, [loadRequests]);
 
   const handleStatusChange = async (requestId: string, status: PoolRequestStatus) => {
+    setErrorMessage(null);
     try {
       const res = await fetch(`/api/admin/pool-requests/${requestId}`, {
         method: 'PATCH',
@@ -104,13 +102,41 @@ export function AdminRequestsTab() {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setRequests((prev) =>
           prev.map((r) => (r.id === requestId ? { ...r, status } : r))
         );
+        setActionSuccessMessage(`Request status updated to ${status}.`);
+      } else {
+        setErrorMessage(data.error?.message || 'Failed to update request status.');
       }
-    } catch (e) {
-      console.error('Failed to update request status:', e);
+    } catch {
+      setErrorMessage('Network error updating request status.');
+    }
+  };
+
+  const handleArchiveRequest = async (requestId: string) => {
+    setIsArchiving(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/admin/pool-requests/${requestId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error?.message || 'Failed to archive request.');
+        return;
+      }
+
+      // Safe update only on server success
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setConfirmArchiveId(null);
+      setActionSuccessMessage('Request safely archived.');
+    } catch {
+      setErrorMessage('Network error while archiving request. Row remains visible.');
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -141,55 +167,62 @@ export function AdminRequestsTab() {
     setConvertError(null);
     setConvertSuccess(null);
 
-    // Find if city exists in operational cities
-    const matchingCity = cities.find(
-      (c) => c.name.toLowerCase() === request.city.toLowerCase()
-    );
-
-    let durationDays = '14';
-    if (request.requestedDeadline) {
-      const parsedTime = new Date(request.requestedDeadline).getTime();
-      if (!isNaN(parsedTime)) {
-        const days = Math.max(1, Math.round((parsedTime - Date.now()) / 86400000));
-        durationDays = String(Math.min(180, days));
-      } else if (!isNaN(Number(request.requestedDeadline))) {
-        durationDays = String(request.requestedDeadline);
+    // Initial default city labels: include Delhi, Mumbai, Pune, plus requester's city if in the 25 launch cities
+    const initialCitySlugs = ['delhi', 'mumbai', 'pune'];
+    if (request.city) {
+      const reqCitySlug = request.city.toLowerCase().trim();
+      const inLaunch = LAUNCH_CITIES.find((c) => c.slug === reqCitySlug);
+      if (inLaunch && !initialCitySlugs.includes(inLaunch.slug)) {
+        initialCitySlugs.push(inLaunch.slug);
       }
     }
 
     setConvertForm({
-      citySlug: matchingCity ? matchingCity.slug : cities[0]?.slug || 'bhopal',
-      productName: request.productName,
-      categorySlug: request.category ? request.category.toLowerCase().replace(/_/g, '-') : (categories[0]?.slug || 'ev-scooters'),
-      productBrand: request.brandPreference || 'Standardized Brand',
-      productModel: request.modelPreference || 'Standardized Model',
-      marketPrice: '',
-      groupPrice: '',
-      targetBuyers: request.targetBuyersRequested ? String(request.targetBuyersRequested) : '10',
-      durationDays,
-      dealerName: '',
+      title: request.productName,
+      description: request.requirementsSummary || request.extraMessage || '',
+      categorySlug: request.category ? request.category.toLowerCase().replace(/_/g, '-') : '',
+      citySlugs: initialCitySlugs,
+      durationDays: '14',
+      isPublished: true,
     });
   };
 
-  const handleExecuteConversion = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleCitySlug = (slug: string) => {
+    setConvertForm((prev) => {
+      const exists = prev.citySlugs.includes(slug);
+      if (exists) {
+        return { ...prev, citySlugs: prev.citySlugs.filter((s) => s !== slug) };
+      } else {
+        return { ...prev, citySlugs: [...prev.citySlugs, slug] };
+      }
+    });
+  };
+
+  const handleExecuteConversion = async (publish: boolean) => {
     if (!convertingRequest) return;
+
+    if (!convertForm.title.trim()) {
+      setConvertError('Pool title is required.');
+      return;
+    }
+
+    if (publish && convertForm.citySlugs.length === 0) {
+      setConvertError('At least one city visibility label is required to publish.');
+      return;
+    }
 
     setConvertError(null);
     setIsConverting(true);
 
     try {
       const payload = {
-        citySlug: convertForm.citySlug,
-        productName: convertForm.productName.trim(),
-        categorySlug: convertForm.categorySlug,
-        productBrand: convertForm.productBrand.trim(),
-        productModel: convertForm.productModel.trim(),
-        marketPrice: convertForm.marketPrice ? Number(convertForm.marketPrice) : null,
-        groupPrice: convertForm.groupPrice ? Number(convertForm.groupPrice) : null,
-        targetBuyers: Number(convertForm.targetBuyers) || 10,
+        title: convertForm.title.trim(),
+        productName: convertForm.title.trim(),
+        shortDescription: convertForm.description.trim() || undefined,
+        categorySlug: convertForm.categorySlug || null,
+        citySlugs: convertForm.citySlugs,
         durationDays: Number(convertForm.durationDays) || 14,
-        dealerName: convertForm.dealerName.trim() || null,
+        isPublished: publish,
       };
 
       const res = await fetch(`/api/admin/pool-requests/${convertingRequest.id}/convert`, {
@@ -201,11 +234,12 @@ export function AdminRequestsTab() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setConvertError(data.error?.message || 'Conversion failed.');
+        setConvertError(data.error?.message || 'Conversion failed. Please try again.');
         return;
       }
 
       setConvertSuccess(data.data);
+
       // Update in table
       setRequests((prev) =>
         prev.map((r) =>
@@ -229,6 +263,10 @@ export function AdminRequestsTab() {
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
+      // Exclude archived by default unless filtering by ARCHIVED
+      if (filterStatus === 'all' && (r.status === 'ARCHIVED' || (r as unknown as { isArchived?: boolean }).isArchived)) {
+        return false;
+      }
       if (filterCity !== 'all' && r.city.toLowerCase() !== filterCity.toLowerCase()) {
         return false;
       }
@@ -260,21 +298,46 @@ export function AdminRequestsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-            Demand Discovery & Pool Requests
+            Demand Discovery &amp; Pool Requests
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              {requests.length} requests
+              {filteredRequests.length} pending / active
             </span>
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            Review community requests, cluster buyer interest, identify supplier pathways, and launch verified city-specific pools.
+            Review community requests from across India, reject or archive safely, or convert into a shared pool across launch cities.
           </p>
         </div>
       </div>
 
+      {actionSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{actionSuccessMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {errorMessage && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
-          <span>{errorMessage}</span>
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-700 hover:text-rose-900"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -286,7 +349,7 @@ export function AdminRequestsTab() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search product, city, requester..."
+            placeholder="Search requirement, location, name..."
             className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden"
           />
         </div>
@@ -297,8 +360,8 @@ export function AdminRequestsTab() {
             onChange={(e) => setFilterCity(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden bg-white"
           >
-            <option value="all">All Cities</option>
-            {cities.map((c) => (
+            <option value="all">All Locations</option>
+            {LAUNCH_CITIES.map((c) => (
               <option key={c.slug} value={c.name}>
                 {c.name}
               </option>
@@ -312,12 +375,12 @@ export function AdminRequestsTab() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden bg-white"
           >
-            <option value="all">All Review Statuses</option>
-            <option value="REQUESTED">Requested (New)</option>
-            <option value="REVIEWING">Reviewing</option>
-            <option value="NEEDS_INFO">Needs Information</option>
-            <option value="APPROVED">Approved</option>
+            <option value="all">All Active Statuses</option>
+            <option value="REQUESTED">Pending / Requested</option>
+            <option value="REVIEWING">In Review</option>
+            <option value="APPROVED">Approved / Converted</option>
             <option value="REJECTED">Rejected</option>
+            <option value="ARCHIVED">Archived / Deleted</option>
           </select>
         </div>
 
@@ -327,7 +390,7 @@ export function AdminRequestsTab() {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-emerald-500 outline-hidden bg-white"
           >
-            <option value="all">All Categories</option>
+            <option value="all">All Internal Categories</option>
             {categories.map((c) => (
               <option key={c.slug} value={c.slug}>
                 {c.label}
@@ -337,126 +400,47 @@ export function AdminRequestsTab() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="p-12 text-center text-xs text-gray-400">Loading demand discovery queue...</div>
-      ) : filteredRequests.length === 0 ? (
-        <div className="p-12 text-center text-xs text-gray-500 bg-white rounded-2xl border border-gray-200/80">
-          No pool requests match the selected filters.
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+      {/* Requests Table */}
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-gray-500 flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+            <span>Loading demand requests...</span>
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="p-12 text-center text-xs text-gray-500">
+            No demand requests found matching the current filters.
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-600">
-              <thead className="bg-gray-50/80 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                <tr>
-                  <th className="py-3.5 px-4">Date & Type</th>
-                  <th className="py-3.5 px-4">Product & Interest</th>
-                  <th className="py-3.5 px-4">City / Category</th>
-                  <th className="py-3.5 px-4">Requester Details</th>
-                  <th className="py-3.5 px-4">Notes & Requirements</th>
-                  <th className="py-3.5 px-4">Review Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Requirement &amp; User</th>
+                  <th className="py-3 px-4">Location</th>
+                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 font-medium">
+              <tbody className="divide-y divide-gray-100 text-xs">
                 {filteredRequests.map((r) => {
-                  const isCityOperational = cities.some(
-                    (c) => c.name.toLowerCase() === r.city.toLowerCase()
-                  );
                   const isConverted = r.conversionStatus === 'CONVERTED' || Boolean(r.resultingPoolId);
-
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 whitespace-nowrap text-gray-400 text-[11px]">
-                        <div>{formatDateTime(r.createdAt)}</div>
-                        <div className="mt-1">
-                          {r.requestType === 'GROUP_PROPOSAL' ? (
-                            <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-purple-50 text-purple-700 border border-purple-200">
-                              Proposal
-                            </span>
-                          ) : (
-                            <span className="inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-sm bg-gray-100 text-gray-600 border border-gray-200">
-                              Suggestion
-                            </span>
-                          )}
+                    <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 px-4 max-w-sm">
+                        <div className="font-bold text-gray-950 flex items-center gap-1.5">
+                          <span>{r.productName}</span>
                         </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-gray-950 text-sm">{r.productName}</div>
-                        {(r.brandPreference || r.modelPreference) && (
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            Pref: {[r.brandPreference, r.modelPreference].filter(Boolean).join(' • ')}
-                          </div>
-                        )}
-                        {(r.targetBuyersRequested || r.requestedDeadline) && (
-                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-                            {r.targetBuyersRequested ? `Target: ${r.targetBuyersRequested} buyers` : null}
-                            {r.targetBuyersRequested && r.requestedDeadline ? ' • ' : null}
-                            {r.requestedDeadline ? `Deadline: ${new Date(r.requestedDeadline).toLocaleDateString('en-IN')}` : null}
-                          </div>
-                        )}
-                        {(r.similarRequestCount ?? 1) > 1 && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                              <Flame className="w-3 h-3 text-amber-500 fill-amber-500" aria-hidden="true" />
-                              {r.similarRequestCount} similar in {r.city}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-gray-900">{r.city}</span>
-                          {!isCityOperational && (
-                            <span
-                              className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-orange-100 text-orange-800"
-                              title="City not yet operational. Admin must establish vendor coverage before launching pool."
-                            >
-                              New City
-                            </span>
-                          )}
+                        <div className="text-gray-500 text-[11px] mt-0.5">
+                          Requested by <span className="font-semibold text-gray-700">{r.fullName || 'Anonymous'}</span> • {formatDateTime(r.createdAt)}
                         </div>
-                        <div className="text-[11px] text-gray-400">
-                          {r.categoryName || r.category || 'Custom Category'}
-                        </div>
-                        {(r.locality || r.pinCode) && (
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            {[r.locality, r.pinCode].filter(Boolean).join(', ')}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        {r.fullName || r.whatsappNumber ? (
-                          <>
-                            <div className="font-medium text-gray-900 flex items-center gap-1">
-                              <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" aria-hidden="true" />
-                              <span>{r.fullName || 'Anonymous Buyer'}</span>
-                            </div>
-                            {r.whatsappNumber && (
-                              <div className="text-[11px] text-gray-500 font-mono">+91 {r.whatsappNumber}</div>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-gray-400 italic">No contact info</span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 max-w-xs">
-                        {r.requirementsSummary && (
-                          <div className="text-gray-800 text-[11px] font-medium" title={r.requirementsSummary}>
-                            Req: {r.requirementsSummary}
-                          </div>
-                        )}
                         {r.extraMessage && (
-                          <div className="text-gray-600 text-[11px] truncate mt-0.5" title={r.extraMessage}>
+                          <div className="text-gray-600 text-[11px] italic mt-0.5" title={r.extraMessage}>
                             &ldquo;{r.extraMessage}&rdquo;
                           </div>
                         )}
-
-                        {/* Internal Admin Notes */}
+                        {/* Internal Admin Note */}
                         <div className="mt-1">
                           {editingNoteId === r.id ? (
                             <div className="space-y-1">
@@ -464,7 +448,7 @@ export function AdminRequestsTab() {
                                 rows={2}
                                 value={noteText}
                                 onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Internal review notes..."
+                                placeholder="Internal review note..."
                                 className="w-full text-[11px] p-1.5 border border-gray-300 rounded-md outline-hidden resize-none"
                               />
                               <div className="flex gap-1 justify-end">
@@ -488,7 +472,7 @@ export function AdminRequestsTab() {
                           ) : (
                             <div className="flex items-center gap-1">
                               <span className="text-[11px] text-gray-500 italic truncate" title={r.adminNotes || ''}>
-                                {r.adminNotes ? `Note: ${r.adminNotes}` : 'No internal note'}
+                                {r.adminNotes ? `Note: ${r.adminNotes}` : 'No note'}
                               </span>
                               <button
                                 type="button"
@@ -497,101 +481,104 @@ export function AdminRequestsTab() {
                                   setNoteText(r.adminNotes || '');
                                 }}
                                 className="text-gray-400 hover:text-gray-600 p-0.5"
-                                title="Edit internal note"
+                                title="Edit note"
                               >
-                                <MessageSquare className="w-3 h-3" aria-hidden="true" />
+                                <MessageSquare className="w-3 h-3" />
                               </button>
                             </div>
                           )}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <span
-                            className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                              r.status === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : r.status === 'REVIEWING'
-                                ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                : r.status === 'NEEDS_INFO'
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                : r.status === 'REJECTED'
-                                ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                : 'bg-gray-100 text-gray-700 border-gray-200'
-                            }`}
-                          >
-                            {REQUEST_STATUS_LABELS[r.status] || r.status}
-                          </span>
+                      <td className="py-3.5 px-4 whitespace-nowrap text-gray-700">
+                        <div className="font-semibold">{r.city}</div>
+                        {r.state && <div className="text-gray-400 text-[11px]">{r.state}</div>}
+                      </td>
 
-                          {isConverted && (
-                            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
-                              <Check className="w-3 h-3" aria-hidden="true" />
-                              <span>Pool Launched</span>
-                            </div>
-                          )}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-mono text-gray-900 font-medium">
+                          {r.whatsappNumber ? `+91 ${r.whatsappNumber}` : 'Not provided'}
+                        </div>
+                        <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                          <Check className="w-3 h-3" /> Consent Confirmed
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-2">
-                          {/* Quick status actions */}
-                          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(r.id, 'APPROVED')}
-                              title="Mark Approved"
-                              className={`p-1.5 rounded-md hover:bg-white transition-colors ${
-                                r.status === 'APPROVED' ? 'bg-emerald-600 text-white hover:bg-emerald-600' : 'text-gray-600'
-                              }`}
-                            >
-                              <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(r.id, 'REVIEWING')}
-                              title="Mark Reviewing"
-                              className={`p-1.5 rounded-md hover:bg-white transition-colors ${
-                                r.status === 'REVIEWING' ? 'bg-blue-600 text-white hover:bg-blue-600' : 'text-gray-600'
-                              }`}
-                            >
-                              <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(r.id, 'NEEDS_INFO')}
-                              title="Needs Information"
-                              className={`p-1.5 rounded-md hover:bg-white transition-colors ${
-                                r.status === 'NEEDS_INFO' ? 'bg-amber-500 text-white hover:bg-amber-500' : 'text-gray-600'
-                              }`}
-                            >
-                              <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(r.id, 'REJECTED')}
-                              title="Decline"
-                              className={`p-1.5 rounded-md hover:bg-white transition-colors ${
-                                r.status === 'REJECTED' ? 'bg-rose-600 text-white hover:bg-rose-600' : 'text-gray-600'
-                              }`}
-                            >
-                              <X className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                            r.status === 'APPROVED'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : r.status === 'REJECTED'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : r.status === 'ARCHIVED'
+                              ? 'bg-gray-100 text-gray-600 border-gray-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {REQUEST_STATUS_LABELS[r.status] || r.status}
+                        </span>
+                        {isConverted && (
+                          <div className="text-[10px] font-semibold text-emerald-700 mt-0.5">
+                            Pool Created
                           </div>
+                        )}
+                      </td>
 
-                          {/* Conversion button */}
-                          {isConverted ? (
-                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
-                              Converted
-                            </span>
-                          ) : (
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          {/* Convert / Create Pool Button */}
+                          {!isConverted && r.status !== 'REJECTED' && r.status !== 'ARCHIVED' && (
                             <button
                               type="button"
                               onClick={() => openConvertModal(r)}
-                              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
                             >
-                              <Rocket className="w-3.5 h-3.5" aria-hidden="true" />
-                              <span>Launch Pool</span>
+                              <Rocket className="w-3.5 h-3.5" />
+                              <span>Create Pool</span>
+                            </button>
+                          )}
+
+                          {/* Reject Button */}
+                          {r.status !== 'REJECTED' && r.status !== 'APPROVED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(r.id, 'REJECTED')}
+                              className="text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors"
+                              title="Reject request"
+                            >
+                              Reject
+                            </button>
+                          )}
+
+                          {/* Archive / Delete Button */}
+                          {confirmArchiveId === r.id ? (
+                            <div className="inline-flex items-center gap-1 bg-rose-50 p-1 rounded-xl border border-rose-200">
+                              <span className="text-[10px] text-rose-700 font-bold px-1">Archive?</span>
+                              <button
+                                type="button"
+                                disabled={isArchiving}
+                                onClick={() => handleArchiveRequest(r.id)}
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                              >
+                                {isArchiving ? '...' : 'Yes'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmArchiveId(null)}
+                                className="text-[10px] px-1.5 py-0.5 rounded-lg bg-gray-200 text-gray-700"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmArchiveId(r.id)}
+                              className="p-1.5 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Safely archive request"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
@@ -602,231 +589,171 @@ export function AdminRequestsTab() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Convert to Operational Pool Modal */}
+      {/* Convert to Shared Pool Modal */}
       {convertingRequest && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl max-w-xl w-full p-6 space-y-5 animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-gray-950 flex items-center gap-2">
-                  <Rocket className="w-5 h-5 text-emerald-600" aria-hidden="true" />
-                  Launch City-Specific Pool
+                <h3 className="text-base font-bold text-gray-950 flex items-center gap-2">
+                  <Rocket className="w-5 h-5 text-emerald-600" />
+                  <span>Convert Request into Shared Pool</span>
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  Convert community request <strong>#{convertingRequest.id.slice(0, 8)}</strong> into an active operational pool.
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Creates ONE pool master with shared capacity of 10 and visibility across selected launch cities.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setConvertingRequest(null)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <X className="w-5 h-5" aria-hidden="true" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {convertError && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{convertError}</span>
               </div>
             )}
 
             {convertSuccess ? (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl p-4 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
-                  <Check className="w-5 h-5" aria-hidden="true" />
+              <div className="space-y-4 py-4 text-center">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6" />
                 </div>
-                <h4 className="text-sm font-bold">City Pool Launched Successfully!</h4>
-                <p className="text-xs text-emerald-800">
-                  The request is now linked to live pool: <code>{convertSuccess.poolSlug}</code>
-                </p>
-                <div className="pt-2 flex justify-center gap-2">
-                  <Link
-                    href={convertSuccess.dealUrl}
-                    target="_blank"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-                  >
-                    <span>View Live Deal</span>
-                    <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-                  </Link>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900">Pool Created Successfully!</h4>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Pool ID: <code className="font-mono bg-gray-100 px-1 py-0.5 rounded">{convertSuccess.poolId}</code>
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Live across {convertSuccess.citySlugs.length} cities: {convertSuccess.citySlugs.join(', ')}
+                  </p>
+                </div>
+                <div className="flex justify-center gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setConvertingRequest(null)}
-                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 transition-colors"
+                    onClick={() => {
+                      setConvertingRequest(null);
+                      setConvertSuccess(null);
+                    }}
+                    className="text-xs font-semibold px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors"
                   >
-                    Close
+                    Done
                   </button>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleExecuteConversion} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {/* Operational City Selector */}
-                  <div>
-                    <label htmlFor="convert-city" className="block font-semibold text-gray-700 mb-1">
-                      Target Operational City <span className="text-emerald-600">*</span>
-                    </label>
-                    <select
-                      id="convert-city"
-                      required
-                      value={convertForm.citySlug}
-                      onChange={(e) => setConvertForm({ ...convertForm, citySlug: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden bg-white"
-                    >
-                      {cities.map((c) => (
-                        <option key={c.slug} value={c.slug}>
-                          {c.name} ({c.state})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="space-y-4 text-xs">
+                {/* Public Title */}
+                <div>
+                  <label htmlFor="convert-title" className="block font-semibold text-gray-700 mb-1">
+                    Final Public Pool Title <span className="text-emerald-600">*</span>
+                  </label>
+                  <input
+                    id="convert-title"
+                    type="text"
+                    required
+                    value={convertForm.title}
+                    onChange={(e) => setConvertForm({ ...convertForm, title: e.target.value })}
+                    placeholder="e.g. 2 kW Rooftop Solar System Package"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden font-medium"
+                  />
+                </div>
 
-                  {/* Category Selector */}
-                  <div>
-                    <label htmlFor="convert-cat" className="block font-semibold text-gray-700 mb-1">
-                      Product Category <span className="text-emerald-600">*</span>
-                    </label>
-                    <select
-                      id="convert-cat"
-                      required
-                      value={convertForm.categorySlug}
-                      onChange={(e) => setConvertForm({ ...convertForm, categorySlug: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden bg-white"
-                    >
-                      {categories.map((c) => (
-                        <option key={c.slug} value={c.slug}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Description */}
+                <div>
+                  <label htmlFor="convert-desc" className="block font-semibold text-gray-700 mb-1">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    id="convert-desc"
+                    rows={2}
+                    value={convertForm.description}
+                    onChange={(e) => setConvertForm({ ...convertForm, description: e.target.value })}
+                    placeholder="Community buying deal aggregated from verified interest..."
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
+                  />
+                </div>
 
-                  {/* Standardized Product Name */}
-                  <div className="sm:col-span-2">
-                    <label htmlFor="convert-pname" className="block font-semibold text-gray-700 mb-1">
-                      Standardized Product Name <span className="text-emerald-600">*</span>
-                    </label>
-                    <input
-                      id="convert-pname"
-                      type="text"
-                      required
-                      value={convertForm.productName}
-                      onChange={(e) => setConvertForm({ ...convertForm, productName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
+                {/* Optional Category */}
+                <div>
+                  <label htmlFor="convert-cat" className="block font-semibold text-gray-700 mb-1">
+                    Internal Category (Optional Admin Metadata)
+                  </label>
+                  <select
+                    id="convert-cat"
+                    value={convertForm.categorySlug}
+                    onChange={(e) => setConvertForm({ ...convertForm, categorySlug: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden bg-white"
+                  >
+                    <option value="">None / Optional</option>
+                    {categories.map((c) => (
+                      <option key={c.slug} value={c.slug}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  {/* Brand & Model */}
-                  <div>
-                    <label htmlFor="convert-brand" className="block font-semibold text-gray-700 mb-1">
-                      Brand
+                {/* Live in Cities Multi-Select Chips */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-semibold text-gray-700">
+                      Live in Launch Cities (Visibility Labels) <span className="text-emerald-600">*</span>
                     </label>
-                    <input
-                      id="convert-brand"
-                      type="text"
-                      value={convertForm.productBrand}
-                      onChange={(e) => setConvertForm({ ...convertForm, productBrand: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
+                    <span className="text-[11px] text-gray-500 font-medium">
+                      {convertForm.citySlugs.length} selected
+                    </span>
                   </div>
-
-                  <div>
-                    <label htmlFor="convert-model" className="block font-semibold text-gray-700 mb-1">
-                      Model / Specification
-                    </label>
-                    <input
-                      id="convert-model"
-                      type="text"
-                      value={convertForm.productModel}
-                      onChange={(e) => setConvertForm({ ...convertForm, productModel: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
-
-                  {/* Market & Group Price */}
-                  <div>
-                    <label htmlFor="convert-mprice" className="block font-semibold text-gray-700 mb-1">
-                      Market Price (₹, optional)
-                    </label>
-                    <input
-                      id="convert-mprice"
-                      type="number"
-                      min="0"
-                      value={convertForm.marketPrice}
-                      onChange={(e) => setConvertForm({ ...convertForm, marketPrice: e.target.value })}
-                      placeholder="e.g. 155000"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="convert-gprice" className="block font-semibold text-gray-700 mb-1">
-                      Target Group Price (₹, optional)
-                    </label>
-                    <input
-                      id="convert-gprice"
-                      type="number"
-                      min="0"
-                      value={convertForm.groupPrice}
-                      onChange={(e) => setConvertForm({ ...convertForm, groupPrice: e.target.value })}
-                      placeholder="e.g. 142000"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
-
-                  {/* Target Buyers & Campaign Duration */}
-                  <div>
-                    <label htmlFor="convert-tbuyers" className="block font-semibold text-gray-700 mb-1">
-                      Target Buyers Required <span className="text-emerald-600">*</span>
-                    </label>
-                    <input
-                      id="convert-tbuyers"
-                      type="number"
-                      min="1"
-                      required
-                      value={convertForm.targetBuyers}
-                      onChange={(e) => setConvertForm({ ...convertForm, targetBuyers: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="convert-duration" className="block font-semibold text-gray-700 mb-1">
-                      Duration (Days) <span className="text-emerald-600">*</span>
-                    </label>
-                    <input
-                      id="convert-duration"
-                      type="number"
-                      min="1"
-                      max="180"
-                      required
-                      value={convertForm.durationDays}
-                      onChange={(e) => setConvertForm({ ...convertForm, durationDays: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
-                  </div>
-
-                  {/* Verified Dealer Name */}
-                  <div className="sm:col-span-2">
-                    <label htmlFor="convert-dealer" className="block font-semibold text-gray-700 mb-1">
-                      Verified Dealer / Supplier Arrangement (Optional)
-                    </label>
-                    <input
-                      id="convert-dealer"
-                      type="text"
-                      value={convertForm.dealerName}
-                      onChange={(e) => setConvertForm({ ...convertForm, dealerName: e.target.value })}
-                      placeholder="e.g. Authorized Ather Experience Center Bhopal"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
-                    />
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Click to toggle visibility. ONE shared pool count of 10 active + 5 waitlist across all chosen cities.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-gray-50 rounded-xl border border-gray-200">
+                    {LAUNCH_CITIES.map((c) => {
+                      const isSelected = convertForm.citySlugs.includes(c.slug);
+                      return (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          onClick={() => toggleCitySlug(c.slug)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white shadow-2xs'
+                              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                {/* Duration */}
+                <div>
+                  <label htmlFor="convert-days" className="block font-semibold text-gray-700 mb-1">
+                    Campaign Duration (Days)
+                  </label>
+                  <input
+                    id="convert-days"
+                    type="number"
+                    min="1"
+                    max="180"
+                    value={convertForm.durationDays}
+                    onChange={(e) => setConvertForm({ ...convertForm, durationDays: e.target.value })}
+                    className="w-32 px-3 py-1.5 rounded-xl border border-gray-300 focus:border-emerald-500 outline-hidden"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => setConvertingRequest(null)}
@@ -834,25 +761,36 @@ export function AdminRequestsTab() {
                   >
                     Cancel
                   </button>
+
                   <button
-                    type="submit"
+                    type="button"
                     disabled={isConverting}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors disabled:opacity-50"
+                    onClick={() => handleExecuteConversion(false)}
+                    className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    Save as Draft
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isConverting}
+                    onClick={() => handleExecuteConversion(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors disabled:opacity-50"
                   >
                     {isConverting ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                        <span>Launching Pool...</span>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Publishing...</span>
                       </>
                     ) : (
                       <>
-                        <Rocket className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Confirm & Launch City Pool</span>
+                        <Rocket className="w-3.5 h-3.5" />
+                        <span>Create &amp; Publish</span>
                       </>
                     )}
                   </button>
                 </div>
-              </form>
+              </div>
             )}
           </div>
         </div>

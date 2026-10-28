@@ -163,7 +163,9 @@ function getNowIso(): string {
 /**
  * Loads public pools matching optional city/category filters.
  */
-export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[]> {
+export async function getPublicPools(filters?: PoolFilters | string): Promise<PublicPool[]> {
+  const resolvedFilters: PoolFilters | undefined = typeof filters === 'string' ? { citySlug: filters } : filters;
+
   if (isDemoMode()) {
     const now = getNowMs();
     let result = MOCK_POOLS.filter((p) => {
@@ -173,12 +175,12 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
       return true;
     });
 
-    if (filters?.citySlug && filters.citySlug !== 'all') {
-      result = result.filter((p) => p.citySlug === filters.citySlug);
+    if (resolvedFilters?.citySlug && resolvedFilters.citySlug !== 'all') {
+      result = result.filter((p) => p.citySlug === resolvedFilters.citySlug || (p.cityLabels && p.cityLabels.some((c: string) => c.toLowerCase() === resolvedFilters.citySlug?.toLowerCase())));
     }
 
-    if (filters?.categorySlug && filters.categorySlug !== 'all') {
-      const catSlug = filters.categorySlug;
+    if (resolvedFilters?.categorySlug && resolvedFilters?.categorySlug !== 'all') {
+      const catSlug = resolvedFilters?.categorySlug;
       if (catSlug === 'home-power-backup') {
         result = result.filter(
           (p) =>
@@ -235,13 +237,13 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
   ];
   const params: unknown[] = [nowIso];
 
-  if (filters?.citySlug && filters.citySlug !== 'all') {
-    whereClauses.push('city_slug = ?');
-    params.push(filters.citySlug);
+  if (resolvedFilters?.citySlug && resolvedFilters.citySlug !== 'all') {
+    whereClauses.push('(city_slug = ? OR id IN (SELECT pool_id FROM pool_cities WHERE city_code = ? AND is_enabled = 1))');
+    params.push(resolvedFilters.citySlug, resolvedFilters.citySlug);
   }
 
-  if (filters?.categorySlug && filters.categorySlug !== 'all') {
-    const catSlug = filters.categorySlug;
+  if (resolvedFilters?.categorySlug && resolvedFilters.categorySlug !== 'all') {
+    const catSlug = resolvedFilters.categorySlug;
     if (catSlug === 'home-power-backup') {
       whereClauses.push("(category = 'ROOFTOP_SOLAR' AND (slug LIKE '%power-backup%' OR slug LIKE '%inverter%' OR name LIKE '%Inverter%'))");
     } else if (catSlug === 'water-softeners' || catSlug === 'water-softener') {
@@ -271,6 +273,38 @@ export async function getPublicPools(filters?: PoolFilters): Promise<PublicPool[
     const pools = (results || []).map(mapRowToPublicPool);
     if (pools.length > 0) {
       try {
+        for (const pool of pools) {
+          try {
+            const { results: cityRows } = await db
+              .prepare('SELECT city_name FROM pool_cities WHERE pool_id = ? AND is_enabled = 1 ORDER BY city_name ASC')
+              .bind(pool.id)
+              .all<{ city_name: string }>();
+            if (cityRows && cityRows.length > 0) {
+              pool.cityLabels = cityRows.map((r) => r.city_name);
+            } else {
+              pool.cityLabels = [pool.city];
+            }
+          } catch {}
+
+          try {
+            const leadCountRow = await db
+              .prepare("SELECT COUNT(*) as c FROM pool_leads WHERE pool_id = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
+              .bind(pool.id)
+              .first<{ c: number }>();
+            if (leadCountRow) {
+              pool.currentBuyers = Number(leadCountRow.c);
+              pool.remainingBuyers = Math.max(0, pool.targetBuyers - pool.currentBuyers);
+            }
+            const wlCountRow = await db
+              .prepare("SELECT COUNT(*) as c FROM pool_waitlist WHERE pool_id = ? AND status = 'WAITING'")
+              .bind(pool.id)
+              .first<{ c: number }>();
+            if (wlCountRow) {
+              pool.waitlistCount = Number(wlCountRow.c);
+            }
+          } catch {}
+        }
+
         const poolIds = pools.map((p) => p.id);
         const placeholders = poolIds.map(() => '?').join(', ');
         const { results: kitRows } = await db
@@ -412,11 +446,9 @@ export async function executeJoinPool(
     throw new Error('POOL_NOT_OPEN');
   }
 
-  if (input.city && input.city.trim().toLowerCase() !== pool.city.trim().toLowerCase()) {
-    throw new Error('CITY_MUST_MATCH_POOL');
-  }
+  
 
-  // 2. Check existing membership idempotently
+    // 2. Check existing membership idempotently
   const existingLead = await db
     .prepare("SELECT id, buyer_number, member_connection_status FROM pool_leads WHERE pool_id = ? AND whatsapp_number = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
     .bind(poolId, input.whatsappNumber)
@@ -432,6 +464,23 @@ export async function executeJoinPool(
       currentBuyers: Number(pool.current_buyers),
       targetBuyers: Number(pool.target_buyers),
       remainingBuyers: Math.max(0, Number(pool.target_buyers) - Number(pool.current_buyers)),
+      alreadyJoined: true,
+      poolStatus: pool.status as PublicPool['status'],
+    };
+  }
+
+  const existingWaitlist = await db
+    .prepare("SELECT id, sequence_number FROM pool_waitlist WHERE pool_id = ? AND whatsapp_number = ? AND status = 'WAITING'")
+    .bind(poolId, input.whatsappNumber)
+    .first<{ id: string; sequence_number: number }>();
+
+  if (existingWaitlist) {
+    return {
+      leadId: existingWaitlist.id,
+      buyerNumber: 0,
+      currentBuyers: Number(pool.current_buyers),
+      targetBuyers: Number(pool.target_buyers),
+      remainingBuyers: 0,
       alreadyJoined: true,
       poolStatus: pool.status as PublicPool['status'],
     };

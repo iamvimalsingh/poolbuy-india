@@ -72,16 +72,23 @@ export async function executePoolRequest(
   const now = new Date().toISOString();
   const id = `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+  const resolvedProductName = input.productName || input.requestedTitle || '';
+  const resolvedCity = input.city || input.cityText || 'India';
+  const resolvedState = input.state || input.stateText || null;
+  const resolvedFullName = input.fullName || input.name || null;
+  const resolvedPhone = input.whatsappNumber || input.phone || null;
+  const resolvedNotes = input.extraMessage || input.notes || '';
+
   if (isDemoMode()) {
     const newRequest: PoolRequest = {
       id,
-      productName: input.productName,
+      productName: resolvedProductName,
       category: (input.category as PoolCategory) || null,
       categoryName: input.categoryName || null,
       brandPreference: input.brandPreference || null,
       modelPreference: input.modelPreference || null,
-      city: input.city,
-      state: input.state || null,
+      city: resolvedCity,
+      state: resolvedState,
       locality: input.locality || null,
       pinCode: input.pinCode || null,
       requirementsSummary: input.requirementsSummary || null,
@@ -90,9 +97,9 @@ export async function executePoolRequest(
       contactConsent: input.contactConsent ?? true,
       consentAt: now,
       requestType: input.requestType || 'GROUP_PROPOSAL',
-      fullName: input.fullName || null,
-      whatsappNumber: input.whatsappNumber || null,
-      extraMessage: input.extraMessage || '',
+      fullName: resolvedFullName,
+      whatsappNumber: resolvedPhone,
+      extraMessage: resolvedNotes,
       status: 'REQUESTED',
       adminNotes: '',
       resultingPoolId: null,
@@ -119,13 +126,13 @@ export async function executePoolRequest(
     )
     .bind(
       id,
-      input.productName,
+      resolvedProductName,
       input.category || null,
       input.categoryName || null,
       input.brandPreference || null,
       input.modelPreference || null,
-      input.city,
-      input.state || null,
+      resolvedCity,
+      resolvedState,
       input.locality || null,
       input.pinCode || null,
       input.requirementsSummary || null,
@@ -134,9 +141,9 @@ export async function executePoolRequest(
       input.contactConsent ?? true ? 1 : 0,
       now,
       input.requestType || 'GROUP_PROPOSAL',
-      input.fullName || null,
-      input.whatsappNumber || null,
-      input.extraMessage || '',
+      resolvedFullName,
+      resolvedPhone,
+      resolvedNotes,
       now,
       now
     )

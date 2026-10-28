@@ -1,4 +1,4 @@
-# GroupBuying / PoolBuy India — Implementation Progress & Verification Report (v6.0)
+# GroupBuying / PoolBuy India — Implementation Progress & Verification Report (v7.3.0 Simple MVP)
 
 **Date:** 2026-10-28  
 **Authoritative Blueprint:** `MASTER_BLUEPRINT.md` (v6.0.0)  
@@ -78,8 +78,32 @@
 
 ---
 
+
+### Phase 14 — Simple MVP v7.3.0 Shared Pool Model, Multi-City Visibility & Full E2E Verification
+- **Specification:** Simple MVP v7.3.0 Shared-Pool Contract (`POOLBUY_FINAL_SIMPLE_MVP_SHARED_POOL_v7.3.md`).
+- **Core Architecture:**
+  - **Shared Pool Model:** ONE pool ID = ONE shared cohort, ONE global active count (capacity 10), ONE global FIFO waitlist (max 5) across all city visibility labels.
+  - **Canonical 25 Launch Cities:** Delhi, Mumbai, Bengaluru, Hyderabad, Chennai, Kolkata, Pune, Ahmedabad, Surat, Jaipur, Lucknow, Kanpur, Nagpur, Indore, Bhopal, Patna, Vadodara, Coimbatore, Kochi, Ludhiana, Chandigarh, Gurugram, Noida, Visakhapatnam, Bhubaneswar.
+  - **Frictionless Public Join:** Name, 10-digit Indian mobile/WhatsApp, explicit contact consent. No customer login, OTP, password, category, or payment.
+  - **Free-Text Pool Request:** Need summary, name, mobile, consent, optional city/state text. Accepted from anywhere in India. Saves PENDING request.
+  - **Admin Workflow:** Manual review converts pending request to ONE pool with optional internal category and multi-city visibility labels in `pool_cities`. Safe soft-archive via `DELETE /api/admin/pool-requests/[id]`. Admin FIFO Promote Next via `POST /api/admin/pools/[id]/promote-next`.
+- **Database Schema Migration:** `0003_v73_shared_pool_cities.sql` added `pool_cities` table, `category_slug` and `internal_category_id` to `pools`, and `is_archived`, `archived_at`, `city_text`, `state_text` to `pool_requests`.
+- **Automated Verification:**
+  - `npm test`: **PASS** (122/122 tests passing across 41 suites in 1.48s, 0 failures), including dedicated suite `lib/__tests__/v73-shared-pool.test.ts` (8/8 passed).
+  - `npm run lint`: **PASS** (0 errors, 0 warnings).
+  - `npx tsc --noEmit`: **PASS** (0 diagnostic errors).
+  - `npm run build`: **PASS** (45 routes compiled).
+  - `npm run build:worker`: **PASS** (OpenNext Cloudflare worker `.open-next/worker.js` generated).
+- **Live Local Worker E2E (Journeys A-D):**
+  - Live execution on local Cloudflare Worker (`http://127.0.0.1:8787` with Miniflare D1).
+  - Journey A (Public UX & Request Submission): PASS.
+  - Journey B (Admin Auth, Request List & Multi-City Conversion): PASS.
+  - Journey C (10 Active Capacity, 5 FIFO Waitlist, 16th Full 409 Conflict, Duplicate Idempotency, Member Removal & FIFO Promotion): PASS.
+  - Journey D (Safe Request Archive): PASS.
+- **Test Data Cleanup:** Cleaned all synthetic records with exact IDs; verified baseline 9 requests, 10 operational cities, 8 categories, 0 pools, 0 leads, 0 waitlist preserved 100% intact.
+
 ## 3. Release Readiness Verdict
 
-**VERDICT: GIT PUSHED TO MAIN; DEPLOYMENT PENDING CLOUDFLARE_API_TOKEN**
+**VERDICT: READY FOR LOCAL/STAGING OPERATOR VERIFICATION; REMOTE DEPLOYMENT GATED ON WRANGLER LOGIN**
 
-The entire codebase is verified clean, 114 tests are passing, and latest commits are published to `origin/main`. Production deployment and remote migrations require the operator to provide `CLOUDFLARE_API_TOKEN` or run `npx wrangler deploy` in their authenticated terminal.
+The v7.3.0 Simple MVP shared-pool contract is fully implemented and verified. All 122 automated tests are passing across 41 suites, TypeScript and ESLint are 100% clean, Next.js (45 routes) and OpenNext worker build successfully, live E2E Journeys A-D passed on the local Cloudflare Worker, and all synthetic test data has been cleaned while preserving baseline data. Remote production migration and deployment remain gated on operator authentication (`wrangler login` / `CLOUDFLARE_API_TOKEN`).

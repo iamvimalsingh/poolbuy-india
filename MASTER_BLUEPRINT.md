@@ -2975,15 +2975,14 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 
 ## 30.3 Current overall status
 
-- Product specification v6.0.0: **IMPLEMENTED & VERIFIED LOCALLY**; living as-built record and verification ledger updated in this permanent master.
-- Code implementation: **PASS** — Full system reconciliation, All-India discovery redesign, canonical location rollout across 28 states & 8 UTs, fee formula guardrails, Admin city harmonization, local D1 schema establishment, and real disk persistence test suite completed.
-- Local tests/build: **PASS** — **114 tests passing across 40 test suites, 0 failing** (including new `lib/__tests__/real-d1-persistence.test.ts`), `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, `npm run build` (**45 pages compiled**, discovering all 10 operational cities and 8 categories from real D1) exit 0, and `npm run build:worker` (`.open-next/worker.js`) exit 0.
-- Local D1 persistence: **PASS & VERIFIED ON REAL DISK** (`.wrangler/state/v3/d1/miniflare-D1DatabaseObject/7903b755904049be769518c2a21a3cb0f2b71d7041d5eac0c5ee8b3911471260.sqlite`, 233 KB). Applied migrations `0001_initial_schema.sql` and `0002_add_variants_and_capacity_limits.sql`. Replaced unmigrated empty state. All "no such table" errors eliminated.
-- Git Push to GitHub: **PASS** — Commits `c107b5a` and `3504487` pushed to `origin/main` (HEAD synchronized with remote at SHA `3504487b9273c52e1281dbd9e79308dcfa58bf23`).
-- Cloudflare deployment: **BLOCKED BY CLOUDFLARE_API_TOKEN** — Artifacts (`.open-next/worker.js` and 53 static assets) compiled and verified. `npx wrangler deploy` halted due to missing `CLOUDFLARE_API_TOKEN` in non-interactive environment.
-- Remote production D1: **READ-ONLY CHECKED; PENDING OPERATOR CREDENTIAL PROVISIONING & MIGRATION**. Wrangler unauthenticated in non-interactive environment; `CLOUDFLARE_API_TOKEN` and remote migration execution pending operator action.
-- Public UX defects reported by owner: **RESOLVED & VERIFIED**. Authoritative location store `lib/location-store.ts` defaults strictly to `null` (All India). No forced Bhopal preselection. Duplicate lower city selector removed. "Start a Pool" community proposal flow rewritten with canonical 28-state directory, existing pool checks, and review disclosures.
-- Launch verdict: **READY FOR LOCAL/STAGING OPERATOR VERIFICATION. Production credential rotation REQUIRED before public launch.**
+- Product specification v7.3.0 (Simple MVP Shared-Pool Specification): **IMPLEMENTED & VERIFIED LOCALLY**; living as-built record and verification ledger updated in this permanent master.
+- Shared-Pool Contract: **PASS** — ONE pool ID = ONE shared cohort, ONE global active count (max 10), ONE global FIFO waitlist (max 5) across all city visibility labels. Fixed 25 launch cities configured. Public join is frictionless and login-free. Pool requests accept free-text requirements from anywhere in India without mandatory category.
+- Approval & Archive Fixes: **PASS** — Admin request conversion fixed with optional category, multi-city visibility mappings in `pool_cities`, and atomic D1 batch. Safe request archive implemented via `DELETE /api/admin/pool-requests/[id]` (`is_archived = 1, status = 'ARCHIVED'`). Admin FIFO promotion implemented via `POST /api/admin/pools/[id]/promote-next`.
+- Local tests/build: **PASS** — **122 tests passing across 41 test suites, 0 failing** (including dedicated `lib/__tests__/v73-shared-pool.test.ts`), `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, `npm run build` (45 pages compiled) exit 0, and `npm run build:worker` (`.open-next/worker.js`) exit 0.
+- Local D1 persistence: **PASS & VERIFIED ON REAL DISK** with migration `0003_v73_shared_pool_cities.sql` applied locally. Real E2E Journeys A, B, C, D executed live on local Cloudflare Worker (`http://127.0.0.1:8787`).
+- Test Data Cleanup: **PASS** — All synthetic test records removed; verified exact 9 baseline requests, 10 operational cities, and 8 categories preserved intact.
+- Cloudflare deployment: **BLOCKED ON WRANGLER LOGIN / CLOUDFLARE_API_TOKEN** — Worker artifact (`.open-next/worker.js`) compiled and verified. Deployment gate halted in headless environment; operator action required.
+- Launch verdict: **READY FOR LOCAL/STAGING OPERATOR VERIFICATION. Remote migration & production deployment gated on operator authentication.**
 
 ## 30.4 Append-only change history
 
@@ -2994,6 +2993,7 @@ The following items are **reports from the owner/agent/audit, not a fresh indepe
 | 6.0.0 / 28 Oct 2026 | Full-system implementation of v6.0: All-India discovery redesign, unified LocationStore, nationwide Solar rollout across 28 states & 8 UTs, fee guardrails, Admin city harmonization, and test regression suite. | Local verification PASS: 109 tests, lint 0 errors, tsc 0 errors, Next build 35 routes PASS, OpenNext worker PASS. Git commit c107b5a created. |
 | 6.0.0 / 28 Oct 2026 | Post-implementation blocker verification: resolved local D1 unmigrated schema; applied migrations 0001 & 0002; eliminated all missing table build errors; verified real disk SQLite persistence with 114 tests; confirmed remote read-only unauthenticated state. | Local verification PASS: 114 tests across 40 suites, 45 routes compiled, .open-next/worker.js created. Remote deployment pending operator authentication. |
 | 6.0.0 / 28 Oct 2026 | Git push to origin/main (commits c107b5a & 3504487). Cloudflare deployment attempted via `npx wrangler deploy`; halted closed due to missing `CLOUDFLARE_API_TOKEN` in non-interactive runner. | Git push PASS (origin/main synchronized). Wrangler deployment BLOCKED on authentication token. |
+| 7.3.0 / 28 Oct 2026 | Simple MVP Shared-Pool implementation: ONE pool ID = ONE shared cohort across all city visibility labels. Fixed 25 launch cities. Login-free public join. Free-text pool request from any town. Admin conversion with optional category and multi-city labels. Admin FIFO promote next. Request soft-archive. Live E2E Journeys A, B, C, D verified. Test data cleaned with baseline preserved. | Local verification PASS: 122 tests across 41 suites, lint 0, tsc 0, build 45 routes PASS, worker build PASS, E2E worker PASS. Remote deploy BLOCKED on wrangler login. |
 
 ## 30.5 Required update rule
 
@@ -3189,7 +3189,50 @@ At the end of every implementation phase, update this section in the same change
   - `npm run build:worker`: **PASS** (OpenNext Cloudflare bundle created at `.open-next/worker.js`).
 - **Status:** **PASS (READY TO COMMIT, PUSH & DEPLOY)**
 
-## 30.7 Acceptance Criteria Checklist (v6.0.0)
+
+### Phase 14 — Simple MVP v7.3.0 Shared Pool Model, Multi-City Visibility & Full E2E Verification
+- **Timestamp (UTC):** 2026-10-28 07:30:00 UTC
+- **Specification:** Simple MVP v7.3.0 Shared-Pool Contract (`POOLBUY_FINAL_SIMPLE_MVP_SHARED_POOL_v7.3.md`).
+- **Core Product Architecture:**
+  - **Shared Pool Model:** ONE pool ID = ONE shared cohort, ONE global active count (capacity 10), ONE global FIFO waitlist (max 5) across all city visibility labels. City does NOT split membership counts or waitlists.
+  - **Fixed 25 Launch Cities:** Delhi, Mumbai, Bengaluru, Hyderabad, Chennai, Kolkata, Pune, Ahmedabad, Surat, Jaipur, Lucknow, Kanpur, Nagpur, Indore, Bhopal, Patna, Vadodara, Coimbatore, Kochi, Ludhiana, Chandigarh, Gurugram, Noida, Visakhapatnam, Bhubaneswar maintained canonically in `LAUNCH_CITIES` (`lib/constants.ts`).
+  - **Public Join Flow:** Frictionless login-free interest form (Name, 10-digit Indian mobile/WhatsApp, explicit contact consent). Zero customer login, registration, OTP, password, category selector, or payment.
+  - **Pool Request Flow:** Free-text need (e.g. "2 kW rooftop solar for my home"), name, mobile, consent, optional city/state text. Accepted from anywhere in India. Saves PENDING request; never auto-creates a live pool.
+  - **Admin Workflow:**
+    - Manual review converts pending request to ONE pool with optional internal category and multi-city visibility labels (Delhi, Mumbai, Pune, etc.). Explicit `Create & Publish` vs `Save Draft`.
+    - Safe request archive implemented via `DELETE /api/admin/pool-requests/[id]` (`is_archived = 1, status = 'ARCHIVED'`).
+    - Admin FIFO Promote Next (`POST /api/admin/pools/[id]/promote-next`) atomically promotes sequence 1 waitlisted member when active count < 10.
+- **Database Schema Migration:**
+  - Created `migrations/d1/0003_v73_shared_pool_cities.sql` and applied locally to disk D1 SQLite:
+    - `pool_cities(id, pool_id, city_code, city_name, is_enabled, created_at, updated_at)` with unique constraint `(pool_id, city_code)`.
+    - Added `category_slug`, `internal_category_id` to `pools`.
+    - Added `is_archived`, `archived_at`, `city_text`, `state_text` to `pool_requests`.
+- **Automated Verification Gates:**
+  - `npm test`: **PASS** (122/122 tests passed across 41 test suites in 1.48s, 0 failures), including dedicated suite `lib/__tests__/v73-shared-pool.test.ts` (8/8 passed).
+  - `npm run lint`: **PASS** (0 errors, 0 warnings).
+  - `npx tsc --noEmit`: **PASS** (0 diagnostic errors).
+  - `npm run build`: **PASS** (Turbopack, Next.js 16.4.3, 45 routes compiled).
+  - `npm run build:worker`: **PASS** (OpenNext Cloudflare bundle created at `.open-next/worker.js`).
+- **Live Local Worker E2E Acceptance (Journeys A-D):**
+  - Worker started via `npx wrangler dev --port 8787 --ip 127.0.0.1` with local Miniflare D1.
+  - **Journey A (Public UX & Request Submission):** Homepage loaded HTTP 200 OK; submitted free-text pool request from Baraut, UP; saved as PENDING in real D1 with `isDemo: false`.
+  - **Journey B (Admin Authentication & Conversion):** Admin session authenticated; verified pending request; converted to pool with multi-city labels (Delhi, Mumbai, Pune); verified master pool created with global 0/10 active count.
+  - **Journey C (Capacity, FIFO Waitlist, Full 409 & Promotion):**
+    - Joins 1 to 10 successfully claimed active spots (active count 10/10).
+    - Joins 11 to 15 placed on FIFO waitlist (sequences 1 to 5).
+    - 16th join truthfully rejected with HTTP 409 `POOL_AND_WAITLIST_FULL` and zero database row created.
+    - Duplicate normalized phone join returned `alreadyJoined: true` without incrementing count.
+    - Admin excluded Member 1 (active count dropped to 9/10).
+    - Admin triggered Promote Next: oldest waiting member (seq 1) promoted to active Buyer #10; active restored to 10/10, waitlist reduced to 4/5.
+  - **Journey D (Safe Archive):** Soft-archived request via `DELETE /api/admin/pool-requests/[id]`; record preserved in D1 with `is_archived = 1, status = 'ARCHIVED'`.
+- **Test Data Cleanup:**
+  - Cleaned all synthetic test records using exact IDs.
+  - Post-cleanup audit confirmed exactly 9 baseline requests, 10 operational cities, 8 categories, 0 pools, 0 leads, 0 waitlist preserved in disk D1 SQLite.
+- **Cloudflare Deployment Gate:**
+  - `npx wrangler whoami` reports unauthenticated runner state. Production deployment gate marked **BLOCKED** pending operator credentials.
+- **Status:** **PASS (READY FOR GIT PUSH & OPERATOR PRODUCTION STAGING/DEPLOYMENT)**
+
+## 30.7 Acceptance Criteria Checklist (v7.3.0 Simple MVP)
 
 - [x] Canonical documentation consolidated in root `MASTER_BLUEPRINT.md` (v6.0.0). Legacy specs archived.
 - [x] Product model is product-neutral; Solar is initial rollout; future products supported.

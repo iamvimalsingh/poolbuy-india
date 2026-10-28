@@ -45,7 +45,8 @@ export type PoolRequestStatus =
   | 'REVIEWING'
   | 'APPROVED'
   | 'REJECTED'
-  | 'NEEDS_INFO';
+  | 'NEEDS_INFO'
+  | 'ARCHIVED';
 
 export type PoolRequestType = 'GROUP_PROPOSAL' | 'PRODUCT_SUGGESTION';
 
@@ -345,6 +346,9 @@ export interface PublicPool {
   savingsDisplayApproved?: boolean;
   sourceRequestId?: string | null;
   maxWaitlistSize?: number;
+  cityLabels?: string[];
+  remainingBuyers?: number;
+  waitlistCount?: number;
 }
 
 /** Private server-only shape. Never serialize this to a public page or public API. */
@@ -397,6 +401,8 @@ export interface JoinPoolResult {
   selectedKitTargetBuyers?: number;
   targetReached?: boolean;
   isDemo?: boolean;
+  status?: 'ACTIVE' | 'WAITLISTED';
+  waitlistPosition?: number;
 }
 
 export interface PoolLead {
