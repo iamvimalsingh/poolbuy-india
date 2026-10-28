@@ -118,10 +118,13 @@ describe('Cloudflare D1 End-to-End Database Integration Suite', () => {
     process.env.NEXT_PUBLIC_DEMO_MODE = 'false';
     adapter = createSqliteD1Adapter();
 
-    // Run migration
-    const migrationPath = path.resolve(process.cwd(), 'migrations/d1/0001_initial_schema.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-    adapter.rawDb.exec(sql);
+    // Run all D1 migrations in sequence
+    const migrationsDir = path.resolve(process.cwd(), 'migrations/d1');
+    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      adapter.rawDb.exec(sql);
+    }
 
     setTestD1Database(adapter.d1);
   });
@@ -141,6 +144,7 @@ describe('Cloudflare D1 End-to-End Database Integration Suite', () => {
       'blog_posts',
       'categories',
       'cities',
+      'pool_kit_offers',
       'pool_leads',
       'pool_quotations',
       'pool_requests',

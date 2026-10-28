@@ -129,7 +129,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     },
     {
       question: `Is my registration money at risk?`,
-      answer: `There is zero registration fee to join a pool. You never pay any money on PoolBuy to express interest. When a deal reaches target, only a small refundable token (typically ₹499 to ₹999) on the dealer's secure gateway is requested to reserve your unit.`,
+      answer: `There is zero registration fee to join a pool. You never pay any money on GroupBuying to express interest. When a pool reaches its target and a verified supplier quotation is approved, an agreed coordination service fee (calculated as max(0.10% × purchase value, ₹99)) is disclosed before connection. Product payment is made directly to the authorized supplier.`,
     },
   ];
 

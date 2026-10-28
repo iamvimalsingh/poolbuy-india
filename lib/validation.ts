@@ -265,8 +265,18 @@ export const joinPoolSchema = z
     vendorShareConsent: z.boolean().default(false),
     locality: z.string().trim().max(100).optional(),
     pinCode: z.string().trim().max(10).optional(),
+    connectionPreference: z.enum(['WHATSAPP_GROUP', 'INDIVIDUAL_INTRO']).default('INDIVIDUAL_INTRO'),
+    groupPrivacyAcknowledged: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
+    if (data.connectionPreference === 'WHATSAPP_GROUP' && !data.groupPrivacyAcknowledged) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please acknowledge that other members in the WhatsApp group will be able to see your phone number, or choose individual introduction.',
+        path: ['groupPrivacyAcknowledged'],
+      });
+    }
+
     if (!data.hasExistingQuote && data.existingQuoteAmount !== null && data.existingQuoteAmount !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

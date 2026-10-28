@@ -4,6 +4,58 @@ import { MOCK_POOLS } from './mock-data';
 import { getD1Database, requireD1Database } from './d1/db';
 import { CATEGORY_SLUG_MAP } from './constants';
 
+
+interface D1KitOfferRow {
+  id: string;
+  pool_id: string;
+  name: string;
+  sku: string;
+  brand: string;
+  model: string;
+  inclusions: string | null;
+  exclusions: string | null;
+  warranty: string;
+  market_price: number;
+  group_price: number;
+  subsidy_estimate: number | null;
+  subsidy_disclaimer: string | null;
+  target_buyers: number;
+  current_buyers: number;
+  is_available: number;
+  sort_order: number;
+}
+
+function mapRowToKitOffer(row: D1KitOfferRow) {
+  let inclusions: string[] = [];
+  let exclusions: string[] = [];
+  try {
+    if (row.inclusions) inclusions = JSON.parse(row.inclusions);
+  } catch {}
+  try {
+    if (row.exclusions) exclusions = JSON.parse(row.exclusions);
+  } catch {}
+
+  return {
+    id: row.id,
+    poolId: row.pool_id,
+    name: row.name,
+    sku: row.sku,
+    brand: row.brand,
+    model: row.model,
+    inclusions,
+    exclusions,
+    warranty: row.warranty,
+    marketPrice: Number(row.market_price),
+    groupPrice: Number(row.group_price),
+    subsidyEstimate: row.subsidy_estimate !== null ? Number(row.subsidy_estimate) : null,
+    subsidyDisclaimer: row.subsidy_disclaimer,
+    targetBuyers: Number(row.target_buyers),
+    currentBuyers: Number(row.current_buyers),
+    isAvailable: Boolean(row.is_available),
+    sortOrder: Number(row.sort_order),
+  };
+}
+
 interface D1PoolRow {
   id: string;
   slug: string;
@@ -43,6 +95,7 @@ interface D1PoolRow {
   connection_status: string;
   payment_config_state?: string;
   source_request_id: string | null;
+  max_waitlist_size?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +130,7 @@ function mapRowToPublicPool(row: D1PoolRow): PublicPool {
     connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as PublicPool['connectionStatus'],
     savingsDisplayApproved: Boolean(row.savings_display_approved),
     sourceRequestId: row.source_request_id || null,
+    maxWaitlistSize: row.max_waitlist_size !== null && row.max_waitlist_size !== undefined ? Number(row.max_waitlist_size) : undefined,
   };
 }
 
@@ -252,7 +306,17 @@ export async function getPublicPoolBySlug(
       .first<D1PoolRow>();
 
     if (!row) return null;
-    return mapRowToPublicPool(row);
+    const pool = mapRowToPublicPool(row);
+    try {
+      const { results: kitRows } = await db
+        .prepare('SELECT * FROM pool_kit_offers WHERE pool_id = ? AND is_available = 1 ORDER BY sort_order ASC, name ASC')
+        .bind(pool.id)
+        .all<D1KitOfferRow>();
+      if (kitRows && kitRows.length > 0) {
+        pool.kitOffers = kitRows.map(mapRowToKitOffer);
+      }
+    } catch {}
+    return pool;
   } catch (error: unknown) {
     console.error('Error fetching pool by slug from D1:', error);
     return null;
@@ -282,7 +346,17 @@ export async function getPublicPoolById(id: string): Promise<PublicPool | null> 
       .first<D1PoolRow>();
 
     if (!row) return null;
-    return mapRowToPublicPool(row);
+    const pool = mapRowToPublicPool(row);
+    try {
+      const { results: kitRows } = await db
+        .prepare('SELECT * FROM pool_kit_offers WHERE pool_id = ? AND is_available = 1 ORDER BY sort_order ASC, name ASC')
+        .bind(pool.id)
+        .all<D1KitOfferRow>();
+      if (kitRows && kitRows.length > 0) {
+        pool.kitOffers = kitRows.map(mapRowToKitOffer);
+      }
+    } catch {}
+    return pool;
   } catch (error: unknown) {
     console.error('Error fetching pool by id from D1:', error);
     return null;
@@ -319,7 +393,7 @@ export async function executeJoinPool(
 
   // 2. Check existing membership idempotently
   const existingLead = await db
-    .prepare('SELECT * FROM pool_leads WHERE pool_id = ? AND whatsapp_number = ?')
+    .prepare("SELECT id, buyer_number, member_connection_status FROM pool_leads WHERE pool_id = ? AND whatsapp_number = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
     .bind(poolId, input.whatsappNumber)
     .first<{
       id: string;
@@ -393,6 +467,18 @@ export async function executeJoinPool(
   const targetBuyers = updatedPool?.target_buyers || pool.target_buyers;
   const leadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+  // 4b. Resolve kit offer name if selected
+  let selectedKitName: string | null = null;
+  if (input.selectedKitOfferId) {
+    try {
+      const kitRow = await db
+        .prepare('SELECT name FROM pool_kit_offers WHERE id = ? AND pool_id = ?')
+        .bind(input.selectedKitOfferId, poolId)
+        .first<{ name: string }>();
+      if (kitRow) selectedKitName = kitRow.name;
+    } catch {}
+  }
+
   // 5. Insert new lead
   await db
     .prepare(
@@ -400,13 +486,15 @@ export async function executeJoinPool(
         id, pool_id, buyer_number, full_name, whatsapp_number, city,
         buying_timeline, has_existing_quote, existing_quote_amount,
         extra_message, consent_at, privacy_notice_version,
-        selected_kit_offer_id, selected_kit_name, connection_opt_in,
+        selected_kit_offer_id, selected_kit_name, selected_variant_id, selected_variant_name,
+        connection_opt_in, connection_preference, group_privacy_acknowledged,
         vendor_share_consent, locality, pin_code, status, fee_status,
         member_connection_status, created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?,
-        ?, ?, '2026-10-V3',
+        ?, ?, '2026-10-V4',
+        ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, 'NEW', 'NOT_REQUESTED',
         'NOT_READY', ?, ?
@@ -425,8 +513,12 @@ export async function executeJoinPool(
       input.extraMessage?.trim() || '',
       now,
       input.selectedKitOfferId || null,
-      null,
+      selectedKitName,
+      input.selectedKitOfferId || null,
+      selectedKitName,
       input.connectionOptIn ? 1 : 0,
+      input.connectionPreference || 'WHATSAPP_GROUP',
+      input.groupPrivacyAcknowledged ? 1 : 0,
       input.vendorShareConsent ? 1 : 0,
       input.locality?.trim() || null,
       input.pinCode?.trim() || null,
@@ -434,6 +526,16 @@ export async function executeJoinPool(
       now
     )
     .run();
+
+  // Increment kit offer counter if selected
+  if (input.selectedKitOfferId) {
+    try {
+      await db
+        .prepare('UPDATE pool_kit_offers SET current_buyers = current_buyers + 1, updated_at = ? WHERE id = ?')
+        .bind(now, input.selectedKitOfferId)
+        .run();
+    } catch {}
+  }
 
   // 6. Check if target was hit with this join
   if (newBuyerNumber >= targetBuyers) {

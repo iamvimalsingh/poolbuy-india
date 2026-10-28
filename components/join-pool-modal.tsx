@@ -39,6 +39,8 @@ function JoinPoolDialogContent({
   const [hasExistingQuote, setHasExistingQuote] = useState(false);
   const [existingQuoteAmount, setExistingQuoteAmount] = useState<string>('');
   const [extraMessage, setExtraMessage] = useState('');
+  const [connectionPreference, setConnectionPreference] = useState<'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO'>('WHATSAPP_GROUP');
+  const [groupPrivacyAcknowledged, setGroupPrivacyAcknowledged] = useState(false);
 
   const isPoolFull = pool.currentBuyers >= pool.targetBuyers;
 
@@ -53,6 +55,11 @@ function JoinPoolDialogContent({
 
     if (!consentToContact) {
       setErrorMessage('Please consent to receiving WhatsApp updates about this group.');
+      return;
+    }
+
+    if (connectionPreference === 'WHATSAPP_GROUP' && !groupPrivacyAcknowledged) {
+      setErrorMessage('Please acknowledge that group members will see your phone number in WhatsApp, or choose 1-on-1 Introduction.');
       return;
     }
 
@@ -91,6 +98,8 @@ function JoinPoolDialogContent({
       connectionOptIn,
       vendorShareConsent: connectionOptIn,
       locality: locality.trim() || undefined,
+      connectionPreference,
+      groupPrivacyAcknowledged: connectionPreference === 'WHATSAPP_GROUP' ? groupPrivacyAcknowledged : true,
     };
 
     setIsSubmitting(true);
@@ -354,6 +363,66 @@ function JoinPoolDialogContent({
                   <strong>Post-target connection:</strong> When target is reached, invite me to connect and review verified vendor quotations.
                 </span>
               </label>
+            </div>
+
+            {/* Connection Channel Preference */}
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <label className="block text-xs font-semibold text-gray-800">
+                Connection Preference <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <label className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2 ${
+                  connectionPreference === 'WHATSAPP_GROUP'
+                    ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="connectionPreference"
+                    value="WHATSAPP_GROUP"
+                    checked={connectionPreference === 'WHATSAPP_GROUP'}
+                    onChange={() => setConnectionPreference('WHATSAPP_GROUP')}
+                    className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 mt-0.5"
+                  />
+                  <div>
+                    <div className="font-bold text-gray-900">WhatsApp Group</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Direct chat with verified buyers in {pool.city}</div>
+                  </div>
+                </label>
+
+                <label className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2 ${
+                  connectionPreference === 'INDIVIDUAL_INTRO'
+                    ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="connectionPreference"
+                    value="INDIVIDUAL_INTRO"
+                    checked={connectionPreference === 'INDIVIDUAL_INTRO'}
+                    onChange={() => setConnectionPreference('INDIVIDUAL_INTRO')}
+                    className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 mt-0.5"
+                  />
+                  <div>
+                    <div className="font-bold text-gray-900">1-on-1 Introduction</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Private coordinator & dealer intro without group chat</div>
+                  </div>
+                </label>
+              </div>
+
+              {connectionPreference === 'WHATSAPP_GROUP' && (
+                <label className="flex items-start gap-2.5 cursor-pointer select-none bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={groupPrivacyAcknowledged}
+                    onChange={(e) => setGroupPrivacyAcknowledged(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 border-amber-300"
+                  />
+                  <span className="text-[11px] text-amber-900 leading-relaxed">
+                    <strong>Privacy Notice:</strong> I understand that other members in the WhatsApp group will be able to see my mobile number. <span className="text-rose-500">*</span>
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Collapsible Additional Preferences (Optional) */}

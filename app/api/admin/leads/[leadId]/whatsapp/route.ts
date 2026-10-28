@@ -73,8 +73,8 @@ export async function POST(
     let cityName = 'Bhopal';
     let targetBuyers = 10;
     let deadline = new Date(Date.now() + 14 * 86400000).toISOString();
-    let groupPrice = 130000;
-    let feeBasis = 130000;
+    let groupPrice = 0;
+    let feeBasis = 0;
     let buyerNumber = 1;
     let pool: AdminPool | null = null;
 
@@ -109,8 +109,8 @@ export async function POST(
       if (pool) {
         targetBuyers = pool.targetBuyers;
         deadline = pool.deadline;
-        groupPrice = pool.groupPrice || 130000;
-        feeBasis = pool.groupPrice || pool.marketPrice || 130000;
+        groupPrice = pool.groupPrice || pool.marketPrice || 0;
+        feeBasis = pool.groupPrice || pool.marketPrice || 0;
       }
 
       // Record link generated status
@@ -169,8 +169,8 @@ export async function POST(
         poolName = String(leadData.p_name || '');
         targetBuyers = Number(leadData.p_target_buyers || 10);
         deadline = String(leadData.p_deadline || '');
-        groupPrice = Number(leadData.p_group_price || 130000);
-        feeBasis = Number(leadData.p_group_price || leadData.p_market_price || 130000);
+        groupPrice = Number(leadData.p_group_price || leadData.p_market_price || 0);
+        feeBasis = Number(leadData.p_group_price || leadData.p_market_price || 0);
         pool = {
           id: String(leadData.p_id),
           slug: String(leadData.p_slug),
@@ -215,7 +215,20 @@ export async function POST(
         .run();
     }
 
-    let messageText = '';
+    if (templateType === 'CONNECTION_FEE_DISCLOSURE' && (!feeBasis || feeBasis <= 0)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'FEE_BASIS_REQUIRED',
+            message: 'Connection fee disclosure requires an approved group quotation or price basis set on the pool.',
+          },
+        },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+        let messageText = '';
 
     switch (templateType) {
       case 'UNLOCKED_TOKEN': {

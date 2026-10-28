@@ -344,6 +344,7 @@ export interface PublicPool {
   connectionStatus?: ConnectionStatus;
   savingsDisplayApproved?: boolean;
   sourceRequestId?: string | null;
+  maxWaitlistSize?: number;
 }
 
 /** Private server-only shape. Never serialize this to a public page or public API. */
@@ -379,6 +380,8 @@ export interface JoinPoolInput {
   vendorShareConsent?: boolean;
   locality?: string;
   pinCode?: string;
+  connectionPreference?: 'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO';
+  groupPrivacyAcknowledged?: boolean;
 }
 
 export interface JoinPoolResult {
@@ -424,6 +427,8 @@ export interface PoolLead {
   adminNotes?: string | null;
   doNotContact?: boolean;
   contactPreference?: string;
+  connectionPreference?: 'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO';
+  groupPrivacyAcknowledged?: boolean;
   // Stage 3 Member Operations Additions
   quoteResponse?: MemberQuoteResponse;
   quoteResponseNotes?: string | null;

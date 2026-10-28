@@ -86,6 +86,24 @@ export async function PATCH(
         .prepare('UPDATE pool_quotations SET is_current_published = 0, updated_at = ? WHERE pool_id = ?')
         .bind(now, poolId)
         .run();
+
+      const effectivePrice = updates.quotedAmount !== undefined ? updates.quotedAmount : existing.quoted_amount;
+      const effectiveVendor = existing.vendor_name;
+
+      // Atomically synchronize pool pricing fields
+      await db
+        .prepare(`
+          UPDATE pools
+          SET group_price = ?,
+              group_price_type = 'VENDOR_QUOTED',
+              price_is_verified = 1,
+              price_verified_at = ?,
+              dealer_name = ?,
+              updated_at = ?
+          WHERE id = ?
+        `)
+        .bind(effectivePrice, now, effectiveVendor, now, poolId)
+        .run();
     }
 
     const setClauses: string[] = ['updated_at = ?'];

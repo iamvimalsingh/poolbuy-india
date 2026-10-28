@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { joinPoolSchema } from '@/lib/validation';
 import { executeJoinPool, getPublicPoolById } from '@/lib/pools';
 import { isDemoMode } from '@/lib/data-mode';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { MOCK_POOLS, recordDemoLead } from '@/lib/mock-data';
 import { ApiResponse, JoinPoolResult, JoinPoolInput } from '@/types';
 
@@ -15,6 +16,28 @@ export async function POST(
   context: RouteContext
 ): Promise<NextResponse<ApiResponse<JoinPoolResult>>> {
   try {
+    // Rate limiting: 15 joins per 60s per client IP
+    const clientIp = getClientIp(request);
+    const rateCheck = checkRateLimit(`join-pool:${clientIp}`, 15, 60_000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many join requests. Please wait a minute before trying again.',
+          },
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(rateCheck.resetMs / 1000).toString(),
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
     const { poolId } = await context.params;
 
     if (!poolId || typeof poolId !== 'string') {
@@ -59,6 +82,8 @@ export async function POST(
       vendorShareConsent: validatedInput.vendorShareConsent,
       locality: validatedInput.locality,
       pinCode: validatedInput.pinCode,
+      connectionPreference: validatedInput.connectionPreference,
+      groupPrivacyAcknowledged: validatedInput.groupPrivacyAcknowledged,
     };
 
     // Handle Mock Mode

@@ -944,7 +944,7 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
 
   // Duplicate check
   const existing = DEMO_LEADS.find(
-    (l) => l.poolId === poolId && l.whatsappNumber === input.whatsappNumber
+    (l) => l.poolId === poolId && l.whatsappNumber === input.whatsappNumber && l.connectionStatus !== 'EXCLUDED'
   );
 
   if (existing) {
@@ -1040,6 +1040,8 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     adminNotes: '',
     doNotContact: false,
     contactPreference: 'WHATSAPP',
+    connectionPreference: input.connectionPreference || 'WHATSAPP_GROUP',
+    groupPrivacyAcknowledged: Boolean(input.groupPrivacyAcknowledged),
   };
 
   DEMO_LEADS.unshift(newLead);
@@ -1380,6 +1382,7 @@ export function promoteDemoWaitlistEntry(waitlistId: string): { lead: PoolLead; 
   const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === entry.poolId);
 
   if (!pool || !adminPool) return null;
+  if (pool.currentBuyers >= pool.targetBuyers) return null;
 
   const now = new Date().toISOString();
   const nextCount = pool.currentBuyers + 1;
@@ -1531,6 +1534,18 @@ export function updateDemoLead(leadId: string, updates: Partial<PoolLead>): Pool
   if (index === -1) return null;
 
   const current = DEMO_LEADS[index];
+
+  if (updates.connectionStatus === 'EXCLUDED' && current.connectionStatus !== 'EXCLUDED') {
+    const pool = MOCK_POOLS.find((p) => p.id === current.poolId);
+    const adminPool = MOCK_ADMIN_POOLS.find((p) => p.id === current.poolId);
+    if (pool) {
+      pool.currentBuyers = Math.max(0, pool.currentBuyers - 1);
+    }
+    if (adminPool) {
+      adminPool.currentBuyers = Math.max(0, adminPool.currentBuyers - 1);
+    }
+  }
+
   const updated: PoolLead = {
     ...current,
     ...updates,

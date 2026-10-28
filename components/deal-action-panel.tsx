@@ -126,7 +126,7 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
                 Deal Unlocked! Target Met
               </div>
               <p className="text-xs text-blue-700 mt-1">
-                Verified dealer terms are active. Registered buyers will receive refundable token payment instructions via official WhatsApp.
+                Verified supplier quotation is active. Registered members will receive connection and coordination instructions via WhatsApp.
               </p>
             </div>
           )}

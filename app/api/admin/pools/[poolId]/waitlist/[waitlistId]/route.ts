@@ -142,7 +142,34 @@ export async function PATCH(
         .bind(poolId)
         .first<{ current_buyers: number; target_buyers: number }>();
 
-      const nextCount = (poolRow?.current_buyers || 0) + 1;
+      if (!poolRow) {
+        return NextResponse.json(
+          { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Pool not found.' } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      const activeLeadsCountRow = await db
+        .prepare("SELECT COUNT(*) as active_count FROM pool_leads WHERE pool_id = ? AND (member_connection_status IS NULL OR member_connection_status != 'EXCLUDED')")
+        .bind(poolId)
+        .first<{ active_count: number }>();
+
+      const activeCount = Number(activeLeadsCountRow?.active_count ?? poolRow.current_buyers);
+
+      if (activeCount >= poolRow.target_buyers) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CAPACITY_REACHED',
+              message: `Cannot promote waitlist entry. Pool capacity target (${poolRow.target_buyers}) is already full with active members. Exclude an existing member first.`,
+            },
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      const nextCount = activeCount + 1;
       const newLeadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
       // Execute promotional transaction batch

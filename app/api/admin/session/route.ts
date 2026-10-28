@@ -7,8 +7,30 @@ import {
   isAdminConfigured,
 } from '@/lib/admin-auth';
 import { validateCsrfOrigin } from '@/lib/require-admin';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Rate limiting: 5 attempts per 60s per client IP
+  const clientIp = getClientIp(request);
+  const rateCheck = checkRateLimit(`admin-login:${clientIp}`, 5, 60_000);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'Too many authentication attempts. Please wait 60 seconds.',
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil(rateCheck.resetMs / 1000).toString(),
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
+  }
   // CSRF Origin validation
   if (!validateCsrfOrigin(request)) {
     return NextResponse.json(

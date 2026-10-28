@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { joinPoolSchema } from '@/lib/validation';
 import { isDemoMode } from '@/lib/data-mode';
-import { MOCK_POOLS, addDemoWaitlistEntry } from '@/lib/mock-data';
+import { MOCK_POOLS, addDemoWaitlistEntry, getDemoWaitlist } from '@/lib/mock-data';
 import { requireD1Database } from '@/lib/d1/db';
 
 type RouteContext = {
@@ -41,6 +41,20 @@ export async function POST(
         );
       }
 
+      const existingWaitlist = (getDemoWaitlist(poolId) || []).filter(
+        (w) => w.status === 'WAITING' || w.status === 'INVITED'
+      );
+      const maxWl = pool.maxWaitlistSize ?? 20;
+      if (existingWaitlist.length >= maxWl) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: { code: 'WAITLIST_FULL', message: 'Waitlist is currently full for this group.' },
+          },
+          { status: 400 }
+        );
+      }
+
       const entry = addDemoWaitlistEntry(poolId, {
         fullName: input.fullName,
         whatsappNumber: input.whatsappNumber,
@@ -70,9 +84,33 @@ export async function POST(
 
     // Check pool existence
     const pool = await db
-      .prepare('SELECT id, name FROM pools WHERE id = ? AND deleted_at IS NULL')
+      .prepare('SELECT id, name, max_waitlist_size FROM pools WHERE id = ? AND deleted_at IS NULL')
       .bind(poolId)
-      .first<{ id: string; name: string }>();
+      .first<{ id: string; name: string; max_waitlist_size?: number | null }>();
+
+    if (!pool) {
+      return NextResponse.json(
+        { success: false, error: { code: 'POOL_NOT_FOUND', message: 'Pool not found.' } },
+        { status: 404 }
+      );
+    }
+
+    // Capacity limit check
+    const activeWaitlistCount = await db
+      .prepare("SELECT COUNT(*) as total FROM pool_waitlist WHERE pool_id = ? AND status IN ('WAITING', 'INVITED')")
+      .bind(poolId)
+      .first<{ total: number }>();
+
+    const maxWaitlist = pool.max_waitlist_size ?? 20;
+    if (activeWaitlistCount && activeWaitlistCount.total >= maxWaitlist) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: 'WAITLIST_FULL', message: 'Waitlist is currently full for this group.' },
+        },
+        { status: 400 }
+      );
+    }
 
     if (!pool) {
       return NextResponse.json(

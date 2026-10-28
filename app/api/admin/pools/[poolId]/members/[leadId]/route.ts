@@ -111,9 +111,9 @@ export async function PATCH(
     const db = await requireD1Database();
 
     const existing = await db
-      .prepare('SELECT buyer_number, full_name FROM pool_leads WHERE id = ? AND pool_id = ?')
+      .prepare('SELECT buyer_number, full_name, member_connection_status, selected_kit_offer_id, selected_variant_id FROM pool_leads WHERE id = ? AND pool_id = ?')
       .bind(leadId, poolId)
-      .first<{ buyer_number: number; full_name: string }>();
+      .first<{ buyer_number: number; full_name: string; member_connection_status?: string | null; selected_kit_offer_id?: string | null; selected_variant_id?: string | null }>();
 
     if (!existing) {
       return NextResponse.json(
@@ -184,6 +184,23 @@ export async function PATCH(
       .prepare(`UPDATE pool_leads SET ${setClauses.join(', ')} WHERE id = ? AND pool_id = ?`)
       .bind(...values)
       .run();
+
+    if (enrichedUpdates.connectionStatus === 'EXCLUDED' && existing.member_connection_status !== 'EXCLUDED') {
+      await db
+        .prepare('UPDATE pools SET current_buyers = MAX(0, current_buyers - 1), updated_at = ? WHERE id = ?')
+        .bind(now, poolId)
+        .run();
+
+      const kitId = existing.selected_kit_offer_id || existing.selected_variant_id;
+      if (kitId) {
+        try {
+          await db
+            .prepare('UPDATE pool_kit_offers SET current_buyers = MAX(0, current_buyers - 1), updated_at = ? WHERE id = ?')
+            .bind(now, kitId)
+            .run();
+        } catch {}
+      }
+    }
 
     const updatedRow = await db
       .prepare('SELECT * FROM pool_leads WHERE id = ? AND pool_id = ?')

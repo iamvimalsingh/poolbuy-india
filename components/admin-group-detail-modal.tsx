@@ -316,8 +316,8 @@ export function AdminGroupDetailModal({
   };
 
   // Suggested connection fee
-  const approvedBasis = pool.groupPrice || pool.marketPrice || 130000;
-  const suggestedFee = calculateSuggestedConnectionFee(approvedBasis);
+  const approvedBasis = pool.groupPrice || pool.marketPrice || null;
+  const suggestedFee = approvedBasis ? calculateSuggestedConnectionFee(approvedBasis) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-gray-950/60 backdrop-blur-xs overflow-y-auto">
@@ -862,13 +862,13 @@ export function AdminGroupDetailModal({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                     <div className="text-gray-500">Approved Fee Basis</div>
-                    <div className="text-base font-bold text-gray-900 mt-0.5">{formatINR(approvedBasis)}</div>
+                    <div className="text-base font-bold text-gray-900 mt-0.5">{approvedBasis ? formatINR(approvedBasis) : <span className="text-amber-700 text-xs font-semibold">Not Set</span>}</div>
                     <div className="text-[11px] text-gray-400 mt-1">Based on active group quotation</div>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                     <div className="text-gray-500">Suggested Fee ({CURRENT_FEE_RULE_VERSION})</div>
-                    <div className="text-base font-bold text-emerald-700 mt-0.5">{formatINR(suggestedFee)}</div>
+                    <div className="text-base font-bold text-emerald-700 mt-0.5">{suggestedFee !== null ? formatINR(suggestedFee) : <span className="text-amber-700 text-xs font-medium">Fee calculation disabled — set approved quotation basis first</span>}</div>
                     <div className="text-[11px] text-gray-400 mt-1">Formula: max(₹99, 0.10% × basis)</div>
                   </div>
 

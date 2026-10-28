@@ -98,8 +98,8 @@ export default async function DealPage({ params }: DealPageProps) {
         : `The target price is an indicative estimate based on recent high-volume fleet quotations in ${pool.city}. Final dealer pricing is subject to confirmation when the buyer target is reached. We never claim unverified prices as guaranteed.`,
     },
     {
-      question: `When is a token required?`,
-      answer: `A refundable booking token (typically ₹499–₹999) is only requested AFTER the pool reaches the target number of buyers, dealer terms are verified, and the pool is marked UNLOCKED by our operations team. You will receive an official payment link directly to the dealer's secure checkout.`,
+      question: `When is payment or service fee required?`,
+      answer: `Joining the pool is 100% free with zero upfront payment. Only after the pool reaches its target and a verified supplier quotation is confirmed, an agreed coordination fee is calculated as max(0.10% × purchase value, ₹99) and disclosed to you before connecting. Product purchase, invoice, and warranty remain directly between you and the verified supplier.`,
     },
     {
       question: `Who sells and delivers the ${pool.productModel || pool.name}?`,

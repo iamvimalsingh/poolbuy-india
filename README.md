@@ -1,10 +1,10 @@
 # GroupBuying (PoolBuy India) — Operator Runbook & Architecture Documentation
 
 **Document ID:** PBI-DOC-MVP-001  
-**Version:** 3.1.0 (Master V3.1 Specification & Community MVP)  
+**Version:** 4.0.0 (Master V4.0 Blueprint Alignment)
 **Primary Brand:** **GroupBuying** (`https://groupbuying.store`)  
 **Secondary / Historical Identity:** **PoolBuy India**  
-**Target Platform:** Next.js 16.4+ (App Router), React 19, TypeScript, Tailwind CSS v4, Supabase PostgreSQL
+**Target Platform:** Next.js 16.4+ (App Router), React 19, TypeScript, Tailwind CSS v4, Cloudflare Workers + D1 SQLite
 
 ---
 
