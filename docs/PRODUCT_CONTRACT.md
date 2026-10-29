@@ -53,8 +53,8 @@
    - Natural Identity: `(city_slug, slug)`.
    - **Isolated Capacity Invariant:** Different cities, different products, and materially different variants have **completely independent capacities and member counts**. Joining a pool in Pune increments Pune's cohort only; it never leaks into or shares capacity with Mumbai, Bhopal, or Delhi.
    - A campaign may be created across multiple cities, but this generates separate, independent city pool records.
-2. **Canonical 25 Solar Launch Cities:**
-   The 25 canonical launch cities for the initial Solar rollout are:
+2. **Canonical 25 Launch Markets:**
+   The canonical 25 launch markets governing frontend navigation, header location selection, and initial campaign deployment (per Migration `0009_canonical_25_launch_cities.sql` and `lib/constants.ts`) are:
    1. Delhi (`delhi`)
    2. Mumbai (`mumbai`)
    3. Bengaluru (`bengaluru`)
@@ -63,20 +63,31 @@
    6. Kolkata (`kolkata`)
    7. Pune (`pune`)
    8. Ahmedabad (`ahmedabad`)
-   9. Jaipur (`jaipur`)
-   10. Surat (`surat`)
+   9. Surat (`surat`)
+   10. Jaipur (`jaipur`)
    11. Lucknow (`lucknow`)
    12. Kanpur (`kanpur`)
    13. Nagpur (`nagpur`)
    14. Indore (`indore`)
-   15. Thane (`thane`)
-   16. Bhopal (`bhopal`)
-   17. Visakhapatnam (`visakhapatnam`)
-   18. Pimpri-Chinchwad (`pimpri-chinchwad`)
-   19. Patna (`patna`)
-   20. Vadodara (`vadodara`)
-   21. Ghaziabad (`ghaziabad`)
-   22. Ludhiana (`ludhiana`)
-   23. Agra (`agra`)
-   24. Nashik (`nashik`)
-   25. Faridabad (`faridabad`)
+   15. Bhopal (`bhopal`)
+   16. Patna (`patna`)
+   17. Vadodara (`vadodara`)
+   18. Coimbatore (`coimbatore`)
+   19. Kochi (`kochi`)
+   20. Ludhiana (`ludhiana`)
+   21. Chandigarh (`chandigarh`)
+   22. Gurugram (`gurugram`)
+   23. Noida (`noida`)
+   24. Visakhapatnam (`visakhapatnam`)
+   25. Bhubaneswar (`bhubaneswar`)
+
+3. **Operational Extension Cities (Total 28 Operational Hubs):**
+   In addition to the 25 primary launch markets, 3 regional hubs are active in the D1 operational database (seeded in Migration `0001_sturdy_black_widow.sql` and `lib/constants.ts`) and rolled out in master campaigns:
+   26. Delhi NCR (`delhi-ncr`) — Distinct regional slug from Delhi proper (`delhi`)
+   27. Gwalior (`gwalior`) — Regional operational hub
+   28. Jabalpur (`jabalpur`) — Regional operational hub
+
+4. **Directory vs. Operational Distinction:**
+   - **Canonical Launch Markets (25):** Priority commercial hubs featured in header GPS location detection, quick-filter chips, and site footer.
+   - **Operational Directory (28):** All active cities in Cloudflare D1 with live pools, dedicated `/city/[citySlug]` pages, and automatic `/sitemap.xml` entries.
+   - **National Location Directory (180):** 28 States and 8 Union Territories in `INDIA_LOCATION_DIRECTORY` for community demand requests across unserved areas.
