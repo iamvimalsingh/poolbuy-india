@@ -17,6 +17,7 @@ import { requireD1Database } from './d1/db';
 import { slugify } from './format';
 import { getCategoryBySlug } from './categories';
 import { getCityBySlug } from './cities';
+import { LAUNCH_CITIES } from './constants';
 
 interface D1CampaignRow {
   id: string;
@@ -1274,5 +1275,249 @@ export async function deleteCityPool(
     .run();
 
   return { action: 'soft_deleted' };
+}
+
+export interface CityRolloutPreviewItem {
+  citySlug: string;
+  cityName: string;
+  state: string;
+  status: 'READY_TO_CREATE' | 'ALREADY_EXISTS' | 'INACTIVE' | 'NOT_FOUND';
+  existingPoolId?: string;
+  currentBuyers?: number;
+  targetBuyers?: number;
+  poolStatus?: string;
+}
+
+export interface CampaignRolloutPreview {
+  campaignId: string;
+  campaignTitle: string;
+  categorySlug: string;
+  totalCities: number;
+  readyToCreateCount: number;
+  alreadyExistsCount: number;
+  invalidCount: number;
+  cities: CityRolloutPreviewItem[];
+}
+
+export interface CityRolloutResultItem {
+  citySlug: string;
+  cityName: string;
+  status: 'CREATED' | 'ALREADY_EXISTS' | 'FAILED' | 'SKIPPED';
+  poolId?: string;
+  reason: string;
+  currentBuyers?: number;
+}
+
+export interface CampaignRolloutExecutionResult {
+  campaignId: string;
+  campaignTitle: string;
+  totalRequested: number;
+  createdCount: number;
+  existingCount: number;
+  failedCount: number;
+  results: CityRolloutResultItem[];
+}
+
+/**
+ * Previews bulk campaign rollout across canonical 25 launch cities.
+ * Identifies existing compatible pools, missing pools, and conflicts without mutating any data.
+ */
+export async function previewCampaignRollout(
+  campaignId: string,
+  targetCitySlugs?: string[]
+): Promise<CampaignRolloutPreview> {
+  const campaign = await getCampaignById(campaignId);
+  if (!campaign) {
+    throw new Error('CAMPAIGN_NOT_FOUND: Campaign does not exist.');
+  }
+
+  const candidateCities =
+    targetCitySlugs && targetCitySlugs.length > 0
+      ? targetCitySlugs.map((slug) => {
+          const found = LAUNCH_CITIES.find((c) => c.slug === slug);
+          return found || { name: slug, slug, state: 'India' };
+        })
+      : LAUNCH_CITIES;
+
+  const cities: CityRolloutPreviewItem[] = [];
+  let readyToCreateCount = 0;
+  let alreadyExistsCount = 0;
+  let invalidCount = 0;
+
+  for (const target of candidateCities) {
+    const configuredCity = await getCityBySlug(target.slug);
+    if (!configuredCity) {
+      cities.push({
+        citySlug: target.slug,
+        cityName: target.name,
+        state: target.state,
+        status: 'NOT_FOUND',
+      });
+      invalidCount++;
+      continue;
+    }
+
+    if (!configuredCity.isActive) {
+      cities.push({
+        citySlug: target.slug,
+        cityName: target.name,
+        state: target.state,
+        status: 'INACTIVE',
+      });
+      invalidCount++;
+      continue;
+    }
+
+    let existingPool: AdminPool | undefined;
+    if (isDemoMode()) {
+      existingPool = MOCK_ADMIN_POOLS.find(
+        (p) =>
+          (p.campaignId === campaign.id || p.slug === campaign.slug) &&
+          p.citySlug.toLowerCase() === configuredCity.slug.toLowerCase() &&
+          !p.deletedAt
+      );
+    } else {
+      const db = await requireD1Database();
+      const row = await db
+        .prepare('SELECT * FROM pools WHERE campaign_id = ? AND city_slug = ? AND deleted_at IS NULL')
+        .bind(campaign.id, configuredCity.slug)
+        .first<D1AdminPoolRow>();
+      if (row) {
+        existingPool = mapRowToAdminPool(row);
+      }
+    }
+
+    if (existingPool) {
+      cities.push({
+        citySlug: configuredCity.slug,
+        cityName: configuredCity.name,
+        state: configuredCity.state,
+        status: 'ALREADY_EXISTS',
+        existingPoolId: existingPool.id,
+        currentBuyers: existingPool.currentBuyers,
+        targetBuyers: existingPool.targetBuyers,
+        poolStatus: existingPool.status,
+      });
+      alreadyExistsCount++;
+    } else {
+      cities.push({
+        citySlug: configuredCity.slug,
+        cityName: configuredCity.name,
+        state: configuredCity.state,
+        status: 'READY_TO_CREATE',
+        targetBuyers: campaign.defaultTargetBuyers || 10,
+      });
+      readyToCreateCount++;
+    }
+  }
+
+  return {
+    campaignId: campaign.id,
+    campaignTitle: campaign.title,
+    categorySlug: campaign.categorySlug,
+    totalCities: cities.length,
+    readyToCreateCount,
+    alreadyExistsCount,
+    invalidCount,
+    cities,
+  };
+}
+
+/**
+ * Idempotently executes bulk campaign rollout across canonical launch cities.
+ * Creates missing city pools, preserves existing pools without modifying counts,
+ * and returns granular per-city results.
+ */
+export async function executeCampaignRollout(
+  campaignId: string,
+  options?: {
+    citySlugs?: string[];
+    activateOnlyIntended?: boolean;
+  }
+): Promise<CampaignRolloutExecutionResult> {
+  const campaign = await getCampaignById(campaignId);
+  if (!campaign) {
+    throw new Error('CAMPAIGN_NOT_FOUND: Campaign does not exist.');
+  }
+
+  const preview = await previewCampaignRollout(campaignId, options?.citySlugs);
+  const results: CityRolloutResultItem[] = [];
+  let createdCount = 0;
+  let existingCount = 0;
+  let failedCount = 0;
+
+  for (const item of preview.cities) {
+    if (item.status === 'NOT_FOUND') {
+      results.push({
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        status: 'SKIPPED',
+        reason: 'City not configured in operational cities directory.',
+      });
+      failedCount++;
+      continue;
+    }
+
+    if (item.status === 'INACTIVE') {
+      results.push({
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        status: 'SKIPPED',
+        reason: 'City is currently deactivated in cities directory.',
+      });
+      failedCount++;
+      continue;
+    }
+
+    if (item.status === 'ALREADY_EXISTS') {
+      results.push({
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        status: 'ALREADY_EXISTS',
+        poolId: item.existingPoolId,
+        reason: `Active pool already attached to campaign (Capacity: ${item.currentBuyers}/${item.targetBuyers}). Preserved unchanged.`,
+        currentBuyers: item.currentBuyers,
+      });
+      existingCount++;
+      continue;
+    }
+
+    try {
+      const createdPool = await addCityToCampaign(campaignId, {
+        cityName: item.cityName,
+        citySlug: item.citySlug,
+        targetBuyers: campaign.defaultTargetBuyers || 10,
+      });
+
+      results.push({
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        status: 'CREATED',
+        poolId: createdPool.id,
+        reason: 'Successfully created independent city pool under campaign.',
+        currentBuyers: 0,
+      });
+      createdCount++;
+    } catch (createErr: unknown) {
+      const msg = createErr instanceof Error ? createErr.message : 'Creation failed';
+      results.push({
+        citySlug: item.citySlug,
+        cityName: item.cityName,
+        status: 'FAILED',
+        reason: msg,
+      });
+      failedCount++;
+    }
+  }
+
+  return {
+    campaignId: campaign.id,
+    campaignTitle: campaign.title,
+    totalRequested: preview.totalCities,
+    createdCount,
+    existingCount,
+    failedCount,
+    results,
+  };
 }
 

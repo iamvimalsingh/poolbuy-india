@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   PauseCircle,
   PlayCircle,
+  Rocket,
 } from 'lucide-react';
 import { Campaign, AdminPool, Category, City, PoolStatus, CampaignStatus } from '@/types';
 import { formatINR } from '@/lib/format';
@@ -428,6 +429,95 @@ export function AdminCampaignsTab() {
   };
 
   // --------------------------------------------------------------------------
+  // CANONICAL 25-CITY BULK ROLLOUT WORKFLOW
+  // --------------------------------------------------------------------------
+  const [rolloutCampaign, setRolloutCampaign] = useState<Campaign | null>(null);
+  const [rolloutPreview, setRolloutPreview] = useState<{
+    campaignId: string;
+    campaignTitle: string;
+    totalCities: number;
+    readyToCreateCount: number;
+    alreadyExistsCount: number;
+    invalidCount: number;
+    cities: {
+      citySlug: string;
+      cityName: string;
+      state: string;
+      status: 'READY_TO_CREATE' | 'ALREADY_EXISTS' | 'INACTIVE' | 'NOT_FOUND';
+      existingPoolId?: string;
+      currentBuyers?: number;
+      targetBuyers?: number;
+      poolStatus?: string;
+    }[];
+  } | null>(null);
+  const [isLoadingRollout, setIsLoadingRollout] = useState(false);
+  const [isExecutingRollout, setIsExecutingRollout] = useState(false);
+  const [rolloutResult, setRolloutResult] = useState<{
+    campaignId: string;
+    campaignTitle: string;
+    totalRequested: number;
+    createdCount: number;
+    existingCount: number;
+    failedCount: number;
+    results: {
+      citySlug: string;
+      cityName: string;
+      status: 'CREATED' | 'ALREADY_EXISTS' | 'FAILED' | 'SKIPPED';
+      poolId?: string;
+      reason: string;
+      currentBuyers?: number;
+    }[];
+  } | null>(null);
+
+  const handleOpenRollout = async (campaign: Campaign) => {
+    setRolloutCampaign(campaign);
+    setRolloutResult(null);
+    setRolloutPreview(null);
+    setIsLoadingRollout(true);
+    try {
+      const res = await fetch(`/api/admin/campaigns/${campaign.id}/rollout`);
+      const json = await res.json();
+      if (json.success) {
+        setRolloutPreview(json.data);
+      } else {
+        throw new Error(json.error?.message || 'Failed to load rollout preview.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Preview error.';
+      setAlertMessage({ type: 'error', text: msg });
+      setRolloutCampaign(null);
+    } finally {
+      setIsLoadingRollout(false);
+    }
+  };
+
+  const handleExecuteRollout = async () => {
+    if (!rolloutCampaign) return;
+    setIsExecutingRollout(true);
+    try {
+      const res = await fetch(`/api/admin/campaigns/${rolloutCampaign.id}/rollout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || 'Failed to execute rollout.');
+      }
+      setRolloutResult(json.data);
+      setAlertMessage({
+        type: 'success',
+        text: `25-City Rollout completed for "${rolloutCampaign.title}": ${json.data.createdCount} created, ${json.data.existingCount} already present!`,
+      });
+      loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Execution error.';
+      setAlertMessage({ type: 'error', text: msg });
+    } finally {
+      setIsExecutingRollout(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // POOL LIFECYCLE & STATUS ACTIONS
   // --------------------------------------------------------------------------
   const handleTogglePoolStatus = async (pool: AdminPool, targetStatus: PoolStatus) => {
@@ -812,6 +902,14 @@ export function AdminCampaignsTab() {
                             className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRollout(camp)}
+                            title="25-City Launch Rollout"
+                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Rocket className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
@@ -1297,17 +1395,31 @@ export function AdminCampaignsTab() {
                     <MapPin className="w-4 h-4 text-emerald-600" />
                     <span>Independent City Pools ({viewCampaign.cityPools?.length || 0})</span>
                   </h4>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewCampaign(null);
-                      handleOpenAddCity(viewCampaign);
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add City Pool</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const camp = viewCampaign;
+                        setViewCampaign(null);
+                        handleOpenRollout(camp);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:underline cursor-pointer"
+                    >
+                      <Rocket className="w-3.5 h-3.5" />
+                      <span>25-City Rollout</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewCampaign(null);
+                        handleOpenAddCity(viewCampaign);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add City Pool</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -1903,6 +2015,151 @@ export function AdminCampaignsTab() {
                   >
                     Hard Delete Pool
                   </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 9: 25-CITY LAUNCH ROLLOUT PREVIEW & EXECUTION MODAL                 */}
+      {/* ========================================================================= */}
+      {rolloutCampaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-gray-200 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
+              <div className="flex items-center gap-2">
+                <Rocket className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">25-City Launch Rollout</h3>
+                  <p className="text-xs text-gray-500">{rolloutCampaign.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isExecutingRollout}
+                onClick={() => {
+                  setRolloutCampaign(null);
+                  setRolloutPreview(null);
+                  setRolloutResult(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isLoadingRollout && (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-gray-500">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                <span>Auditing canonical 25 launch cities and checking existing city pools...</span>
+              </div>
+            )}
+
+            {!isLoadingRollout && rolloutPreview && (
+              <div className="space-y-4">
+                {/* Result banner if executed */}
+                {rolloutResult ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm mb-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Rollout Completed Successfully!</span>
+                    </div>
+                    <div className="text-xs text-emerald-700 flex items-center gap-4 mt-2 font-mono">
+                      <span>✓ {rolloutResult.createdCount} Pools Created</span>
+                      <span>• {rolloutResult.existingCount} Already Active (Untouched)</span>
+                      {rolloutResult.failedCount > 0 && <span>⚠ {rolloutResult.failedCount} Failed/Skipped</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+                    <div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold">Launch Directory</div>
+                      <div className="text-sm font-bold text-slate-900">{rolloutPreview.totalCities} Cities</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold">Ready to Create</div>
+                      <div className="text-sm font-bold text-emerald-600">+{rolloutPreview.readyToCreateCount} Pools</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold">Already Active</div>
+                      <div className="text-sm font-bold text-blue-600">{rolloutPreview.alreadyExistsCount} Pools</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-600">
+                  <p>
+                    {rolloutResult
+                      ? 'Detailed per-city execution outcomes:'
+                      : 'Preview of canonical launch cities. Rerunning this workflow is completely idempotent and never duplicates pools or resets existing buyer counts.'}
+                  </p>
+                </div>
+
+                {/* Cities List */}
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100 text-xs">
+                  {(rolloutResult ? rolloutResult.results : rolloutPreview.cities).map((c) => (
+                    <div key={c.citySlug} className="p-2.5 flex items-center justify-between hover:bg-slate-50">
+                      <div>
+                        <span className="font-bold text-slate-900">{c.cityName}</span>
+                        {'state' in c && <span className="text-gray-400 text-[11px] ml-1.5 font-normal">({c.state})</span>}
+                        {'reason' in c && <div className="text-[10px] text-gray-500 mt-0.5">{c.reason}</div>}
+                      </div>
+                      <div>
+                        {c.status === 'CREATED' && (
+                          <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                            ✓ Created
+                          </span>
+                        )}
+                        {c.status === 'ALREADY_EXISTS' && (
+                          <span className="bg-blue-100 text-blue-800 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                            Active ({'currentBuyers' in c ? c.currentBuyers : 0} buyers)
+                          </span>
+                        )}
+                        {c.status === 'READY_TO_CREATE' && (
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            + Ready to Create
+                          </span>
+                        )}
+                        {(c.status === 'FAILED' || c.status === 'SKIPPED' || c.status === 'INACTIVE' || c.status === 'NOT_FOUND') && (
+                          <span className="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                            {c.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    disabled={isExecutingRollout}
+                    onClick={() => {
+                      setRolloutCampaign(null);
+                      setRolloutPreview(null);
+                      setRolloutResult(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                  >
+                    {rolloutResult ? 'Close' : 'Cancel'}
+                  </button>
+                  {!rolloutResult && (
+                    <button
+                      type="button"
+                      disabled={isExecutingRollout || rolloutPreview.readyToCreateCount === 0}
+                      onClick={handleExecuteRollout}
+                      className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isExecutingRollout && <Loader2 className="w-4 h-4 animate-spin" />}
+                      <span>
+                        {rolloutPreview.readyToCreateCount === 0
+                          ? 'All 25 Cities Already Active'
+                          : `Confirm & Launch (${rolloutPreview.readyToCreateCount} Cities)`}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
