@@ -95,6 +95,9 @@ export async function POST(
       existing_quote: validatedInput.existing_quote ?? null,
       connectionPreference: validatedInput.connectionPreference,
       groupPrivacyAcknowledged: validatedInput.groupPrivacyAcknowledged,
+      userCity: validatedInput.userCity || validatedInput.city,
+      confirmCityMismatch: validatedInput.confirmCityMismatch,
+      confirmCrossCity: validatedInput.confirmCrossCity,
     };
 
     // Handle Mock Mode
@@ -207,6 +210,37 @@ export async function POST(
             error: {
               code: 'POOL_NOT_OPEN',
               message: 'This pool is no longer active or its deadline has expired.',
+            },
+          },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (err.code === 'CITY_MISMATCH' || message.includes('CITY_MISMATCH')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CITY_MISMATCH',
+              message,
+              targetCity: (err as Record<string, unknown>).targetCity as string,
+              userCity: (err as Record<string, unknown>).userCity as string,
+            },
+          },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      if (err.code === 'CROSS_CITY_DUPLICATE_NOTICE' || message.includes('CROSS_CITY_DUPLICATE_NOTICE')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'CROSS_CITY_DUPLICATE_NOTICE',
+              message,
+              existingCity: (err as Record<string, unknown>).existingCity as string,
+              targetCity: (err as Record<string, unknown>).targetCity as string,
+              existingStatus: (err as Record<string, unknown>).existingStatus as string,
             },
           },
           { status: 409, headers: { 'Cache-Control': 'no-store' } }

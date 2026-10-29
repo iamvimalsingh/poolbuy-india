@@ -520,6 +520,84 @@ export async function executeJoinPool(
     };
   }
 
+  // 2b. City mismatch validation: Canonical target pool city must not be silently overridden
+  const targetCityName = pool.city || 'India';
+  const targetCitySlug = pool.city_slug || '';
+  const userCity = (input.userCity || input.city || '').trim();
+  const isCityMismatch =
+    Boolean(userCity) &&
+    userCity.toLowerCase() !== targetCityName.toLowerCase() &&
+    userCity.toLowerCase() !== targetCitySlug.toLowerCase() &&
+    userCity.toLowerCase() !== 'india' &&
+    userCity.toLowerCase() !== 'all';
+
+  if (isCityMismatch && !input.confirmCityMismatch) {
+    const error = new Error(`You are joining the ${targetCityName} pool, not the ${userCity} pool.`);
+    Object.assign(error, {
+      code: 'CITY_MISMATCH',
+      targetCity: targetCityName,
+      userCity,
+    });
+    throw error;
+  }
+
+  // 2c. Cross-city duplicate detection in same category
+  if (!input.confirmCrossCity && pool.category_slug) {
+    const crossCityLead = await db
+      .prepare(
+        `SELECT p.id, p.name, p.city
+         FROM pool_leads pl
+         JOIN pools p ON pl.pool_id = p.id
+         WHERE pl.whatsapp_number = ?
+           AND p.category_slug = ?
+           AND p.id != ?
+           AND (pl.member_connection_status IS NULL OR pl.member_connection_status != 'EXCLUDED')
+         LIMIT 1`
+      )
+      .bind(input.whatsappNumber, pool.category_slug, poolId)
+      .first<{ id: string; name: string; city: string }>();
+
+    if (crossCityLead) {
+      const error = new Error(
+        `You already have an active registration for ${pool.category_slug} in ${crossCityLead.city}. Are you sure you want to register a separate interest in ${targetCityName}?`
+      );
+      Object.assign(error, {
+        code: 'CROSS_CITY_DUPLICATE_NOTICE',
+        existingCity: crossCityLead.city,
+        targetCity: targetCityName,
+        existingStatus: 'CONFIRMED',
+      });
+      throw error;
+    }
+
+    const crossCityWl = await db
+      .prepare(
+        `SELECT p.id, p.name, p.city
+         FROM pool_waitlist pw
+         JOIN pools p ON pw.pool_id = p.id
+         WHERE pw.whatsapp_number = ?
+           AND p.category_slug = ?
+           AND p.id != ?
+           AND pw.status = 'WAITING'
+         LIMIT 1`
+      )
+      .bind(input.whatsappNumber, pool.category_slug, poolId)
+      .first<{ id: string; name: string; city: string }>();
+
+    if (crossCityWl) {
+      const error = new Error(
+        `You are currently on the waitlist for ${pool.category_slug} in ${crossCityWl.city}. Are you sure you want to register a separate interest in ${targetCityName}?`
+      );
+      Object.assign(error, {
+        code: 'CROSS_CITY_DUPLICATE_NOTICE',
+        existingCity: crossCityWl.city,
+        targetCity: targetCityName,
+        existingStatus: 'WAITLISTED',
+      });
+      throw error;
+    }
+  }
+
   // 3. Atomically attempt to claim a spot below target capacity.
   // This statement succeeds only if current_buyers < target_buyers under concurrent executions.
   const incrementRes = await db

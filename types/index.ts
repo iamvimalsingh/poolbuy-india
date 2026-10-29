@@ -450,6 +450,9 @@ export interface JoinPoolInput {
   existing_quote?: string | null;
   connectionPreference?: 'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO';
   groupPrivacyAcknowledged?: boolean;
+  userCity?: string;
+  confirmCityMismatch?: boolean;
+  confirmCrossCity?: boolean;
 }
 
 export interface JoinPoolResult {
@@ -502,6 +505,9 @@ export interface PoolLead {
   contactPreference?: string;
   connectionPreference?: 'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO';
   groupPrivacyAcknowledged?: boolean;
+  userCity?: string;
+  confirmCityMismatch?: boolean;
+  confirmCrossCity?: boolean;
   // Stage 3 Member Operations Additions
   quoteResponse?: MemberQuoteResponse;
   quoteResponseNotes?: string | null;

@@ -290,6 +290,9 @@ export const joinPoolSchema = z
       existingQuote: z.string().max(500).optional().nullable(),
       connectionPreference: z.enum(['WHATSAPP_GROUP', 'INDIVIDUAL_INTRO']).default('INDIVIDUAL_INTRO'),
       groupPrivacyAcknowledged: z.boolean().default(false),
+      userCity: z.string().trim().max(80).optional(),
+      confirmCityMismatch: z.boolean().default(false),
+      confirmCrossCity: z.boolean().default(false),
     })
   )
   .superRefine((data, ctx) => {

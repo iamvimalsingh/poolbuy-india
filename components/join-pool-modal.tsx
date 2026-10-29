@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ShieldCheck, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, ShieldCheck, AlertCircle, Loader2, CheckCircle2, MapPin, AlertTriangle, Info } from 'lucide-react';
 import { PublicPool, JoinPoolInput, JoinPoolResult } from '@/types';
 import { normalizePhone, isValidIndianMobile } from '@/lib/format';
 
@@ -10,6 +10,13 @@ interface JoinPoolModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (result: JoinPoolResult) => void;
+}
+
+interface CrossCityNotice {
+  message: string;
+  existingCity: string;
+  targetCity: string;
+  existingStatus: string;
 }
 
 export function JoinPoolModal({
@@ -23,6 +30,8 @@ export function JoinPoolModal({
 
   const [fullName, setFullName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [userCity, setUserCity] = useState('');
+  const [confirmCityMismatch, setConfirmCityMismatch] = useState(false);
   const [pincode, setPincode] = useState('');
   const [existingQuote, setExistingQuote] = useState('');
   const [extraMessage, setExtraMessage] = useState('');
@@ -30,6 +39,7 @@ export function JoinPoolModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [crossCityNotice, setCrossCityNotice] = useState<CrossCityNotice | null>(null);
   const [result, setResult] = useState<JoinPoolResult | null>(null);
 
   // Close on Escape, click outside, and lock body scroll when open
@@ -57,9 +67,16 @@ export function JoinPoolModal({
 
   const currentActive = pool.currentBuyers ?? 0;
   const isWaitlistMode = currentActive >= 10;
+  const targetCityName = pool.city || 'India';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const isMismatchDetected = Boolean(
+    userCity.trim() &&
+    userCity.trim().toLowerCase() !== targetCityName.toLowerCase() &&
+    userCity.trim().toLowerCase() !== (pool.citySlug || '').toLowerCase()
+  );
+
+  const handleSubmit = async (e?: React.FormEvent, forceCrossCity = false) => {
+    if (e) e.preventDefault();
     setErrorMessage(null);
 
     const trimmedName = fullName.trim();
@@ -80,6 +97,11 @@ export function JoinPoolModal({
       return;
     }
 
+    if (isMismatchDetected && !confirmCityMismatch) {
+      setErrorMessage(`You are joining the ${targetCityName} pool, not the ${userCity.trim()} pool. Please confirm to proceed.`);
+      return;
+    }
+
     if (!consentToContact) {
       setErrorMessage('Please give explicit consent to receive WhatsApp updates.');
       return;
@@ -91,7 +113,10 @@ export function JoinPoolModal({
       const payload: JoinPoolInput = {
         fullName: trimmedName,
         whatsappNumber: normalizedPhone,
-        city: pool.city || 'India',
+        city: targetCityName,
+        userCity: userCity.trim() || targetCityName,
+        confirmCityMismatch: confirmCityMismatch || !isMismatchDetected,
+        confirmCrossCity: forceCrossCity,
         pincode: trimmedPincode,
         pinCode: trimmedPincode,
         existing_quote: existingQuote.trim() || undefined,
@@ -109,17 +134,32 @@ export function JoinPoolModal({
       const data = await res.json();
 
       if (!res.ok || !data.success) {
+        if (data.error?.code === 'CROSS_CITY_DUPLICATE_NOTICE') {
+          setCrossCityNotice({
+            message: data.error.message,
+            existingCity: data.error.existingCity,
+            targetCity: data.error.targetCity || targetCityName,
+            existingStatus: data.error.existingStatus || 'CONFIRMED',
+          });
+          return;
+        }
+
+        if (data.error?.code === 'CITY_MISMATCH') {
+          setErrorMessage(data.error.message || `You are joining the ${targetCityName} pool, not the ${userCity} pool.`);
+          return;
+        }
+
         setErrorMessage(data.error?.message || 'Failed to submit interest. Please try again.');
         return;
       }
 
+      setCrossCityNotice(null);
       setResult(data.data);
       if (onSuccess) {
         onSuccess(data.data);
       }
 
       // Smoothly close the modal after brief visual confirmation (700ms)
-      // allowing the success Toast notification to take focus seamlessly
       autoCloseTimerRef.current = setTimeout(() => {
         handleClose();
       }, 700);
@@ -137,8 +177,11 @@ export function JoinPoolModal({
     }
     setResult(null);
     setErrorMessage(null);
+    setCrossCityNotice(null);
     setFullName('');
     setWhatsappNumber('');
+    setUserCity('');
+    setConfirmCityMismatch(false);
     setPincode('');
     setExistingQuote('');
     setExtraMessage('');
@@ -157,27 +200,32 @@ export function JoinPoolModal({
       aria-modal="true"
       aria-labelledby="join-pool-modal-title"
     >
-      {/* 1. Responsive Drawer/Modal Container (Bottom Sheet on mobile, Centered Modal on desktop) */}
       <div
         ref={modalRef}
         className="w-full md:max-w-md bg-white rounded-t-3xl md:rounded-3xl border-t md:border border-gray-200/90 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-slide-up md:animate-scale-in"
       >
-        {/* 2. Mobile Visual Swipe Indicator */}
+        {/* Mobile Swipe Indicator */}
         <div className="md:hidden pt-3 pb-1 flex justify-center shrink-0">
           <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
         </div>
 
         {/* Scrollable Form Content */}
         <div className="overflow-y-auto p-6 sm:p-8 space-y-5 flex-1">
-          {/* Header */}
+          {/* Header with prominent target city badge */}
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full mb-2">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Free Interest • No Payment</span>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cohort City: <strong>{targetCityName}</strong></span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Free Interest</span>
+                </span>
               </div>
               <h3 id="join-pool-modal-title" className="text-lg font-bold text-gray-950">
-                {isWaitlistMode ? 'Join Shared Waitlist' : 'Join this Pool'}
+                {isWaitlistMode ? `Join ${targetCityName} Waitlist` : `Join Pool (${targetCityName})`}
               </h3>
               <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 font-medium">
                 {pool.name}
@@ -193,8 +241,48 @@ export function JoinPoolModal({
             </button>
           </div>
 
-          {/* Success View */}
-          {result ? (
+          {/* Cross-City Duplicate Notice Interstitial */}
+          {crossCityNotice ? (
+            <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl text-blue-950 space-y-3 animate-scale-in text-xs">
+              <div className="flex items-start gap-2.5">
+                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm text-blue-900">
+                    Existing Registration in {crossCityNotice.existingCity}
+                  </h4>
+                  <p className="mt-1 text-blue-800 leading-relaxed">
+                    {crossCityNotice.message}
+                  </p>
+                  <p className="mt-2 text-slate-600">
+                    Your previous registration in <strong>{crossCityNotice.existingCity}</strong> will remain active and counted. Joining here creates a separate, independent interest in <strong>{targetCityName}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-blue-100">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleSubmit(undefined, true)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>Confirm &amp; Join {targetCityName}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCrossCityNotice(null)}
+                  className="py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 transition-colors cursor-pointer text-center"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : result ? (
+            /* Success View */
             <div className="text-center py-6 space-y-4 animate-scale-in">
               <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
                 <CheckCircle2 className="w-7 h-7" />
@@ -203,22 +291,22 @@ export function JoinPoolModal({
               <div>
                 <h4 className="text-base font-bold text-gray-950">
                   {result.status === 'WAITLISTED'
-                    ? 'Added to Shared Waitlist!'
+                    ? `Added to ${targetCityName} Waitlist!`
                     : result.alreadyJoined
-                    ? 'Already Registered!'
-                    : 'You Have Joined This Pool!'}
+                    ? `Already Registered in ${targetCityName}!`
+                    : `You Have Joined the ${targetCityName} Pool!`}
                 </h4>
                 <p className="text-xs text-gray-600 mt-2 leading-relaxed">
                   {result.status === 'WAITLISTED'
-                    ? `This pool has 10 active places. You are on the shared waitlist at position #${result.waitlistPosition || 1}. We will contact you if an active spot opens.`
-                    : 'Your interest has been recorded. This records your interest; it is not a purchase or installation confirmation.'}
+                    ? `This pool has ${pool.targetBuyers || 10} confirmed places. You are on the ${targetCityName} waitlist at position #${result.waitlistPosition || 1}. We will contact you via WhatsApp if an active spot opens.`
+                    : `Your non-binding interest for ${targetCityName} has been recorded. Direct dealership quotes and group terms will be shared once target volume is achieved.`}
                 </p>
               </div>
 
               <div className="bg-gray-50 rounded-2xl p-3 text-xs text-gray-500 flex justify-between items-center font-medium">
-                <span>Current Shared Status:</span>
+                <span>Cohort Status:</span>
                 <span className="font-bold text-emerald-700 font-mono">
-                  {result.status === 'WAITLISTED' ? 'WAITLISTED' : `Buyer #${result.buyerNumber}`}
+                  {result.status === 'WAITLISTED' ? 'WAITLISTED' : `Buyer #${result.buyerNumber} (${targetCityName})`}
                 </span>
               </div>
 
@@ -231,11 +319,40 @@ export function JoinPoolModal({
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            /* Form View */
+            <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4 text-xs">
               {errorMessage && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span>{errorMessage}</span>
+                </div>
+              )}
+
+              {/* City Mismatch Alert Banner */}
+              {isMismatchDetected && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">
+                        You are joining the {targetCityName} pool, not the {userCity.trim()} pool.
+                      </p>
+                      <p className="text-[11px] text-amber-800 mt-0.5">
+                        Supply, dealer quotation, and installation are strictly local to {targetCityName}.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmCityMismatch}
+                      onChange={(e) => setConfirmCityMismatch(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-[11px] font-semibold text-amber-950">
+                      I understand and confirm joining the {targetCityName} cohort
+                    </span>
+                  </label>
                 </div>
               )}
 
@@ -276,6 +393,24 @@ export function JoinPoolModal({
                 </div>
               </div>
 
+              {/* User City / Installation City */}
+              <div>
+                <label htmlFor="join-city" className="block font-bold text-slate-800 mb-1">
+                  Your City / Town <span className="text-slate-400 font-normal">(Target Pool: {targetCityName})</span>
+                </label>
+                <input
+                  id="join-city"
+                  type="text"
+                  value={userCity}
+                  onChange={(e) => {
+                    setUserCity(e.target.value);
+                    setConfirmCityMismatch(false);
+                  }}
+                  placeholder={targetCityName}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
+                />
+              </div>
+
               {/* Pincode */}
               <div>
                 <label htmlFor="join-pincode" className="block font-bold text-slate-800 mb-1">
@@ -290,7 +425,7 @@ export function JoinPoolModal({
                   required
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="e.g. 211001"
+                  placeholder="e.g. 462001"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-mono font-medium"
                 />
                 <p className="text-[10px] text-gray-500 mt-1">6-digit postal code to match local delivery and dealer clusters.</p>
@@ -356,7 +491,7 @@ export function JoinPoolModal({
                       <span>Submitting Interest...</span>
                     </>
                   ) : (
-                    <span>{isWaitlistMode ? 'Join Waitlist (Position Available)' : 'Join Pool (Free)'}</span>
+                    <span>{isWaitlistMode ? `Join ${targetCityName} Waitlist` : `Join ${targetCityName} Pool (Free)`}</span>
                   )}
                 </button>
               </div>
