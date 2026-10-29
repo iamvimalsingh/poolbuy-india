@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sparkles,
   CheckCircle2,
@@ -10,11 +10,13 @@ import {
   ShieldCheck,
   Building2,
   ClipboardList,
+  MapPin,
 } from 'lucide-react';
 import { normalizePhone, isValidIndianMobile } from '@/lib/format';
 import { City, Category } from '@/types';
 import { useSelectedCity } from '@/lib/location-store';
 import { CATEGORIES as FALLBACK_CATEGORIES } from '@/lib/constants';
+import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
 
 export interface PoolRequestFormProps {
   initialCities?: City[];
@@ -22,14 +24,36 @@ export interface PoolRequestFormProps {
 }
 
 export function PoolRequestForm({
+  initialCities,
   initialCategories,
 }: PoolRequestFormProps) {
   const [storeCity] = useSelectedCity();
+  const [citiesList, setCitiesList] = useState<City[]>(initialCities || []);
+  const [categoriesList, setCategoriesList] = useState<Category[]>(initialCategories || []);
 
-  // Categories available for dropdown
+  useEffect(() => {
+    if (!initialCategories || initialCategories.length === 0) {
+      fetch('/api/categories')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && Array.isArray(d.data)) setCategoriesList(d.data);
+        })
+        .catch(() => { });
+    }
+    if (!initialCities || initialCities.length === 0) {
+      fetch('/api/cities')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && Array.isArray(d.data)) setCitiesList(d.data);
+        })
+        .catch(() => { });
+    }
+  }, [initialCategories, initialCities]);
+
+  // Categories available for dropdown (active only)
   const categoryOptions = useMemo(() => {
-    if (initialCategories && initialCategories.length > 0) {
-      return initialCategories.filter((c) => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+    if (categoriesList && categoriesList.length > 0) {
+      return categoriesList.filter((c) => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
     }
     return FALLBACK_CATEGORIES.map((c, idx) => ({
       id: `cat-${c.slug}`,
@@ -41,7 +65,14 @@ export function PoolRequestForm({
       createdAt: '',
       updatedAt: '',
     }));
-  }, [initialCategories]);
+  }, [categoriesList]);
+
+  // States list from authoritative directory & configured cities
+  const stateOptions = useMemo(() => {
+    const dirStates = INDIA_LOCATION_DIRECTORY.map((s) => s.name);
+    const cityStates = citiesList.map((c) => c.state).filter(Boolean);
+    return Array.from(new Set([...dirStates, ...cityStates])).sort();
+  }, [citiesList]);
 
   // Form fields
   const [categorySlug, setCategorySlug] = useState<string>('');
@@ -50,14 +81,34 @@ export function PoolRequestForm({
   const [modelPreference, setModelPreference] = useState('');
   const [fullName, setFullName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [cityText, setCityText] = useState(
-    storeCity ? storeCity.charAt(0).toUpperCase() + storeCity.slice(1) : ''
-  );
-  const [stateText, setStateText] = useState('');
+
+  // Location state
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCityOption, setSelectedCityOption] = useState<string>('');
+  const [customCityText, setCustomCityText] = useState<string>('');
   const [locality, setLocality] = useState('');
   const [notes, setNotes] = useState('');
   const [contactConsent, setContactConsent] = useState(true);
   const [joinPoolConsent, setJoinPoolConsent] = useState(false);
+
+  // Sync storeCity initially if present
+  useEffect(() => {
+    if (storeCity && citiesList.length > 0 && !selectedCityOption) {
+      const match = citiesList.find((c) => c.slug.toLowerCase() === storeCity.toLowerCase());
+      if (match) {
+        setSelectedState(match.state);
+        setSelectedCityOption(match.name);
+      }
+    }
+  }, [storeCity, citiesList, selectedCityOption]);
+
+  // Active cities within the selected state
+  const activeCitiesInState = useMemo(() => {
+    if (!selectedState) return [];
+    return citiesList.filter(
+      (c) => c.isActive && c.state.toLowerCase() === selectedState.toLowerCase()
+    );
+  }, [citiesList, selectedState]);
 
   // State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +147,21 @@ export function PoolRequestForm({
       return;
     }
 
+    // Determine city & state values
+    let finalCity = '';
+    if (selectedCityOption === '__OTHER__') {
+      finalCity = customCityText.trim();
+    } else if (selectedCityOption) {
+      finalCity = selectedCityOption.trim();
+    } else {
+      finalCity = customCityText.trim();
+    }
+
+    if (!finalCity) {
+      setErrorMessage('Please select or enter your city or town.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -111,10 +177,10 @@ export function PoolRequestForm({
         modelPreference: modelPreference.trim() || undefined,
         fullName: nameTrimmed,
         whatsappNumber: normalizedPhone,
-        city: cityText.trim() || 'India',
-        cityText: cityText.trim() || undefined,
-        state: stateText.trim() || undefined,
-        stateText: stateText.trim() || undefined,
+        city: finalCity,
+        cityText: finalCity,
+        state: selectedState.trim() || undefined,
+        stateText: selectedState.trim() || undefined,
         locality: locality.trim() || undefined,
         extraMessage: notes.trim(),
         contactConsent: true,
@@ -156,6 +222,9 @@ export function PoolRequestForm({
     setModelPreference('');
     setFullName('');
     setWhatsappNumber('');
+    setSelectedState('');
+    setSelectedCityOption('');
+    setCustomCityText('');
     setLocality('');
     setNotes('');
     setJoinPoolConsent(false);
@@ -363,36 +432,61 @@ export function PoolRequestForm({
                 </div>
               </div>
 
-              {/* Location Fields: City, State, Locality */}
+              {/* Location Fields: State, City Selector, Locality */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* State Selection */}
                 <div>
-                  <label htmlFor="req-city" className="block text-xs font-bold text-slate-800 mb-1.5">
-                    City / Town <span className="text-slate-400 font-normal">(Optional)</span>
+                  <label htmlFor="req-state-select" className="block text-xs font-bold text-slate-800 mb-1.5">
+                    State / Region <span className="text-emerald-600">*</span>
                   </label>
-                  <input
-                    id="req-city"
-                    type="text"
-                    value={cityText}
-                    onChange={(e) => setCityText(e.target.value)}
-                    placeholder="e.g. Bhopal, Pune, Baraut"
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
-                  />
+                  <select
+                    id="req-state-select"
+                    value={selectedState}
+                    onChange={(e) => {
+                      setSelectedState(e.target.value);
+                      setSelectedCityOption('');
+                      setCustomCityText('');
+                    }}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
+                  >
+                    <option value="">Select State</option>
+                    {stateOptions.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
+                {/* City Selection */}
                 <div>
-                  <label htmlFor="req-state" className="block text-xs font-bold text-slate-800 mb-1.5">
-                    State <span className="text-slate-400 font-normal">(Optional)</span>
+                  <label htmlFor="req-city-select" className="block text-xs font-bold text-slate-800 mb-1.5">
+                    City / Town <span className="text-emerald-600">*</span>
                   </label>
-                  <input
-                    id="req-state"
-                    type="text"
-                    value={stateText}
-                    onChange={(e) => setStateText(e.target.value)}
-                    placeholder="e.g. Madhya Pradesh"
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
-                  />
+                  <select
+                    id="req-city-select"
+                    value={selectedCityOption}
+                    onChange={(e) => {
+                      setSelectedCityOption(e.target.value);
+                      if (e.target.value !== '__OTHER__') {
+                        setCustomCityText('');
+                      }
+                    }}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
+                  >
+                    <option value="">
+                      {selectedState ? 'Select City' : 'Select State first'}
+                    </option>
+                    {activeCitiesInState.map((city) => (
+                      <option key={city.id} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                    <option value="__OTHER__">+ Other City / Request a Town</option>
+                  </select>
                 </div>
 
+                {/* Society / Locality */}
                 <div>
                   <label htmlFor="req-locality" className="block text-xs font-bold text-slate-800 mb-1.5">
                     Society / Colony <span className="text-slate-400 font-normal">(Optional)</span>
@@ -407,6 +501,30 @@ export function PoolRequestForm({
                   />
                 </div>
               </div>
+
+              {/* Conditional Custom City Input for "Other City / Request a Town" */}
+              {selectedCityOption === '__OTHER__' && (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 animate-scale-in">
+                  <label htmlFor="req-custom-city" className="block text-xs font-bold text-slate-900">
+                    Enter City or Town Name <span className="text-emerald-600">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <input
+                      id="req-custom-city"
+                      type="text"
+                      required
+                      value={customCityText}
+                      onChange={(e) => setCustomCityText(e.target.value)}
+                      placeholder="e.g. Baraut, Ujjain, Roorkee"
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Your town will be recorded as a pending location request for admin verification and supplier coordination.
+                  </p>
+                </div>
+              )}
 
               {/* Optional Notes */}
               <div>

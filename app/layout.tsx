@@ -68,7 +68,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd) }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-50/50 text-slate-900 overflow-x-hidden">
+      <body className="min-h-full flex flex-col bg-mesh-grid text-slate-900 overflow-x-hidden selection:bg-emerald-100 selection:text-emerald-900">
         <DemoBanner />
         <SiteHeader />
         <main className="flex-1 flex flex-col">{children}</main>

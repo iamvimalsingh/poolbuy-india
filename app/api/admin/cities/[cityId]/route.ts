@@ -1,23 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { updateCity } from '@/lib/cities';
+import {
+  getCityById,
+  getCityBySlug,
+  updateCity,
+  deleteCity,
+  getCityDependencies,
+  CityDeletionBlockedError,
+} from '@/lib/cities';
 import { z } from 'zod';
 
 const updateCitySchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   state: z.string().trim().min(2).max(80).optional(),
+  slug: z.string().trim().min(2).max(80).optional(),
   isActive: z.boolean().optional(),
 });
 
+type RouteContext = {
+  params: Promise<{ cityId: string }>;
+};
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request);
+  if (authError) return authError;
+
+  const { cityId } = await context.params;
+  const city = (await getCityById(cityId)) || (await getCityBySlug(cityId));
+
+  if (!city) {
+    return NextResponse.json(
+      { success: false, error: { code: 'CITY_NOT_FOUND', message: 'City not found' } },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  try {
+    const dependencies = await getCityDependencies(city.id, city.slug, city.name);
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          city,
+          dependencies,
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to inspect city dependencies';
+    return NextResponse.json(
+      { success: false, error: { code: 'SERVER_ERROR', message } },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ cityId: string }> }
+  context: RouteContext
 ): Promise<NextResponse> {
   const authError = await requireAdminSession(request, { checkCsrf: true });
   if (authError) return authError;
 
-  const { cityId } = await params;
+  const { cityId } = await context.params;
   if (!cityId) {
     return NextResponse.json(
       { success: false, error: { code: 'MISSING_PARAM', message: 'City ID is required' } },
@@ -71,6 +121,55 @@ export async function PATCH(
     return NextResponse.json(
       { success: false, error: { code: 'SERVER_ERROR', message } },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request, { checkCsrf: true });
+  if (authError) return authError;
+
+  const { cityId } = await context.params;
+
+  try {
+    const result = await deleteCity(cityId);
+
+    revalidatePath('/');
+    revalidatePath(`/city/${result.deletedCity.slug}`);
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          deletedId: result.deletedCity.id,
+          name: result.deletedCity.name,
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    if (err instanceof CityDeletionBlockedError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: err.code,
+            message: err.message,
+            dependencies: err.dependencies,
+          },
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const message = err instanceof Error ? err.message : 'Failed to delete city';
+    const status = message === 'City not found' ? 404 : 500;
+    return NextResponse.json(
+      { success: false, error: { code: 'SERVER_ERROR', message } },
+      { status, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

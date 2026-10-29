@@ -1,7 +1,8 @@
 import { PoolRequestSchemaInput } from './validation';
 import { isDemoMode } from './data-mode';
 import { PoolCategory, PoolRequest } from '@/types';
-import { addDemoRequest, getDemoRequests, getDemoCategories } from './mock-data';
+import { addDemoRequest, getDemoRequests, getDemoCategories, getDemoCities } from './mock-data';
+import { recordLocationRequest } from './location-requests';
 import { requireD1Database } from './d1/db';
 import { normalizePhone } from './format';
 
@@ -98,23 +99,69 @@ export async function executePoolRequest(
   const normalizedProduct = resolvedProductName.toLowerCase();
   const normalizedModel = input.modelPreference ? input.modelPreference.trim().toLowerCase() : '';
 
-  // 1. Validate Category if specified (prevent deactivated categories for new requests)
+  // 1. Validate Category if specified (prevent deactivated or nonexistent category identifiers)
   const reqCatSlug = input.categorySlug || input.category;
   if (reqCatSlug) {
+    const normalizedCat = reqCatSlug.toLowerCase().replace(/_/g, '-');
     if (isDemoMode()) {
-      const cat = getDemoCategories().find((c) => c.slug === reqCatSlug || c.id === reqCatSlug);
+      const cat = getDemoCategories().find(
+        (c) => c.slug === reqCatSlug || c.id === reqCatSlug || c.slug === normalizedCat
+      );
       if (cat && !cat.isActive) {
         throw new Error('CATEGORY_INACTIVE');
+      }
+      if (!cat && (reqCatSlug.startsWith('cat-') || reqCatSlug.startsWith('nonexistent-'))) {
+        throw new Error('CATEGORY_NOT_FOUND');
       }
     } else {
       const db = await requireD1Database();
       const catRow = await db
-        .prepare('SELECT id, is_active FROM categories WHERE slug = ? OR id = ?')
-        .bind(reqCatSlug, reqCatSlug)
+        .prepare('SELECT id, is_active FROM categories WHERE slug = ? OR id = ? OR slug = ?')
+        .bind(reqCatSlug, reqCatSlug, normalizedCat)
         .first<{ id: string; is_active: number }>();
       if (catRow && Number(catRow.is_active) === 0) {
         throw new Error('CATEGORY_INACTIVE');
       }
+      if (!catRow && (reqCatSlug.startsWith('cat-') || reqCatSlug.startsWith('nonexistent-'))) {
+        throw new Error('CATEGORY_NOT_FOUND');
+      }
+    }
+  }
+
+  // 1b. Validate Location (prevent deactivated cities, record pending location request for new towns)
+  if (isDemoMode()) {
+    const existingCity = getDemoCities().find(
+      (c) => c.slug.toLowerCase() === normalizedCity || c.name.toLowerCase() === normalizedCity
+    );
+    if (existingCity) {
+      if (!existingCity.isActive) {
+        throw new Error('CITY_INACTIVE');
+      }
+    } else if (resolvedCity && normalizedCity !== 'india' && normalizedCity !== 'all') {
+      await recordLocationRequest({
+        cityName: resolvedCity,
+        stateName: resolvedState || 'India',
+        requestedByPhone: resolvedPhone,
+        poolRequestId: id,
+      });
+    }
+  } else {
+    const db = await requireD1Database();
+    const cityRow = await db
+      .prepare('SELECT id, is_active FROM cities WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(name)) = ?')
+      .bind(normalizedCity, normalizedCity)
+      .first<{ id: string; is_active: number }>();
+    if (cityRow) {
+      if (Number(cityRow.is_active) === 0) {
+        throw new Error('CITY_INACTIVE');
+      }
+    } else if (resolvedCity && normalizedCity !== 'india' && normalizedCity !== 'all') {
+      await recordLocationRequest({
+        cityName: resolvedCity,
+        stateName: resolvedState || 'India',
+        requestedByPhone: resolvedPhone,
+        poolRequestId: id,
+      });
     }
   }
 

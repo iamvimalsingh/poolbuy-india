@@ -6,6 +6,7 @@ import {
   JoinPoolResult,
   City,
   Category,
+  LocationRequest,
   PoolRequest,
   PoolKitOffer,
   VendorPriceTier,
@@ -38,14 +39,13 @@ const LAUNCH_OPERATIONAL_SLUGS = new Set([
   'jaipur',
 ]);
 
-export const INITIAL_MOCK_CITIES: City[] = ALL_DIRECTORY_CITIES.map((city) => {
-  const isOperational = LAUNCH_OPERATIONAL_SLUGS.has(city.slug);
-  return {
-    ...city,
-    isActive: isOperational,
-    availabilityState: isOperational ? 'ACTIVE' : city.availabilityState,
-  };
-});
+export const INITIAL_MOCK_CITIES: City[] = ALL_DIRECTORY_CITIES.filter((city) =>
+  LAUNCH_OPERATIONAL_SLUGS.has(city.slug)
+).map((city) => ({
+  ...city,
+  isActive: true,
+  availabilityState: 'ACTIVE' as const,
+}));
 
 const INITIAL_MOCK_POOLS: PublicPool[] = [
   {
@@ -758,6 +758,7 @@ interface GlobalMockStore {
   __poolbuy_cities?: City[];
   __poolbuy_categories?: Category[];
   __poolbuy_requests?: PoolRequest[];
+  __poolbuy_location_requests?: LocationRequest[];
   __poolbuy_blog_posts?: BlogPost[];
   __poolbuy_waitlist?: WaitlistEntry[];
   __poolbuy_quotations?: PoolQuotation[];
@@ -907,6 +908,16 @@ export function addDemoCity(city: City): void {
     g.__poolbuy_cities = [...INITIAL_MOCK_CITIES];
   }
   g.__poolbuy_cities.push(city);
+}
+
+export function deleteDemoCity(cityId: string): boolean {
+  if (!g.__poolbuy_cities) {
+    g.__poolbuy_cities = [...INITIAL_MOCK_CITIES];
+  }
+  const index = g.__poolbuy_cities.findIndex((c) => c.id === cityId || c.slug === cityId);
+  if (index === -1) return false;
+  g.__poolbuy_cities.splice(index, 1);
+  return true;
 }
 
 export function updateDemoCity(cityId: string, updates: Partial<City>): City | null {
@@ -1723,6 +1734,16 @@ export function addDemoCategory(category: Category): void {
   g.__poolbuy_categories.push(category);
 }
 
+export function deleteDemoCategory(categoryId: string): boolean {
+  if (!g.__poolbuy_categories) {
+    g.__poolbuy_categories = [...INITIAL_MOCK_CATEGORIES];
+  }
+  const index = g.__poolbuy_categories.findIndex((c) => c.id === categoryId || c.slug === categoryId);
+  if (index === -1) return false;
+  g.__poolbuy_categories.splice(index, 1);
+  return true;
+}
+
 export function updateDemoCategory(categoryId: string, updates: Partial<Category>): Category | null {
   if (!g.__poolbuy_categories) {
     g.__poolbuy_categories = [...INITIAL_MOCK_CATEGORIES];
@@ -1741,6 +1762,38 @@ export function updateDemoCategory(categoryId: string, updates: Partial<Category
 /**
  * Pool requests demo store accessors
  */
+export function getDemoLocationRequests(): LocationRequest[] {
+  if (!g.__poolbuy_location_requests) {
+    g.__poolbuy_location_requests = [];
+  }
+  return [...g.__poolbuy_location_requests];
+}
+
+export function addDemoLocationRequest(request: LocationRequest): void {
+  if (!g.__poolbuy_location_requests) {
+    g.__poolbuy_location_requests = [];
+  }
+  g.__poolbuy_location_requests.unshift(request);
+}
+
+export function updateDemoLocationRequest(
+  requestId: string,
+  updates: Partial<LocationRequest>
+): LocationRequest | null {
+  if (!g.__poolbuy_location_requests) {
+    g.__poolbuy_location_requests = [];
+  }
+  const index = g.__poolbuy_location_requests.findIndex((r) => r.id === requestId);
+  if (index === -1) return null;
+  const updated: LocationRequest = {
+    ...g.__poolbuy_location_requests[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  g.__poolbuy_location_requests[index] = updated;
+  return updated;
+}
+
 export function getDemoRequests(): PoolRequest[] {
   return [...(g.__poolbuy_requests || INITIAL_MOCK_REQUESTS)];
 }

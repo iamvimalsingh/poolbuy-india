@@ -110,6 +110,7 @@ function runAllD1Migrations(rawDb: SqliteDatabase) {
     '0003_v73_shared_pool_cities.sql',
     '0004_category_agnostic_city_pools.sql',
     '0005_membership_consent_and_integrity.sql',
+    '0006_location_requests.sql',
   ];
 
   for (const fileName of migrationFiles) {

@@ -290,6 +290,19 @@ export interface StateDirectory {
   citiesCount: number;
 }
 
+/** User-requested location pending admin review */
+export interface LocationRequest {
+  id: string;
+  cityName: string;
+  stateName: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedByPhone?: string | null;
+  poolRequestId?: string | null;
+  adminNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Managed category entity for dynamic runtime categories */
 export interface Category {
   id: string;
@@ -488,6 +501,11 @@ export interface AdminOverviewMetrics {
   totalConnectionsPending: number;
   totalCompletedGroups: number;
   totalArchivedGroups: number;
+  totalCategories?: number;
+  activeCategories?: number;
+  totalCities?: number;
+  activeCities?: number;
+  pendingLocationRequests?: number;
 }
 
 export interface PoolRequest {

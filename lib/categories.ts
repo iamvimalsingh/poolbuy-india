@@ -4,6 +4,9 @@ import {
   getDemoCategories,
   addDemoCategory,
   updateDemoCategory as updateMockCategory,
+  deleteDemoCategory,
+  MOCK_POOLS,
+  getDemoRequests,
 } from './mock-data';
 import { getD1Database, requireD1Database } from './d1/db';
 
@@ -102,6 +105,32 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
     return mapRowToCategory(row);
   } catch (error: unknown) {
     console.error('Error looking up category by slug in D1:', error);
+    return null;
+  }
+}
+
+/**
+ * Looks up a category by id.
+ */
+export async function getCategoryById(id: string): Promise<Category | null> {
+  if (isDemoMode()) {
+    const found = getDemoCategories().find((c) => c.id === id || c.slug === id);
+    return found || null;
+  }
+
+  const db = await getD1Database();
+  if (!db) return null;
+
+  try {
+    const row = await db
+      .prepare('SELECT * FROM categories WHERE id = ?')
+      .bind(id)
+      .first<D1CategoryRow>();
+
+    if (!row) return null;
+    return mapRowToCategory(row);
+  } catch (error: unknown) {
+    console.error('Error looking up category by id in D1:', error);
     return null;
   }
 }
@@ -215,4 +244,118 @@ export async function updateCategory(
 
   if (!row) return null;
   return mapRowToCategory(row);
+}
+
+export interface CategoryDependencies {
+  poolsCount: number;
+  requestsCount: number;
+  totalDependencies: number;
+}
+
+/**
+ * Checks database dependencies for a category before deletion.
+ */
+export async function getCategoryDependencies(
+  categoryId: string,
+  slug: string
+): Promise<CategoryDependencies> {
+  if (isDemoMode()) {
+    const poolsCount = MOCK_POOLS.filter(
+      (p) => p.category === slug || (p as unknown as { categorySlug?: string }).categorySlug === slug
+    ).length;
+    const requestsCount = getDemoRequests().filter(
+      (r) => r.category === slug || r.categorySlug === slug
+    ).length;
+    return {
+      poolsCount,
+      requestsCount,
+      totalDependencies: poolsCount + requestsCount,
+    };
+  }
+
+  const db = await requireD1Database();
+  try {
+    const poolsRow = await db
+      .prepare(
+        'SELECT COUNT(*) as c FROM pools WHERE category = ? OR category_slug = ? OR internal_category_id = ?'
+      )
+      .bind(slug, slug, categoryId)
+      .first<{ c: number }>();
+
+    const requestsRow = await db
+      .prepare(
+        'SELECT COUNT(*) as c FROM pool_requests WHERE category = ? OR category = ?'
+      )
+      .bind(slug, categoryId)
+      .first<{ c: number }>();
+
+    const poolsCount = Number(poolsRow?.c || 0);
+    const requestsCount = Number(requestsRow?.c || 0);
+
+    return {
+      poolsCount,
+      requestsCount,
+      totalDependencies: poolsCount + requestsCount,
+    };
+  } catch (err: unknown) {
+    console.error('Error checking category dependencies:', err);
+    throw err;
+  }
+}
+
+export class CategoryDeletionBlockedError extends Error {
+  code = 'CATEGORY_HAS_DEPENDENCIES';
+  dependencies: CategoryDependencies;
+
+  constructor(categoryLabel: string, dependencies: CategoryDependencies) {
+    super(
+      `Cannot delete category "${categoryLabel}": referenced by ${dependencies.poolsCount} pool(s) and ${dependencies.requestsCount} request(s). Deactivate the category instead.`
+    );
+    this.name = 'CategoryDeletionBlockedError';
+    this.dependencies = dependencies;
+  }
+}
+
+/**
+ * Safely deletes a category after verifying that no dependent records exist.
+ * Blocks unsafe cascading hard deletion if dependent pools or requests exist.
+ */
+export async function deleteCategory(
+  categoryId: string
+): Promise<{ success: boolean; deletedCategory: Category }> {
+  const category = (await getCategoryById(categoryId)) || (await getCategoryBySlug(categoryId));
+  if (!category) {
+    throw new Error('Category not found');
+  }
+
+  const dependencies = await getCategoryDependencies(category.id, category.slug);
+  if (dependencies.totalDependencies > 0) {
+    throw new CategoryDeletionBlockedError(category.label, dependencies);
+  }
+
+  if (isDemoMode()) {
+    const deleted = deleteDemoCategory(category.id);
+    if (!deleted) {
+      throw new Error('Failed to delete category from demo store');
+    }
+    return { success: true, deletedCategory: category };
+  }
+
+  const db = await requireD1Database();
+  await db
+    .prepare('DELETE FROM categories WHERE id = ?')
+    .bind(category.id)
+    .run();
+
+  // Verify deletion persistence
+  const check = await db
+    .prepare('SELECT id FROM categories WHERE id = ?')
+    .bind(category.id)
+    .first<{ id: string }>();
+
+  if (check) {
+    throw new Error('Database mutation failed: category still exists after DELETE');
+  }
+
+  return { success: true, deletedCategory: category };
 }

@@ -92,6 +92,18 @@ export async function POST(
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
     const err = error as { message?: string };
+    if (err.message === 'CATEGORY_NOT_FOUND') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CATEGORY_NOT_FOUND',
+            message: 'The selected category does not exist or has been removed.',
+          },
+        },
+        { status: 400 }
+      );
+    }
     if (err.message === 'CATEGORY_INACTIVE') {
       return NextResponse.json(
         {
@@ -99,6 +111,18 @@ export async function POST(
           error: {
             code: 'CATEGORY_INACTIVE',
             message: 'The selected category is currently inactive and not accepting new pool requests.',
+          },
+        },
+        { status: 400 }
+      );
+    }
+    if (err.message === 'CITY_INACTIVE') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CITY_INACTIVE',
+            message: 'The selected city is currently inactive and not accepting new pool requests.',
           },
         },
         { status: 400 }

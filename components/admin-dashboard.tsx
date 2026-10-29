@@ -5,30 +5,26 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Layers,
-  Users,
-  Sparkles,
+  MapPin,
+  LayoutDashboard,
   LogOut,
   ArrowLeft,
   Shield,
-  MapPin,
-  BookOpen,
-  LayoutDashboard,
-  Settings,
+  Clock,
+  MessageSquare,
+  Users,
+  Activity,
 } from 'lucide-react';
 import { AdminOverviewTab } from './admin-overview-tab';
-import { AdminPoolsTab } from './admin-pools-tab';
-import { AdminLeadsTab } from './admin-leads-tab';
-import { AdminRequestsTab } from './admin-requests-tab';
 import { AdminCategoriesTab } from './admin-categories-tab';
-import { AdminCitiesTab } from './admin-cities-tab';
-import { AdminBlogTab } from './admin-blog-tab';
-import { AdminSettingsTab } from './admin-settings-tab';
+import { AdminLocationsTab } from './admin-locations-tab';
+import { AdminCampaignsPlaceholder } from './admin-campaigns-placeholder';
+
+export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns';
 
 export function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'pools' | 'leads' | 'requests' | 'categories' | 'cities' | 'blog' | 'settings'
-  >('overview');
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -53,14 +49,14 @@ export function AdminDashboard() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-extrabold text-gray-950 tracking-tight">
-                Operator Command Center
+                GroupBuying Operator Console
               </h1>
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Authorized
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                Step 1 Foundation
               </span>
             </div>
             <p className="text-xs text-gray-500">
-              Passkey Session Verified • Restricted Administrative Operations
+              Passkey Session Verified • Categories & Location Directory System
             </p>
           </div>
         </div>
@@ -78,7 +74,7 @@ export function AdminDashboard() {
             type="button"
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{isLoggingOut ? 'Logging out...' : 'Log Out'}</span>
@@ -87,109 +83,102 @@ export function AdminDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-gray-200 mb-8 overflow-x-auto">
+      <div className="flex border-b border-gray-200 mb-8 overflow-x-auto gap-1">
+        {/* 1. Overview */}
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'overview'
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'overview'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
+            }`}
         >
-          <LayoutDashboard className="w-4 h-4" aria-hidden="true" />
+          <LayoutDashboard className="w-4 h-4" />
           <span>Overview</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('pools')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'pools'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <Layers className="w-4 h-4" aria-hidden="true" />
-          <span>Group Pools</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('leads')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'leads'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <Users className="w-4 h-4" aria-hidden="true" />
-          <span>Leads & Buyers CRM</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('requests')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'requests'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" aria-hidden="true" />
-          <span>Demand Discovery</span>
-        </button>
-
+        {/* 2. Categories */}
         <button
           type="button"
           onClick={() => setActiveTab('categories')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'categories'
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'categories'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
+            }`}
         >
-          <Layers className="w-4 h-4" aria-hidden="true" />
-          <span>Product Categories</span>
+          <Layers className="w-4 h-4" />
+          <span>Categories</span>
         </button>
 
+        {/* 3. Locations */}
         <button
           type="button"
-          onClick={() => setActiveTab('cities')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'cities'
+          onClick={() => setActiveTab('locations')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'locations'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
+            }`}
         >
-          <MapPin className="w-4 h-4" aria-hidden="true" />
-          <span>Operational Cities</span>
+          <MapPin className="w-4 h-4" />
+          <span>Locations</span>
         </button>
 
+        {/* 4. Campaigns & Pools (Step 2 Placeholder) */}
         <button
           type="button"
-          onClick={() => setActiveTab('blog')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'blog'
+          onClick={() => setActiveTab('campaigns')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'campaigns'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
+            }`}
         >
-          <BookOpen className="w-4 h-4" aria-hidden="true" />
-          <span>Blog CMS</span>
+          <Clock className="w-4 h-4 text-amber-500" />
+          <span>Campaigns & Pools</span>
+          <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
+            Step 2
+          </span>
         </button>
 
+        {/* 5. Members & Requests (Reserved Step 3) */}
         <button
           type="button"
-          onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'settings'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-          }`}
+          disabled
+          title="Reserved for Step 3 implementation"
+          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
         >
-          <Settings className="w-4 h-4" aria-hidden="true" />
-          <span>Settings</span>
+          <Users className="w-4 h-4" />
+          <span>Members & Requests</span>
+          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
+            Step 3
+          </span>
+        </button>
+
+        {/* 6. Quotes & Messages (Reserved Step 3) */}
+        <button
+          type="button"
+          disabled
+          title="Reserved for Step 3 implementation"
+          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Quotes & Messages</span>
+          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
+            Step 3
+          </span>
+        </button>
+
+        {/* 7. Activity Log (Reserved Later Step) */}
+        <button
+          type="button"
+          disabled
+          title="Reserved for a later implementation step"
+          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
+        >
+          <Activity className="w-4 h-4" />
+          <span>Activity Log</span>
+          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
+            Step 4
+          </span>
         </button>
       </div>
 
@@ -197,13 +186,14 @@ export function AdminDashboard() {
       {activeTab === 'overview' && (
         <AdminOverviewTab onNavigateTab={(tab) => setActiveTab(tab)} />
       )}
-      {activeTab === 'pools' && <AdminPoolsTab />}
-      {activeTab === 'leads' && <AdminLeadsTab />}
-      {activeTab === 'requests' && <AdminRequestsTab />}
       {activeTab === 'categories' && <AdminCategoriesTab />}
-      {activeTab === 'cities' && <AdminCitiesTab />}
-      {activeTab === 'blog' && <AdminBlogTab />}
-      {activeTab === 'settings' && <AdminSettingsTab />}
+      {activeTab === 'locations' && <AdminLocationsTab />}
+      {activeTab === 'campaigns' && (
+        <AdminCampaignsPlaceholder
+          onNavigateToCategories={() => setActiveTab('categories')}
+          onNavigateToLocations={() => setActiveTab('locations')}
+        />
+      )}
     </div>
   );
 }

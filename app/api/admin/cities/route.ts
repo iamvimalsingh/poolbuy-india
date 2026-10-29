@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { getAllCities, createCity, getCityBySlug } from '@/lib/cities';
+import { getAllCities, createCity, getCityBySlug, getCityByNameAndState } from '@/lib/cities';
 import { slugify } from '@/lib/format';
 import { z } from 'zod';
 
@@ -9,6 +9,7 @@ const createCitySchema = z.object({
   name: z.string().trim().min(2, 'City name must be at least 2 characters').max(80),
   state: z.string().trim().min(2, 'State must be at least 2 characters').max(80),
   slug: z.string().trim().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -59,12 +60,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { name, state, slug: customSlug } = parsed.data;
+  const { name, state, slug: customSlug, isActive } = parsed.data;
   const normalizedSlug = customSlug ? slugify(customSlug) : slugify(name);
 
-  // Check if city slug already exists
+  // Check duplicate name within state
+  const existingInState = await getCityByNameAndState(name, state);
+  if (existingInState) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'DUPLICATE_CITY_IN_STATE',
+          message: `A city named "${name}" already exists in "${state}".`,
+        },
+      },
+      { status: 409, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  // Check duplicate slug
   const existingCity = await getCityBySlug(normalizedSlug);
-  if (existingCity) {
+  if (existingCity && existingCity.id.startsWith('city-')) {
     return NextResponse.json(
       {
         success: false,
@@ -82,6 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       name,
       state,
       slug: normalizedSlug,
+      isActive: isActive ?? true,
     });
 
     revalidatePath('/');
@@ -93,6 +110,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to create city';
+    if (message.includes('DUPLICATE_CITY_IN_STATE') || message.includes('DUPLICATE_CITY_SLUG')) {
+      return NextResponse.json(
+        { success: false, error: { code: 'DUPLICATE_RECORD', message } },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     return NextResponse.json(
       { success: false, error: { code: 'SERVER_ERROR', message } },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }

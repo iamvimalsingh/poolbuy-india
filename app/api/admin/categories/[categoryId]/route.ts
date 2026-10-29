@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
-import { updateCategory } from '@/lib/categories';
+import {
+  getCategoryById,
+  getCategoryBySlug,
+  updateCategory,
+  deleteCategory,
+  getCategoryDependencies,
+  CategoryDeletionBlockedError,
+} from '@/lib/categories';
 import { z } from 'zod';
 
 const updateCategorySchema = z.object({
@@ -15,6 +22,44 @@ const updateCategorySchema = z.object({
 type RouteContext = {
   params: Promise<{ categoryId: string }>;
 };
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request);
+  if (authError) return authError;
+
+  const { categoryId } = await context.params;
+  const category = (await getCategoryById(categoryId)) || (await getCategoryBySlug(categoryId));
+
+  if (!category) {
+    return NextResponse.json(
+      { success: false, error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found' } },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  try {
+    const dependencies = await getCategoryDependencies(category.id, category.slug);
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          category,
+          dependencies,
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to inspect category dependencies';
+    return NextResponse.json(
+      { success: false, error: { code: 'SERVER_ERROR', message } },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -71,6 +116,55 @@ export async function PATCH(
     return NextResponse.json(
       { success: false, error: { code: 'SERVER_ERROR', message } },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const authError = await requireAdminSession(request, { checkCsrf: true });
+  if (authError) return authError;
+
+  const { categoryId } = await context.params;
+
+  try {
+    const result = await deleteCategory(categoryId);
+
+    revalidatePath('/');
+    revalidatePath(`/category/${result.deletedCategory.slug}`);
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          deletedId: result.deletedCategory.id,
+          label: result.deletedCategory.label,
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err: unknown) {
+    if (err instanceof CategoryDeletionBlockedError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: err.code,
+            message: err.message,
+            dependencies: err.dependencies,
+          },
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const message = err instanceof Error ? err.message : 'Failed to delete category';
+    const status = message === 'Category not found' ? 404 : 500;
+    return NextResponse.json(
+      { success: false, error: { code: 'SERVER_ERROR', message } },
+      { status, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

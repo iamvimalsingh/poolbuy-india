@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminSession } from '@/lib/require-admin';
 import { isDemoMode } from '@/lib/data-mode';
-import { getDemoOverviewMetrics } from '@/lib/mock-data';
+import { getDemoOverviewMetrics, getDemoCategories, getDemoCities, getDemoLocationRequests } from '@/lib/mock-data';
 import { requireD1Database } from '@/lib/d1/db';
 import { AdminOverviewMetrics } from '@/types';
 
@@ -10,7 +10,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (authError) return authError;
 
   if (isDemoMode()) {
-    const metrics = getDemoOverviewMetrics();
+    const baseMetrics = getDemoOverviewMetrics();
+    const cats = getDemoCategories();
+    const cities = getDemoCities();
+    const locReqs = getDemoLocationRequests();
+
+    const metrics: AdminOverviewMetrics = {
+      ...baseMetrics,
+      totalCategories: cats.length,
+      activeCategories: cats.filter((c) => c.isActive).length,
+      totalCities: cities.length,
+      activeCities: cities.filter((c) => c.isActive).length,
+      pendingLocationRequests: locReqs.filter((r) => r.status === 'PENDING').length,
+    };
+
     return NextResponse.json(
       { success: true, data: metrics },
       { headers: { 'Cache-Control': 'no-store' } }
@@ -33,6 +46,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       connectionsRow,
       completedRow,
       archivedRow,
+      allCatsRow,
+      activeCatsRow,
+      allCitiesRow,
+      activeCitiesRow,
+      pendingLocRow,
     ] = await Promise.all([
       db.prepare('SELECT COUNT(*) as c FROM pools WHERE is_published = 0 AND deleted_at IS NULL').first<{ c: number }>(),
       db.prepare("SELECT COUNT(*) as c FROM pools WHERE status = 'ACTIVE' AND deadline > ? AND is_published = 1 AND deleted_at IS NULL").bind(nowIso).first<{ c: number }>(),
@@ -44,6 +62,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       db.prepare("SELECT COUNT(*) as c FROM pool_leads WHERE member_connection_status IN ('OPTED_IN', 'ELIGIBLE_TO_CONNECT')").first<{ c: number }>(),
       db.prepare("SELECT COUNT(*) as c FROM pools WHERE connection_status = 'COMPLETED'").first<{ c: number }>(),
       db.prepare('SELECT COUNT(*) as c FROM pools WHERE is_archived = 1').first<{ c: number }>(),
+      db.prepare('SELECT COUNT(*) as c FROM categories').first<{ c: number }>(),
+      db.prepare('SELECT COUNT(*) as c FROM categories WHERE is_active = 1').first<{ c: number }>(),
+      db.prepare('SELECT COUNT(*) as c FROM cities').first<{ c: number }>(),
+      db.prepare('SELECT COUNT(*) as c FROM cities WHERE is_active = 1').first<{ c: number }>(),
+      db.prepare("SELECT COUNT(*) as c FROM location_requests WHERE status = 'PENDING'").first<{ c: number }>().catch(() => ({ c: 0 })),
     ]);
 
     const metrics: AdminOverviewMetrics = {
@@ -57,6 +80,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       totalConnectionsPending: Number(connectionsRow?.c || 0),
       totalCompletedGroups: Number(completedRow?.c || 0),
       totalArchivedGroups: Number(archivedRow?.c || 0),
+      totalCategories: Number(allCatsRow?.c || 0),
+      activeCategories: Number(activeCatsRow?.c || 0),
+      totalCities: Number(allCitiesRow?.c || 0),
+      activeCities: Number(activeCitiesRow?.c || 0),
+      pendingLocationRequests: Number(pendingLocRow?.c || 0),
     };
 
     return NextResponse.json(
