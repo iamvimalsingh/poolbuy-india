@@ -1,127 +1,122 @@
 # GROUPBUYING.STORE — ORDERED IMPLEMENTATION PLAN
 
-**Version:** 1.0.0  
-**Effective Date:** 28 October 2026  
-**Status:** Approved Phased Execution Roadmap  
+**Version:** 1.1.0  
+**Effective Date:** 29 October 2026  
+**Status:** Approved Master Phased Execution Plan  
 **Target Branch:** `feat/category-agnostic-platform`
 
 ---
 
-## Dependency Order Overview
+## 1. Phased Execution Overview
 
 ```mermaid
 flowchart TD
-    P1["Phase 1: Domain Type System & Invariant Contracts"] --> P2["Phase 2: Database Alignment & Additive D1 Migration"]
-    P2 --> P3["Phase 3: Core Business Logic & Data Access Layer"]
-    P3 --> P4["Phase 4: Public Discovery & Interest-Joining UI"]
-    P4 --> P5["Phase 5: Public Demand Proposal Flow"]
-    P5 --> P6["Phase 6: Admin Management & Manual WhatsApp Workflows"]
-    P6 --> P7["Phase 7: Security Remediation & Legacy Cleanup"]
-    P7 --> P8["Phase 8: Comprehensive Regression Testing & Worker Build Verification"]
+    G0["Gate 0: Read-Only Audit & Baseline"] --> G1["Gate 1: Recovery Checkpoint & Doc Reconciliation"]
+    G1 --> G2["Gate 2: Core Data Model & Admin Foundation"]
+    G2 --> G3["Gate 3: Admin Solar Campaign & 25-City Bulk Rollout"]
+    G3 --> G4["Gate 4: Public Catalog & City Discovery"]
+    G4 --> G5["Gate 5: Join Pool & Cross-City Registration"]
+    G5 --> G6["Gate 6: CRM, Waitlist, Proposals, Quotes & Share Pool"]
+    G6 --> G7["Gate 7: Automated Test/Fix/Retest Loop"]
+    G7 --> G8["Gate 8: Dependency-Audited Cleanup & Documentation"]
+    G8 --> G9A["Gate 9A: Final Git Review & Push"]
+    G9A --> G9B["Gate 9B: Staging Release Gate"]
+    G9B --> G9C["Gate 9C: Production Release & Live Verification"]
 ```
 
 ---
 
-## Phase 1: Domain Type System & Invariant Contracts
-- **Objective:** Establish the category-agnostic domain models in [`types/index.ts`](file:///c:/Users/iamvi/poolbuy-india/types/index.ts) without hardcoded category unions.
+## 2. Gate-by-Gate Roadmap & Acceptance Criteria
+
+### Gate 0: Read-Only Repository Audit [PASSED]
+- **Objective:** Verify actual repository state, branches, uncommitted files, schema migrations, and deployment targets without mutating any files or databases.
+- **Completed Baseline:**
+  - Branch: `feat/category-agnostic-platform` at HEAD commit `60d91bc`.
+  - Preserved 12 modified files and 4 untracked files representing Step 3 work.
+  - Verified local D1 (0001-0008), staging D1 (0001-0008), and production D1 (0001-0005 applied, 0006-0008 pending).
+  - Verified 10 cities currently in D1 vs. 25 `LAUNCH_CITIES` in `lib/constants.ts`.
+  - Identified ESLint error in `components/admin-members-requests-tab.tsx:62`.
+
+### Gate 1: Recovery Checkpoint & Document Reconciliation [IN PROGRESS]
+- **Objective:** Create recovery checkpoint commits/tags, reconcile historical architecture (v7.3 shared-pool superseded by 1-to-N independent pools), eliminate obsolete payment instructions, and harmonize documentation.
 - **Tasks:**
-  1. Refactor `PoolCategory` from a rigid union to an extensible string slug, backed by dynamic `Category` entity (`id, slug, label, description, isActive, sortOrder`).
-  2. Model `Pool` with explicit independent identity: `citySlug`, `categorySlug`, `productTitle`, `brand`, `model`, `variantName`, `targetBuyers`, `currentBuyers`, `maxWaitlistSize`, `status`, `deadline`.
-  3. Model `PoolLead` and `PoolWaitlist` with strict status enums.
-  4. Ensure zero references to hardcoded category constants in base types.
-- **Acceptance Criteria:**
-  - `npx tsc --noEmit` succeeds.
-  - Types represent city-isolated cohorts and dynamic categories.
+  1. Fix lint error in `components/admin-members-requests-tab.tsx` and commit Step 3 cleanly (`0844e76`).
+  2. Create recovery branch `checkpoint/gate-0-baseline` and tag `checkpoint-gate-1-reconciliation`.
+  3. Reconcile `docs/PRODUCT_CONTRACT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/IMPLEMENTATION_PROGRESS.md`, and `CHATGPT_HANDOFF.md`.
+- **Pass Criteria:** A verified recovery reference exists, product rules are consistent, and documentation accurately distinguishes historical experiments from the canonical contract.
 
----
-
-## Phase 2: Database Alignment & Additive D1 Migration
-- **Objective:** Additive SQLite schema updates to support category-agnostic city pools cleanly.
+### Gate 2: Core Data Model & Admin Foundation
+- **Objective:** Verify and align core D1 tables for categories, cities, campaigns, pools, leads, waitlists, and audit logs.
 - **Tasks:**
-  1. Create additive migration [`migrations/d1/0004_category_agnostic_city_pools.sql`](file:///c:/Users/iamvi/poolbuy-india/migrations/d1):
-     - Add `product_title TEXT` and `variant_name TEXT` to `pools` if not already present.
-     - Add composite index on `pools(city_slug, category_slug, is_published, status)`.
-     - Add index on `pool_requests(category_slug, status)`.
-  2. Maintain existing D1 schema migrations `0001`, `0002`, `0003` completely intact.
-- **Acceptance Criteria:**
-  - Migrations apply cleanly in local Miniflare D1 test harness.
-  - Zero data loss or modification of existing applied migrations.
+  1. Ensure all 25 canonical launch cities exist in D1 `cities` directory with proper slugs and active statuses.
+  2. Align `city-delhi-ncr` / `delhi` slug mapping so queries resolve cleanly.
+  3. Verify independent capacity, status, and waitlist invariants per city pool.
+  4. Ensure immutable audit logging on all administrative mutations.
+- **Pass Criteria:** Schema and seed verification pass; city directory contains the 25 launch cities; admin security guards active.
 
----
-
-## Phase 3: Core Business Logic & Data Access Layer
-- **Objective:** Implement category-agnostic, city-isolated pool and lead operations in `lib/`.
+### Gate 3: Admin Solar Campaign & 25-City Bulk Rollout
+- **Objective:** Enable Admin to create or associate a Solar campaign across the 25 launch cities in an atomic, idempotent workflow.
 - **Tasks:**
-  1. [`lib/pools.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/pools.ts): Realign queries to enforce `Pool(city_slug, slug)` isolation. Atomic SQLite capacity update: `UPDATE pools SET current_buyers = current_buyers + 1 WHERE id = ? AND current_buyers < target_buyers`.
-  2. [`lib/leads.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/leads.ts): Enforce idempotent join, member exclusion, and FIFO waitlist promotion.
-  3. [`lib/requests.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/requests.ts): Free-text proposal submission and admin conversion logic.
-  4. [`lib/categories.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/categories.ts) & [`lib/cities.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/cities.ts): Fully dynamic D1 queries with honest fallback.
-  5. [`lib/validation.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/validation.ts): Update Zod schemas for join, request, and admin mutation.
-- **Acceptance Criteria:**
-  - Joins in City A increment City A only.
-  - Duplicate joins with same mobile number return existing status without count increase.
-  - Reaching target capacity triggers `TARGET_REACHED` and routes further joins to FIFO waitlist.
+  1. Campaign selection/creation using actual configured Solar category.
+  2. Multi-city selector targeting the 25 verified launch cities.
+  3. Pre-execution preview showing existing city pools and new city pools to create.
+  4. Execution creates missing city pools without duplicating existing pools or resetting counts.
+  5. Rerun idempotency test: running again makes zero duplicates.
+- **Pass Criteria:** Per-city outcome returned (created, existing, skipped); independent capacities preserved; reruns idempotent.
 
----
-
-## Phase 4: Public Discovery & Interest-Joining UI
-- **Objective:** Rebuild consumer pages and components for category-agnostic browsing.
+### Gate 4: Public Catalog & City Discovery
+- **Objective:** Deliver open All-India discovery and city/category filtering without forced gating or fake urgency.
 - **Tasks:**
-  1. [`app/page.tsx`](file:///c:/Users/iamvi/poolbuy-india/app/page.tsx): Category-agnostic hero, dynamic category grid, city switcher, active deals, and "Start a Pool" CTA.
-  2. [`app/deals/[citySlug]/[poolSlug]/page.tsx`](file:///c:/Users/iamvi/poolbuy-india/app/deals/[citySlug]/[poolSlug]/page.tsx): Pool detail page with truthful capacity progress, verified quote badge (or indicative label), and join modal.
-  3. [`app/category/[categorySlug]/page.tsx`](file:///c:/Users/iamvi/poolbuy-india/app/category/[categorySlug]/page.tsx) & [`app/city/[citySlug]/page.tsx`](file:///c:/Users/iamvi/poolbuy-india/app/city/[citySlug]/page.tsx): Dynamic filtered views.
-  4. Components: [`components/pool-catalog.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/pool-catalog.tsx), [`pool-card.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/pool-card.tsx), [`join-pool-modal.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/join-pool-modal.tsx), [`site-header.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/site-header.tsx), [`site-footer.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/site-footer.tsx).
-- **Acceptance Criteria:**
-  - Zero hardcoded solar-only layout or copy.
-  - Real active counts rendered honestly.
-  - Responsive layout verified across mobile and desktop.
+  1. Ensure All-India discovery is the primary view; city filters update catalog cleanly.
+  2. Display accurate, live confirmed buyer counts, target capacity, and waitlist counts.
+  3. Remove or verify authenticity of urgency badges (based strictly on real math: `remainingSpots = targetBuyers - currentBuyers`).
+  4. Ensure detail pages resolve to canonical city pool records.
+- **Pass Criteria:** Nationwide browsing and city filters render real pool records; zero PII rendered publicly; responsive UI intact.
 
----
-
-## Phase 5: Public Demand Proposal Flow
-- **Objective:** Clean, frictionless demand aggregation from anywhere in India.
+### Gate 5: Join Pool & Cross-City Registration Flow
+- **Objective:** Implement complete join experience including city mismatch warnings, PIN code integrity, and privacy-safe cross-city duplicate detection.
 - **Tasks:**
-  1. [`components/pool-request-form.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/pool-request-form.tsx): Simple modal capturing product need, city/town, state, contact name, and WhatsApp number.
-  2. Route [`app/api/pool-requests/route.ts`](file:///c:/Users/iamvi/poolbuy-india/app/api/pool-requests/route.ts): Validation, rate limiting, and persistence into `pool_requests`.
-- **Acceptance Criteria:**
-  - Any valid submission is persisted with status `REQUESTED`.
-  - Proposals never appear in public pool catalog until converted by Admin.
+  1. Prominently display target pool city in the join dialog.
+  2. Collect/confirm user city; display explicit notice on mismatch (*"You are joining the Bhopal pool, not the Lucknow pool"*).
+  3. Validate 6-digit PIN code preserving leading zero strings (`^[0-9]{6}$`).
+  4. Exact pool duplicate check returns existing status idempotently.
+  5. Cross-city same-category check detects existing registrations safely without revealing PII.
+  6. Require explicit confirmation before allowing a new city registration; never alter previous city's count.
+  7. Re-validate all conditions server-side.
+- **Pass Criteria:** Full test matrix passes for repeat submissions, city mismatch, cross-city joins, and PII protection.
 
----
-
-## Phase 6: Admin Management & Manual WhatsApp Workflows
-- **Objective:** Empower operator to review requests, manage city pools, attach quotes, and communicate safely.
+### Gate 6: CRM, Waitlist, Proposals, Quotes & Share Pool
+- **Objective:** Harmonize CRM classifications, manual WhatsApp messaging, quotation lifecycle, and viral sharing.
 - **Tasks:**
-  1. Generalize [`components/admin-dashboard.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/admin-dashboard.tsx), [`admin-pools-tab.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/admin-pools-tab.tsx), [`admin-requests-tab.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/admin-requests-tab.tsx), and [`admin-leads-tab.tsx`](file:///c:/Users/iamvi/poolbuy-india/components/admin-leads-tab.tsx).
-  2. Implement request review & conversion workflow (Admin selects category & city & creates official pool).
-  3. Implement member management (exclusion, FIFO promotion).
-  4. WhatsApp manual workflow: generate `wa.me` links with honest templates; log clicks to audit trail; enforce `do_not_contact = 1`.
-- **Acceptance Criteria:**
-  - All admin routes protected by HMAC session cookie.
-  - Operator mutations recorded in `admin_audit_logs`.
+  1. Ensure strict separation of Confirmed Members, Waitlist Applicants, and Demand Proposals in UI and D1 reads.
+  2. Remove historical payment templates (`PAYMENT_INSTRUCTIONS`, fee disclosures) in favor of truthful coordination messages.
+  3. Verify FIFO waitlist promotion preserving `pincode` and `existing_quote`.
+  4. Verify Share Pool links resolve to canonical `/deals/[citySlug]/[poolSlug]`.
+- **Pass Criteria:** CRM displays live D1 data; payment templates eradicated; waitlist promotion verified.
 
----
-
-## Phase 7: Security Remediation & Legacy Cleanup
-- **Objective:** Eliminate tracked credentials and prune obsolete legacy code.
+### Gate 7: Automated Test/Fix/Retest Loop
+- **Objective:** Comprehensive automated verification across unit, integration, and build suites.
 - **Tasks:**
-  1. Sanitize or excise the 5 credential-bearing verification scripts in `scratch/` and `scripts/e2e-verification.mjs`.
-  2. Remove `@supabase/supabase-js` and `cloudflare` from `package.json`.
-  3. Remove legacy directories `lib/supabase/` and `supabase/`.
-  4. Remove obsolete `lib/products.ts` (hardcoded `STANDARD_PRODUCTS`).
-- **Acceptance Criteria:**
-  - Zero hardcoded secrets in tracked Git files.
-  - `npm ls` clean, zero dead dependencies.
+  1. Update and expand tests in `lib/__tests__/` covering independent pools, bulk rollout, city mismatch, and cross-city rules.
+  2. Resolve or supersede historical `v73-shared-pool.test.ts` to reflect the 1-to-N independent pool architecture.
+  3. Execute autonomous fix loops until `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`, and `npm run build:worker` are 100% green.
+- **Pass Criteria:** All suites green; zero waived failures.
 
----
-
-## Phase 8: Comprehensive Regression Testing & Worker Build Verification
-- **Objective:** End-to-end automated verification.
+### Gate 8: Dependency-Audited Cleanup & Documentation
+- **Objective:** Prune obsolete references and update documentation.
 - **Tasks:**
-  1. Implement automated test suites in `lib/__tests__/` covering independent city pools, duplicate joins, full capacity 409, FIFO waitlist promotion, admin permissions, and quotation audit.
-  2. Execute `npm run test`, `npx tsc --noEmit`, `npm run lint`.
-  3. Execute `npm run build` and `npm run build:worker`.
-- **Acceptance Criteria:**
-  - 100% test pass rate.
-  - OpenNext worker compiled to `.open-next/worker.js`.
+  1. Audit dependencies and imports.
+  2. Finalize `PRODUCT_CONTRACT.md`, `IMPLEMENTATION_PLAN.md`, `IMPLEMENTATION_PROGRESS.md`, and `CHATGPT_HANDOFF.md`.
+- **Pass Criteria:** Zero orphaned imports, clean git diff, documentation reflects actual state.
 
+### Gate 9A: Final Git Review & Push
+- **Objective:** Final safety review of staged git diff and push to remote.
+- **Pass Criteria:** Staged changes verified clean of secrets; committed and pushed to `feat/category-agnostic-platform`.
+
+### Gate 9B: Staging Release Gate
+- **Objective:** Apply migrations to staging D1 and deploy worker to `poolbuy-india-hotfix-test`.
+- **Pass Criteria:** Staging deployment verified live; smoke tests pass; zero defects.
+
+### Gate 9C: Production Release & Live Verification
+- **Objective:** Review and apply migrations 0006-0008 to production D1 (`groupbuying-prod`), deploy worker to `poolbuy-india` (`groupbuying.store`), and conduct live non-destructive verification.
+- **Pass Criteria:** Live production verified; smoke tests pass; handoff finalized.

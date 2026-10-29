@@ -143,3 +143,32 @@
 **VERDICT: ALL VERIFICATION AND BUILD GATES PASSED (100% GREEN); PRODUCTION DEPLOYMENT AWAITING OPERATOR CREDENTIALS**
 
 The v7.3.0 Simple MVP shared-pool contract is completely verified end-to-end against the local Cloudflare worker and D1 SQLite. All automated test suites (122/122 tests), TypeScript, ESLint, Next.js production build, OpenNext Cloudflare Worker build, and live E2E Journeys A through D have passed with exit code 0. Test data has been safely purged. Production deployment requires operator authentication (`wrangler login` or setting `CLOUDFLARE_API_TOKEN`).
+
+
+---
+
+## 4. Phase 16 — Canonical v1.1.0 Architecture & Step-Gated Master Execution
+
+**Date:** 2026-10-29  
+**Branch:** `feat/category-agnostic-platform`  
+**Checkpoint Commits:**
+- `60d91bc` (`checkpoint/gate-0-baseline` — Step 2 verified baseline)
+- `0844e76` (`checkpoint-gate-1-reconciliation` — Step 3 verified commit: `feat(step-3): canonical d1 admin members, waitlist queue, quotes management and verified data flow`)
+
+### Historical Architecture Reconciliation
+- **Superseded:** The v7.3.0 Shared-Pool experiment (mapping multiple cities to a single shared pool cohort) has been superseded by the canonical **1 Campaign &rarr; N Independent City Pools** architecture (`campaigns` table & `pools` with `campaign_id`).
+- **Superseded:** Historical token deposits (₹499/₹999 refundable tokens, `PAYMENT_INSTRUCTIONS`, fee disclosures) are officially superseded by the **Zero-Payment Free Interest MVP**.
+- **Active Canonical Specification:** `docs/PRODUCT_CONTRACT.md` (v1.1.0) and `docs/IMPLEMENTATION_PLAN.md` (v1.1.0).
+
+### Gate 0 (Read-Only Repository Audit) Completed:
+- Read-only inspection of git status, D1 databases, wrangler configuration, routes, and tests.
+- Staging D1 (`groupbuying-staging`): Migrations 0001–0008 confirmed applied. Staging deployment `0270afbd-8ac3-4240-8478-e1232d3aab27` confirmed live.
+- Production D1 (`groupbuying-prod`): Migrations 0001–0005 applied; migrations 0006–0008 pending. Production deployment `3b1bdaf9-5502-485f-84be-ddbb4ffa2f01` confirmed live.
+- City directory discrepancy identified: 10 cities seeded in D1 `cities` table vs. 25 `LAUNCH_CITIES` in `lib/constants.ts` and 137 cities in `INDIA_LOCATION_DIRECTORY`.
+
+### Gate 1 (Recovery Checkpoint & Document Reconciliation) Completed:
+- Repaired ESLint `react-hooks/set-state-in-effect` error in `components/admin-members-requests-tab.tsx:62`.
+- Staged and committed reviewed Step 3 changes to commit `0844e76`.
+- Established durable recovery references: branch `checkpoint/gate-0-baseline` and git tag `checkpoint-gate-1-reconciliation`.
+- Reconciled `PRODUCT_CONTRACT.md` and `IMPLEMENTATION_PLAN.md` to v1.1.0 with explicit city mismatch, cross-city duplicate detection, privacy safeguards, and 25-city Solar rollout acceptance criteria.
+- Verified test suite: **273/273 tests PASS (100%)**, `npx tsc --noEmit` **0 errors**, `npm run lint` **0 errors**, `npm run build` **48 routes compiled**, `npm run build:worker` **OpenNext worker compiled**.

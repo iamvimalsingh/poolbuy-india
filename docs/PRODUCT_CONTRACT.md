@@ -1,7 +1,7 @@
 # GROUPBUYING.STORE — CANONICAL PRODUCT CONTRACT
 
-**Version:** 1.0.0  
-**Effective Date:** 28 October 2026  
+**Version:** 1.1.0  
+**Effective Date:** 29 October 2026  
 **Status:** Approved Canonical Specification  
 **Primary Brand Identity:** GroupBuying (`https://groupbuying.store`)  
 **Secondary / Historical Brand:** PoolBuy India  
@@ -22,119 +22,137 @@
 
 ---
 
-## 2. Public User Experience
+## 2. Historical Reconciliation & Superseded Specifications
 
-1. **Frictionless Zero-Login Access:**
-   - No mandatory public user registration, passwords, or customer accounts.
-   - No customer dashboard.
-   - Public visitors can browse pools, select cities, filter categories, join existing pools, or submit demand proposals without logging in.
-2. **Location & Service Area Discovery:**
-   - National "All India" discovery view alongside city-specific filters.
-   - Operational cities are backed by the canonical directory of 28 States and 8 Union Territories.
-   - PIN codes are stored strictly as strings preserving leading zeros (e.g., `'011001'`). A PIN prefix alone is never used to assume an entire city or district boundary.
-   - Unsupported locations have an open, honest demand-request path.
-3. **Category & Pool Catalog:**
-   - Visitors can browse active pools by category (e.g., Electric Vehicles, Rooftop Solar, Home Power Backup, Water Softeners, Appliances) and by city.
-   - Every active pool honestly displays confirmed member count, target capacity, current waitlist count, deadline, and verified supplier offer details where applicable.
-4. **Separation of Verified Offers vs. Indicative Estimates:**
-   - If an official supplier quotation has been verified and published by Admin, the group price is labeled as **"Verified Supplier Quotation"** with vendor scope and validity.
-   - If a pool is in demand-aggregation phase without a finalized supplier quote, prices are clearly labeled as **"Indicative Estimate"**.
-5. **Private Contact Information:**
-   - Buyer names and WhatsApp mobile numbers are strictly confidential and protected server-side.
-   - Zero member PII is rendered on public HTML pages or returned in public API payloads.
-6. **Honest Communication & WhatsApp Workflow:**
-   - All WhatsApp outreach is **100% manual** using pre-composed, transparent `wa.me/91<phone>?text=...` deep links.
-   - No automated third-party bot spam or unverified message receipts.
-   - Explicit communication consent is required on join. If a lead exercises `do_not_contact = 1`, all WhatsApp communication links are immediately blocked.
+1. **Historical "Shared Pool" Model (v7.3.0) — Superseded:**
+   The legacy v7.3.0 experiment mapped multiple cities to a single shared pool cohort via `pool_cities`. This is **historical and superseded**. The canonical platform model is **1 Campaign &rarr; N Independent City Pools** (`campaigns` &rarr; `pools` with `campaign_id`). Each city pool has its own distinct capacity, confirmed member count, waitlist, lifecycle, and closure state.
+2. **Historical Payment & Token Instructions — Superseded:**
+   Legacy notification templates referencing token booking deposits (e.g., ₹499/₹999 refundable tokens, `PAYMENT_INSTRUCTIONS`, or payment links) are **superseded and prohibited** in the active MVP. All communications must reflect neutral, transparent coordination without collecting or demanding payment.
+3. **All-India Discovery vs. Forced Gating:**
+   The national All-India discovery view is the primary open catalog. City filters refine discovery but do not block visitors from exploring deals nationwide or submitting demand requests for any Indian locality.
 
 ---
 
-## 3. Pool Identity, Capacity & Waitlist Invariants
+## 3. Product, Campaign & City Model
 
-1. **Independent City-Plus-Product Identity:**
+1. **Natural Identity & Independence:**
    - A Pool represents an active interest cohort for a specific product offer in a specific city.
    - Natural Identity: `(city_slug, slug)`.
    - **Isolated Capacity Invariant:** Different cities, different products, and materially different variants have **completely independent capacities and member counts**. Joining a pool in Pune increments Pune's cohort only; it never leaks into or shares capacity with Mumbai, Bhopal, or Delhi.
-2. **Confirmed Member Capacity:**
+   - A campaign may be created across multiple cities, but this generates separate, independent city pool records.
+2. **Canonical 25 Solar Launch Cities:**
+   The 25 canonical launch cities for the initial Solar rollout are:
+   1. Delhi (`delhi`)
+   2. Mumbai (`mumbai`)
+   3. Bengaluru (`bengaluru`)
+   4. Hyderabad (`hyderabad`)
+   5. Chennai (`chennai`)
+   6. Kolkata (`kolkata`)
+   7. Pune (`pune`)
+   8. Ahmedabad (`ahmedabad`)
+   9. Surat (`surat`)
+   10. Jaipur (`jaipur`)
+   11. Lucknow (`lucknow`)
+   12. Kanpur (`kanpur`)
+   13. Nagpur (`nagpur`)
+   14. Indore (`indore`)
+   15. Bhopal (`bhopal`)
+   16. Patna (`patna`)
+   17. Vadodara (`vadodara`)
+   18. Coimbatore (`coimbatore`)
+   19. Kochi (`kochi`)
+   20. Ludhiana (`ludhiana`)
+   21. Chandigarh (`chandigarh`)
+   22. Gurugram (`gurugram`)
+   23. Noida (`noida`)
+   24. Visakhapatnam (`visakhapatnam`)
+   25. Bhubaneswar (`bhubaneswar`)
+   *Note:* The authoritative directory of 28 States and 8 UTs (`INDIA_LOCATION_DIRECTORY`) remains available for public demand discovery and proposals.
+
+---
+
+## 4. Join Flow, City Mismatch & Cross-City Registration Invariants
+
+1. **Target City Resolution:**
+   - The target city is determined strictly from the canonical pool record server-side, never from an untrusted client label.
+   - The join dialog must prominently display the target pool city (e.g., "Bhopal Pool").
+2. **City Mismatch Handling:**
+   - The join flow collects or confirms the user's city where applicable.
+   - PIN code is validated strictly as a 6-digit string (`^[0-9]{6}$`), preserving leading zeros (e.g., `'011001'`). A PIN prefix alone is never used to infer a city or district.
+   - If the user-selected city differs from the target pool city, an explicit warning must be presented:
+     *"You are joining the [Target City] pool, not the [User Selected City] pool."*
+   - Users are offered clear "Confirm & Continue" or "Cancel / Choose Different City" actions.
+   - Server-side validation must re-verify city match and explicit continuation before persisting membership.
+3. **Cross-City Duplicate Detection & Privacy Rules:**
+   - Phone numbers are normalized to 10-digit Indian mobiles (`whatsapp_number`).
+   - **Exact Pool Check First:** If the number already exists in the target pool:
+     - Confirmed member: Idempotent return with `{ alreadyJoined: true, buyerNumber, status }` without count increment.
+     - Waitlist applicant: Idempotent return with waitlist position.
+   - **Cross-City Same-Category Detection:**
+     - If the number has an active registration in another city within the same category, inform the user with a privacy-safe notification.
+     - Privacy safeguard: Do not reveal private personal history to arbitrary third-party inputs. Only display existing registration notice in response to authenticated or safe self-submissions.
+     - Following explicit confirmation, allow separate registration in the new city if that city's pool is active and eligible.
+     - Never modify, cancel, or alter the previous city's registration or member count.
+   - **Unrelated Categories:**
+     - Registration in an unrelated category (e.g. EV Scooters) never blocks a new registration in Solar or Home Power Backup.
+
+---
+
+## 5. Capacity, Waitlist & Proposal Separation
+
+1. **Confirmed Member Capacity:**
    - Each pool has a target capacity (`target_buyers`, typically 10).
    - Joins while `current_buyers < target_buyers` become **Confirmed Members** (`pool_leads`) and receive a sequential `buyer_number` (1 to `target_buyers`).
    - When `current_buyers == target_buyers`, the pool status transitions to `TARGET_REACHED` (or `UNLOCKED`).
-3. **FIFO Waiting List:**
+2. **FIFO Waiting List (`pool_waitlist`):**
    - If a pool is full (`current_buyers >= target_buyers`), and `max_waitlist_size > 0`:
      - Subsequent joiners enter the **FIFO Waiting List** (`pool_waitlist`) with sequential `sequence_number` (1 to `max_waitlist_size`, `status: 'WAITING'`).
    - If both confirmed capacity and waitlist capacity are full, subsequent join attempts are rejected with **HTTP 409 Conflict** (`POOL_AND_WAITLIST_FULL`), inviting the user to submit a new pool request.
-4. **Idempotent Joins:**
-   - A buyer is identified by their normalized 10-digit Indian mobile number (`whatsapp_number`).
-   - Submitting a join for an already-joined mobile number is idempotent: it returns HTTP 200 with `{ alreadyJoined: true, buyerNumber, status }` without incrementing counts or creating duplicate rows.
-5. **Member Removal & FIFO Promotion:**
-   - If an active member withdraws or is excluded by Admin (`status: 'EXCLUDED'`), `current_buyers` decrements by 1, reopening a slot.
-   - Admin can trigger **Promote Next**: sequence 1 on the waitlist is promoted to confirmed member status, preserving strict FIFO ordering.
+3. **Waitlist Promotion Integrity:**
+   - Promoting a waitlisted buyer to confirmed member preserves all attributes: `pincode` (preserving leading zeros), `existing_quote`, timeline, and contact consent.
+   - Waitlisted applicants are **never** counted in confirmed member metrics.
+4. **Demand Proposals (`pool_requests`):**
+   - Public pool requests create demand proposals (`status: 'REQUESTED'`), not active pools and not confirmed memberships.
+   - Conversion to an official city pool requires explicit Admin action.
 
 ---
 
-## 4. Public Demand Requests vs. Official Approved Pools
+## 6. Supplier Quotations & Communication
 
-1. **Demand Requests (`pool_requests`):**
-   - Any visitor from any town in India can submit a free-text pool request specifying what product they want, preferred brand/specifications, and location.
-   - Stored in `pool_requests` with status `REQUESTED`.
-   - **Strict Governance:** Public requests **never** automatically create or publish a pool. Requesters are interest-submitters, not pool owners.
-2. **Admin Review & Conversion:**
-   - Admin reviews submitted requests, standardizes product titles and specifications, assigns the category and operational city, and explicitly triggers pool conversion.
-   - Upon conversion, an official pool record is created, and the source request is marked `APPROVED` with `resulting_pool_id`.
-
----
-
-## 5. Administration & Security Infrastructure
-
-1. **Passkey & HMAC Session Security:**
-   - Single administrative passkey (`ADMIN_PASSKEY`) verified with timing-safe comparison (`crypto.timingSafeEqual`).
-   - Issues signed `HttpOnly`, `SameSite=Lax` HMAC-SHA256 session cookie (`ADMIN_SESSION_SECRET`).
-   - Route guard [`lib/require-admin.ts`](file:///c:/Users/iamvi/poolbuy-india/lib/require-admin.ts) protects all `/api/admin/*` routes.
-2. **Immutable Audit Logging:**
-   - All administrative actions (pool creation, status changes, deadline extensions, exclusions, promotions, quote updates, communication clicks) are recorded in `admin_audit_logs`.
-3. **Rate Limiting & Input Validation:**
-   - Public APIs protected by in-memory rate limiting and strict Zod validation schemas.
-   - RFC-4180 CSV export with formula injection sanitization (`=`, `+`, `-`, `@`, tab).
+1. **Quotation Truthfulness:**
+   - **Verified Supplier Quotation:** Displayed only when an official quotation with vendor scope, inclusions/exclusions, and future `validUntil` date is verified by Admin.
+   - **Customer-Reported Quote:** Displayed strictly with clear labeling: *"Customer Reported (Unverified)"*.
+   - **Indicative Estimate:** Used for pools in aggregation phase prior to vendor quotes.
+2. **Honest Manual WhatsApp Outreach:**
+   - 100% manual `wa.me/91<phone>?text=...` deep links.
+   - Zero automated bots, token requests, or fake discount urgency.
+   - Strict respect for `do_not_contact = 1` and communication consent.
 
 ---
 
-## 6. Approved Core User Journeys
+## 7. Administrative Security & Multi-City Bulk Rollout
 
-```mermaid
-journey
-    title Core User Journeys for GroupBuying.store MVP
-    section Journey 1: Public Buyer Discovery
-      Open GroupBuying.store homepage: 5: Visitor
-      Select City & Filter Category: 5: Visitor
-      Browse active pools with truthful counts: 5: Visitor
-      Join pool with Name & WhatsApp mobile: 5: Visitor
-      Receive instant confirmed Buyer # or Waitlist #: 5: Visitor
-    section Journey 2: Demand Request
-      Click "Start a Pool": 5: Visitor
-      Type product need & city in free text: 5: Visitor
-      Submit proposal without login: 5: Visitor
-      Request stored for Admin review: 5: System
-    section Journey 3: Admin Pool Governance
-      Login to Admin Console with Passkey: 5: Admin
-      Review incoming Pool Requests: 5: Admin
-      Standardize specs & select Category/City: 5: Admin
-      Create & Publish Official Pool: 5: Admin
-    section Journey 4: Member & Quotation Ops
-      Monitor confirmed buyers reaching target: 5: Admin
-      Attach & verify supplier quotation: 5: Admin
-      Click to open wa.me manual contact: 5: Admin
-      Exclude withdrawn buyer & promote FIFO waitlist: 5: Admin
-```
+1. **Session & Mutation Security:**
+   - Timing-safe passkey comparison (`crypto.timingSafeEqual`).
+   - Signed `HttpOnly`, `SameSite=Lax` HMAC-SHA256 session cookie.
+   - Origin / CSRF validation on mutating endpoints.
+   - Immutable audit logging in `admin_audit_logs`.
+2. **Admin Multi-City Campaign Rollout Workflow:**
+   - Admin creates a shared product campaign and selects $N$ cities from the canonical 25-city list.
+   - Preview step shows selected cities, existing pool conflicts, and expected creations.
+   - Atomic and idempotent execution: rerunning the bulk rollout creates only missing city pools without duplicating existing pools or corrupting member counts.
+   - Independent capacities and lifecycles per city pool.
 
 ---
 
-## 7. Acceptance Criteria for MVP Completion
+## 8. Acceptance Criteria for System Release
 
-1. Category-agnostic data model: categories are dynamic rows in D1; zero hardcoded category unions in core business logic.
-2. Independent city pools: each city has separate records, separate capacity, and separate waitlists.
-3. Zero-payment operation: joining is 100% free; zero gateway code or token fee demands.
-4. Capacity integrity: atomic updates prevent oversubscription beyond target capacity; FIFO waitlist preserves queue order.
-5. Administrative security: timing-safe passkey verification; immutable audit logging on all mutations.
-6. Honest manual WhatsApp: wa.me links generated safely; opt-out strictly enforced; interaction logged.
-7. Verification & build cleanliness: 100% test pass rate, 0 lint warnings, 0 type errors, clean Next.js and Cloudflare Worker builds.
-
+1. **Category-Agnostic Model:** Dynamic category records in D1; zero hardcoded assumptions.
+2. **City Pool Independence:** Independent pool IDs, capacities, member counts, and waitlists per city.
+3. **Zero-Payment MVP:** No payment gateways, no token deposits, no payment-gated memberships.
+4. **City Mismatch Protection:** Explicit warning and confirmation when user city differs from target pool city; re-validated server-side.
+5. **Cross-City Duplicate Handling:** Exact pool idempotency; cross-city same-category safe detection and explicit continuation; unrelated categories unblocked; zero PII leakage.
+6. **Waitlist & Pincode Integrity:** Full FIFO waitlist promotion preserving 6-digit string pincode with leading zeros and existing quote data.
+7. **25-City Solar Rollout Idempotency:** Admin bulk rollout previews, creates, and reports per-city status idempotently.
+8. **Communication & Privacy:** PII protected on all public endpoints; WhatsApp manual links only; opt-out honored.
+9. **Code & Build Quality:** 100% tests pass, 0 lint errors, 0 typecheck errors, clean Next.js and Cloudflare Worker builds.
