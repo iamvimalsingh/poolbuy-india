@@ -158,7 +158,7 @@ describe('Cloudflare D1 End-to-End Database Integration Suite', () => {
 
     // Verify seeded reference data
     const citiesCount = adapter.rawDb.prepare('SELECT COUNT(*) as cnt FROM cities;').get() as { cnt: number };
-    assert.equal(citiesCount.cnt, 10, 'Expected 10 operational cities seeded');
+    assert.equal(citiesCount.cnt, 28, 'Expected 28 operational cities seeded');
 
     const categoriesCount = adapter.rawDb.prepare('SELECT COUNT(*) as cnt FROM categories;').get() as { cnt: number };
     assert.equal(categoriesCount.cnt, 8, 'Expected 8 categories seeded');
@@ -193,7 +193,7 @@ describe('Cloudflare D1 End-to-End Database Integration Suite', () => {
 
   test('3. Reference Data Reads: Successfully queries cities and categories via D1 prepared statements', async () => {
     const cities = await getAllCities();
-    assert.equal(cities.length, 10);
+    assert.equal(cities.length, 28);
     assert.ok(cities.every((c) => c.isActive));
 
     const bhopal = await getCityBySlug('bhopal');

@@ -475,18 +475,18 @@ describe('Step 1: Admin Foundation, Category & Location Management Acceptance Su
 
     test('7: Location deletion is blocked when dependent pools or requests exist (historical data preserved)', async () => {
       const city = await createCity({
-        name: 'Nagpur',
+        name: 'Amravati',
         state: 'Maharashtra',
-        slug: 'nagpur',
+        slug: 'amravati',
         isActive: true,
       });
 
-      // Insert parent pool (primary in Mumbai) and multi-city pool_cities mapping for Nagpur
+      // Insert parent pool (primary in Mumbai) and multi-city pool_cities mapping for Amravati
       rawDb.exec(`
         INSERT INTO pools (id, slug, name, city, city_slug, category, category_slug, product_title, target_buyers, current_buyers, status, deadline, is_published)
         VALUES ('p-some-pool', 'pool-mumbai', 'Mumbai Multi-City Pool', 'Mumbai', 'mumbai', 'solar-panels', 'solar-panels', 'Solar 3kW', 10, 1, 'ACTIVE', datetime('now', '+10 days'), 1);
         INSERT INTO pool_cities (id, pool_id, city_code, city_name, is_enabled)
-        VALUES ('pc-test-nagpur', 'p-some-pool', 'nagpur', 'Nagpur', 1);
+        VALUES ('pc-test-amravati', 'p-some-pool', 'amravati', 'Amravati', 1);
       `);
 
       const deps = await getCityDependencies(city.id, city.slug, city.name);
@@ -508,7 +508,7 @@ describe('Step 1: Admin Foundation, Category & Location Management Acceptance Su
       // Verify record is preserved
       const preserved = await getCityById(city.id);
       assert.ok(preserved);
-      assert.equal(preserved.name, 'Nagpur');
+      assert.equal(preserved.name, 'Amravati');
     });
   });
 

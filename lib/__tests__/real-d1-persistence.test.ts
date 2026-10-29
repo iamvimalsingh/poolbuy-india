@@ -143,9 +143,9 @@ describe('Real Disk D1 SQLite Persistence Verification', () => {
     process.env.NEXT_PUBLIC_DEMO_MODE = origDemoMode;
   });
 
-  test('1. Real Cities Table: Reads 10 operational cities directly from disk D1 in live mode', async () => {
+  test('1. Real Cities Table: Reads operational cities directly from disk D1 in live mode', async () => {
     const cities = await getOperationalCities();
-    assert.strictEqual(cities.length, 10, 'Expected exactly 10 seeded operational cities in real D1');
+    assert.strictEqual(cities.length, 28, 'Expected 28 seeded operational cities in real D1 (including 25 launch cities)');
     
     const bhopal = await getCityBySlug('bhopal');
     assert.ok(bhopal, 'Bhopal must exist in real D1');
