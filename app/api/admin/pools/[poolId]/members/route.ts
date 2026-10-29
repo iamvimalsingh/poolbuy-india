@@ -116,34 +116,41 @@ export async function GET(
       LIMIT ? OFFSET ?
     `;
 
-    const { results } = await db
-      .prepare(dataSql)
-      .bind(...params, pageSize, offset)
-      .all<Record<string, unknown>>();
+    const [resultsRes, poolMeta] = await Promise.all([
+      db.prepare(dataSql).bind(...params, pageSize, offset).all<Record<string, unknown>>(),
+      db.prepare('SELECT slug, name, category FROM pools WHERE id = ?').bind(poolId).first<{ slug: string; name: string; category: string }>(),
+    ]);
 
-    const members: PoolLead[] = (results || []).map((row: Record<string, unknown>) => ({
-      id: String(row.id),
-      poolId: String(row.pool_id),
-      poolSlug: '',
-      poolName: '',
-      poolCategory: 'EV_SCOOTERS',
-      fullName: String(row.full_name),
-      whatsappNumber: String(row.whatsapp_number),
-      city: String(row.city),
-      buyingTimeline: row.buying_timeline as PoolLead['buyingTimeline'],
-      hasExistingQuote: Boolean(row.has_existing_quote),
-      existingQuoteAmount: row.existing_quote_amount !== null ? Number(row.existing_quote_amount) : null,
-      extraMessage: String(row.extra_message || ''),
-      selectedKitOfferId: (row.selected_kit_offer_id as string) || null,
-      selectedKitName: (row.selected_kit_name as string) || null,
-      status: row.status as PoolLead['status'],
-      consentAt: String(row.consent_at),
-      privacyNoticeVersion: String(row.privacy_notice_version),
-      createdAt: String(row.created_at),
-      buyerNumber: Number(row.buyer_number),
-      locality: (row.locality as string) || null,
-      pinCode: (row.pin_code as string) || null,
-      adminNotes: (row.admin_notes as string) || null,
+    const results = resultsRes.results;
+    const members: PoolLead[] = (results || []).map((row: Record<string, unknown>) => {
+      const effPincode = (row.pincode as string) || (row.pin_code as string) || null;
+      const effQuote = (row.existing_quote as string) || null;
+      return {
+        id: String(row.id),
+        poolId: String(row.pool_id),
+        poolSlug: poolMeta?.slug || '',
+        poolName: poolMeta?.name || '',
+        poolCategory: (poolMeta?.category || 'EV_SCOOTERS') as PoolLead['poolCategory'],
+        fullName: String(row.full_name),
+        whatsappNumber: String(row.whatsapp_number),
+        city: String(row.city),
+        buyingTimeline: row.buying_timeline as PoolLead['buyingTimeline'],
+        hasExistingQuote: Boolean(row.has_existing_quote) || Boolean(effQuote),
+        existingQuoteAmount: row.existing_quote_amount !== null ? Number(row.existing_quote_amount) : null,
+        existingQuote: effQuote,
+        existing_quote: effQuote,
+        extraMessage: String(row.extra_message || ''),
+        selectedKitOfferId: (row.selected_kit_offer_id as string) || null,
+        selectedKitName: (row.selected_kit_name as string) || null,
+        status: row.status as PoolLead['status'],
+        consentAt: String(row.consent_at),
+        privacyNoticeVersion: String(row.privacy_notice_version),
+        createdAt: String(row.created_at),
+        buyerNumber: Number(row.buyer_number),
+        locality: (row.locality as string) || null,
+        pinCode: effPincode,
+        pincode: effPincode,
+        adminNotes: (row.admin_notes as string) || null,
       doNotContact: Boolean(row.do_not_contact),
       quoteResponse: (row.quote_response as PoolLead['quoteResponse']) || undefined,
       quoteResponseNotes: (row.quote_response_notes as string) || undefined,
@@ -167,7 +174,8 @@ export async function GET(
       lastContactAt: (row.last_contact_at as string) || undefined,
       lastContactStatus: (row.last_contact_status as PoolLead['lastContactStatus']) || undefined,
       lastContactNote: (row.last_contact_note as string) || undefined,
-    }));
+    };
+  });
 
     const summary = await getPoolMemberDecisionSummary(poolId);
 

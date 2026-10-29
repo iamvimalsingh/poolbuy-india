@@ -1,7 +1,7 @@
 import { PoolLead, AdminLeadFilters, LeadStatus } from '@/types';
 import { isDemoMode } from './data-mode';
 import { getDemoLeads, DEMO_LEADS } from './mock-data';
-import { requireD1Database } from './d1/db';
+import { getD1Database, requireD1Database } from './d1/db';
 
 interface LeadsQueryResult {
   leads: PoolLead[];
@@ -126,7 +126,8 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
   const page = Math.max(1, filters.page || 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20));
 
-  if (isDemoMode()) {
+  const db = await getD1Database();
+  if (!db && isDemoMode()) {
     let filtered = getDemoLeads();
 
     if (filters.poolId) {
@@ -170,7 +171,7 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
     };
   }
 
-  const db = await requireD1Database();
+  const realDb = db || (await requireD1Database());
 
   const whereClauses: string[] = ['1=1'];
   const params: unknown[] = [];
@@ -204,7 +205,7 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
   const whereSql = whereClauses.join(' AND ');
 
   // Count total matching
-  const countRow = await db
+  const countRow = await realDb
     .prepare(`SELECT COUNT(*) as total FROM pool_leads l WHERE ${whereSql}`)
     .bind(...params)
     .first<{ total: number }>();
@@ -227,7 +228,7 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
   `;
 
   const queryParams = [...params, pageSize, offset];
-  const { results } = await db.prepare(dataSql).bind(...queryParams).all<D1RawLeadRow>();
+  const { results } = await realDb.prepare(dataSql).bind(...queryParams).all<D1RawLeadRow>();
 
   const leads = (results || []).map(mapRawRowToLead);
 
@@ -319,7 +320,8 @@ export async function getLeadsForExport(
  */
 export async function updateLeadStatus(leadId: string, status: LeadStatus): Promise<void> {
   const isDoNotContact = status === 'DO_NOT_CONTACT';
-  if (isDemoMode()) {
+  const db = await getD1Database();
+  if (!db && isDemoMode()) {
     const lead = DEMO_LEADS.find((l) => l.id === leadId);
     if (lead) {
       lead.status = status;
@@ -330,16 +332,16 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus): Prom
     return;
   }
 
-  const db = await requireD1Database();
+  const realDb = db || (await requireD1Database());
   const now = new Date().toISOString();
 
   if (isDoNotContact) {
-    await db
+    await realDb
       .prepare('UPDATE pool_leads SET status = ?, do_not_contact = 1, updated_at = ? WHERE id = ?')
       .bind(status, now, leadId)
       .run();
   } else {
-    await db
+    await realDb
       .prepare('UPDATE pool_leads SET status = ?, updated_at = ? WHERE id = ?')
       .bind(status, now, leadId)
       .run();

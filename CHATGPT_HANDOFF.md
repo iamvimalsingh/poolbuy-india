@@ -1,15 +1,16 @@
 # CHATGPT_HANDOFF.md — GROUPBUYING.STORE REPOSITORY & RELEASE HANDOFF
 
 **Last Updated:** 29 October 2026  
-**Execution Stage:** Step 2 of 4 Complete & Fully Audited — Campaigns, Multi-City Pools, Lead Schema & Admin Integration  
-**Status:** **STEP 2 VERIFIED & SEALED — READY FOR STEP 3 (MEMBERS, REQUESTS & QUOTE OPS)**  
+**Execution Stage:** Step 3 Final Pre-Commit Gate Complete — Member CRM, Separate Waitlist Queue, Vendor Quotes & Canonical D1 Data Flow  
+**Status:** **STEP 3 VERIFIED & AUDITED — READY FOR STAGING DEPLOYMENT AUTHORIZATION**  
 **Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)  
 **Active Git Branch:** `feat/category-agnostic-platform`  
-**Starting HEAD Commit:** `337a1db` ("feat(admin): complete step 1 admin foundation, category and location management")  
-**Latest Step 2 Verified Commit:** `62e7493` ("style(card): re-export PoolCardSkeleton and PoolCardSkeletonGrid from pool-card")  
+**Starting HEAD Commit:** `60d91bc` ("fix(waitlist): resolve pincode and existing_quote promotion field-loss, apply staging migrations, and verify Step 2")  
+**Latest Step 2 Verified Commit:** `60d91bc`  
 **Production Live URL:** `https://groupbuying.store`  
 **Production Worker URL:** `https://poolbuy-india.iamvimalsingh.workers.dev`  
 **Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
+**Active Staging Deployment Version:** `0270afbd-8ac3-4240-8478-e1232d3aab27`  
 **Primary Brand Identity:** GroupBuying (`https://groupbuying.store`), retaining secondary `PoolBuy India` badge  
 **Runtime Architecture:** Next.js 16.4.3 App Router on Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`) backed by Cloudflare D1 SQLite  
 
@@ -187,27 +188,35 @@ In accordance with `docs/PRODUCT_CONTRACT.md` and the Step 2 rebuild specificati
 - **Configuration File:** `wrangler.staging.jsonc`
 - **Target D1 Database:** `groupbuying-staging` (ID: `daa09ed6-b75d-4c16-89f7-156d69cec7e5`)
 - **Staging URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`
-- **Active Verified Cloudflare Deployment Version:** `0de86414-27bc-43fa-8e1e-3df8b519e949`
+- **Active Verified Cloudflare Deployment Version:** `0270afbd-8ac3-4240-8478-e1232d3aab27` (Created: 2026-10-29T04:01:00Z)
 - **Applied Remote Migrations:** `0001` through `0008` (100% applied, 0 pending)
 
 ---
 
-## 5. Guidance for Next Engineer / Agent (Step 3 Scope)
+## 5. Step 3 Implementation & Final Pre-Commit Verification Summary
 
-### Active Working Context:
-- **Branch:** `feat/category-agnostic-platform`
-- **Remote:** Up to date with `origin/feat/category-agnostic-platform`
-- **Node.js Environment:** Windows / Node v24.20.0
-- **Verified Build Status:** `npm test` (262 tests), `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm run build` (47 routes), `npm run build:worker`
+### Key Accomplishments in Step 3:
+1. **Canonical Authoritative D1 Read Path**:
+   - Resolved the lead visibility defect in `lib/leads.ts` and `lib/requests.ts` by checking `getD1Database()` directly, ensuring that live D1 records are queried whenever D1 is available rather than falling back to in-memory `DEMO_LEADS`.
+2. **Strict Tri-Classification Non-Conflation**:
+   - **Confirmed Pool Members**: Stored in `pool_leads` with `buyer_number >= 1`. Rendered in Admin Console under *Buyer Members CRM*.
+   - **Waitlist Applicants**: Stored in `pool_waitlist` with `sequence_number >= 1` and FIFO statuses (`WAITING`, `PROMOTED`, `EXPIRED`). Backed by `/api/admin/waitlist` and rendered under *Waitlist Applicants* sub-tab with instant promotion triggers.
+   - **Demand Proposals**: Stored in `pool_requests` with `estimated_units`, `target_price`, and explicit DPDP consent. Rendered under *Demand Proposals* sub-tab.
+3. **Vendor Quotations & Message Operations (`components/admin-quotes-tab.tsx`)**:
+   - Quotation entry with truthfulness enforcement (future `validUntil` date, scope of supply, itemized inclusions/exclusions).
+   - Operational WhatsApp notification composer with preview of standard approved templates (`QUOTE_AVAILABLE`, `TARGET_REACHED`, `PAYMENT_INSTRUCTIONS`, `WAITLIST_INVITE`).
+4. **Preserved Frontend Innovations**:
+   - Hero search, city-first gating, dynamic FOMO urgency badges, engaging demand-generation empty state, skeleton loaders, and responsive mobile bottom sheet drawer are 100% preserved.
+5. **Legacy Dependency Preservation**:
+   - `admin-leads-tab.tsx` and `admin-requests-tab.tsx` are actively imported by `admin-members-requests-tab.tsx` and protected from premature deletion.
+6. **Full Regression Quality Suite**:
+   - `npm test`: **273 / 273 PASS (100%)**
+   - `npx tsc --noEmit`: **0 Errors**
+   - `npm run lint`: **0 Errors**
+   - `npm run build`: **Exit code 0 (47 routes)**
+   - `npm run build:worker`: **Exit code 0 (`.open-next\worker.js`)**
 
-### Step 3 Scope (Members, Requests & Quotation Operations):
-1. **Target Admin Modules to Activate:**
-   - **Members & Requests Tab**: Manage confirmed pool members, demand discovery proposals, user conversion workflows, and connection statuses (`NOT_READY`, `OPTED_IN`, `ELIGIBLE_TO_CONNECT`, `CONNECTED`, `EXCLUDED`).
-   - **FIFO Waitlist Operations**: Promotion workflow when an active member drops out or capacity is increased (leveraging the verified promotion queries that preserve `pincode` and `existing_quote`).
-   - **Quotes & Messages Tab**:
-     - Verified supplier quotation recording with truthfulness requirements (valid until future date, scope of supply, itemized inclusions/exclusions).
-     - Operational WhatsApp notification composer utilizing standard templates without customer login or password requirements.
-2. **Safety Invariants:**
-   - Do NOT run migrations against production or deploy to production.
-   - Do NOT commit environment files (`.env.local`, `.dev.vars`).
-   - Do NOT treat customer-reported quote text as a verified supplier quote.
+### Next Authorized Action:
+- Review final git diff and approve focused commit:
+  `feat(step-3): canonical d1 admin members, waitlist queue, quotes management and verified data flow`
+- Perform controlled deployment to Staging (`poolbuy-india-hotfix-test`). Production remains strictly prohibited.

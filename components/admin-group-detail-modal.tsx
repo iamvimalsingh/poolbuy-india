@@ -717,6 +717,18 @@ export function AdminGroupDetailModal({
                             <div className="text-[11px] text-gray-400">
                               Joined {new Date(lead.createdAt).toLocaleDateString('en-IN')}
                             </div>
+                            <div className="text-[11px] text-gray-600 flex items-center gap-1.5 flex-wrap mt-0.5">
+                              {(lead.locality || lead.pincode || lead.pinCode) && (
+                                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                                  {[lead.locality, lead.pincode || lead.pinCode].filter(Boolean).join(' • ')}
+                                </span>
+                              )}
+                              {(lead.existingQuote || lead.existing_quote) && (
+                                <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">
+                                  Existing: {lead.existingQuote || lead.existing_quote} <span className="text-[9px] text-amber-600 font-semibold">(Customer Reported)</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-3.5 font-mono text-gray-800">
                             {lead.doNotContact ? (
@@ -862,8 +874,20 @@ export function AdminGroupDetailModal({
                           <td className="py-3 px-3.5 font-bold text-emerald-800">
                             #{item.sequenceNumber}
                           </td>
-                          <td className="py-3 px-3.5 font-bold text-gray-950">
-                            {item.fullName}
+                          <td className="py-3 px-3.5">
+                            <div className="font-bold text-gray-950">{item.fullName}</div>
+                            <div className="text-[11px] text-gray-600 flex items-center gap-1.5 flex-wrap mt-0.5">
+                              {(item.locality || item.pincode || item.pinCode) && (
+                                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                                  {[item.locality, item.pincode || item.pinCode].filter(Boolean).join(' • ')}
+                                </span>
+                              )}
+                              {item.existing_quote && (
+                                <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">
+                                  Existing: {item.existing_quote} <span className="text-[9px] text-amber-600 font-semibold">(Customer Reported)</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-3.5 font-mono text-gray-800">
                             +91 {item.whatsappNumber}

@@ -19,8 +19,10 @@ import { AdminOverviewTab } from './admin-overview-tab';
 import { AdminCategoriesTab } from './admin-categories-tab';
 import { AdminLocationsTab } from './admin-locations-tab';
 import { AdminCampaignsTab } from './admin-campaigns-tab';
+import { AdminMembersRequestsTab } from './admin-members-requests-tab';
+import { AdminQuotesTab } from './admin-quotes-tab';
 
-export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns';
+export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes';
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -137,32 +139,32 @@ export function AdminDashboard() {
           <span>Campaigns & Pools</span>
         </button>
 
-        {/* 5. Members & Requests (Reserved Step 3) */}
+        {/* 5. Members & Requests */}
         <button
           type="button"
-          disabled
-          title="Reserved for Step 3 implementation"
-          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
+          onClick={() => setActiveTab('members')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'members'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 text-emerald-600" />
           <span>Members & Requests</span>
-          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
-            Step 3
-          </span>
         </button>
 
-        {/* 6. Quotes & Messages (Reserved Step 3) */}
+        {/* 6. Quotes & Messages */}
         <button
           type="button"
-          disabled
-          title="Reserved for Step 3 implementation"
-          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
+          onClick={() => setActiveTab('quotes')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'quotes'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4 text-emerald-600" />
           <span>Quotes & Messages</span>
-          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
-            Step 3
-          </span>
         </button>
 
         {/* 7. Activity Log (Reserved Later Step) */}
@@ -187,6 +189,8 @@ export function AdminDashboard() {
       {activeTab === 'categories' && <AdminCategoriesTab />}
       {activeTab === 'locations' && <AdminLocationsTab />}
       {activeTab === 'campaigns' && <AdminCampaignsTab />}
+      {activeTab === 'members' && <AdminMembersRequestsTab />}
+      {activeTab === 'quotes' && <AdminQuotesTab />}
     </div>
   );
 }

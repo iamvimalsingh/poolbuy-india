@@ -3,7 +3,7 @@ import { isDemoMode } from './data-mode';
 import { PoolCategory, PoolRequest } from '@/types';
 import { addDemoRequest, getDemoRequests, getDemoCategories, getDemoCities } from './mock-data';
 import { recordLocationRequest } from './location-requests';
-import { requireD1Database } from './d1/db';
+import { getD1Database, requireD1Database } from './d1/db';
 import { normalizePhone } from './format';
 
 interface D1PoolRequestRow {
@@ -297,12 +297,13 @@ export async function executePoolRequest(
  * Loads all pool requests for admin console.
  */
 export async function getAllPoolRequests(): Promise<PoolRequest[]> {
-  if (isDemoMode()) {
+  const db = await getD1Database();
+  if (!db && isDemoMode()) {
     return getDemoRequests();
   }
 
-  const db = await requireD1Database();
-  const { results } = await db
+  const realDb = db || (await requireD1Database());
+  const { results } = await realDb
     .prepare('SELECT * FROM pool_requests ORDER BY created_at DESC')
     .all<D1PoolRequestRow>();
 
@@ -313,13 +314,14 @@ export async function getAllPoolRequests(): Promise<PoolRequest[]> {
  * Loads single pool request by ID.
  */
 export async function getPoolRequestById(requestId: string): Promise<PoolRequest | null> {
-  if (isDemoMode()) {
+  const db = await getD1Database();
+  if (!db && isDemoMode()) {
     const found = getDemoRequests().find((r) => r.id === requestId);
     return found || null;
   }
 
-  const db = await requireD1Database();
-  const row = await db
+  const realDb = db || (await requireD1Database());
+  const row = await realDb
     .prepare('SELECT * FROM pool_requests WHERE id = ?')
     .bind(requestId)
     .first<D1PoolRequestRow>();

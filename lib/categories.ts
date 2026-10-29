@@ -139,20 +139,22 @@ export async function getCategoryById(id: string): Promise<Category | null> {
  * Creates a new category in D1 or demo store.
  */
 export async function createCategory(input: {
-  label: string;
+  label?: string;
+  name?: string;
   slug: string;
   description?: string;
   isActive?: boolean;
   sortOrder?: number;
 }): Promise<Category> {
   const now = new Date().toISOString();
+  const label = input.label || input.name || input.slug;
   const id = `cat-${input.slug}-${Date.now().toString(36)}`;
 
   if (isDemoMode()) {
     const newCategory: Category = {
       id,
       slug: input.slug,
-      label: input.label,
+      label,
       description: input.description || '',
       isActive: input.isActive ?? true,
       sortOrder: input.sortOrder ?? 0,
@@ -171,7 +173,7 @@ export async function createCategory(input: {
     .bind(
       id,
       input.slug,
-      input.label,
+      label,
       input.description || '',
       input.isActive ?? true ? 1 : 0,
       input.sortOrder ?? 0,

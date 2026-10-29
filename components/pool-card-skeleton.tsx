@@ -16,6 +16,11 @@ export function PoolCardSkeleton() {
           <div className="h-5 w-20 rounded-full bg-slate-200/90" />
           <div className="h-5 w-20 rounded-full bg-slate-200/90" />
         </div>
+
+        {/* Urgency badge placeholder */}
+        <div className="absolute bottom-3 left-3 pointer-events-none">
+          <div className="h-5 w-28 rounded-full bg-slate-200/90" />
+        </div>
       </div>
 
       {/* 2. Body Content (matches p-5 space-y-4) */}

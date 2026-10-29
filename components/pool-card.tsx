@@ -16,12 +16,16 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardProps) {
-  // Authoritative status and deadline checks
-  const isPastDeadline = getCountdownParts(pool.deadline).isExpired;
+  // Authoritative status and deadline checks safely handling undefined or invalid values
+  const deadlineStr = pool.deadline || (pool as unknown as { endDate?: string }).endDate;
+  const countdown = deadlineStr ? getCountdownParts(deadlineStr) : null;
+  const isPastDeadline = countdown ? countdown.isExpired : false;
+  const daysRemaining = countdown && !countdown.isExpired ? countdown.days : null;
   const isClosed = pool.status === 'CLOSED';
 
   const activeCount = pool.currentBuyers ?? 0;
   const targetBuyers = pool.targetBuyers && pool.targetBuyers > 0 ? pool.targetBuyers : 10;
+  const remainingSpots = Math.max(0, targetBuyers - activeCount);
   const waitlistCount = pool.waitlistCount ?? 0;
   const maxWaitlistSize = pool.maxWaitlistSize !== undefined ? pool.maxWaitlistSize : 5;
 
@@ -73,6 +77,34 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
       ? 'bg-emerald-600'
       : 'bg-emerald-500';
 
+  // Dynamic Urgency & FOMO evaluation
+  let urgencyBadge: { label: string; className: string } | null = null;
+
+  if (!isClosed && !isPastDeadline) {
+    if (percentFull >= 80 && remainingSpots > 0) {
+      urgencyBadge = {
+        label: `🔥 Fast filling - Only ${remainingSpots} ${remainingSpots === 1 ? 'spot' : 'spots'} left!`,
+        className: 'bg-rose-100/90 text-rose-800 border-rose-200/90 shadow-rose-950/5',
+      };
+    } else if (daysRemaining !== null && daysRemaining < 5) {
+      const timeLabel =
+        daysRemaining === 0
+          ? 'today'
+          : daysRemaining === 1
+          ? 'in 1 day'
+          : `in ${daysRemaining} days`;
+      urgencyBadge = {
+        label: `⏳ Closing ${timeLabel}`,
+        className: 'bg-amber-100/90 text-amber-800 border-amber-200/90 shadow-amber-950/5',
+      };
+    } else {
+      urgencyBadge = {
+        label: '⚡ Active Demand',
+        className: 'bg-emerald-100/80 text-emerald-800 border-emerald-200/80 shadow-emerald-950/5',
+      };
+    }
+  }
+
   return (
     <article className="group bg-white rounded-2xl border border-gray-200/60 shadow-sm hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col overflow-hidden">
       {/* 2. Image Header Section (Premium Display with Dedicated Background) */}
@@ -110,6 +142,17 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
             {isClosed ? 'Closed' : isPastDeadline ? 'Concluded' : 'Active Pool'}
           </span>
         </div>
+
+        {/* Urgency & FOMO Overlay Badge */}
+        {urgencyBadge && (
+          <div className="absolute bottom-3 left-3 pointer-events-none z-10">
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-xs backdrop-blur-md ${urgencyBadge.className}`}
+            >
+              <span>{urgencyBadge.label}</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Body Content */}

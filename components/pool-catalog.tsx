@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Filter, Layers, MapPin, Sparkles, ArrowRight, Globe, X, Rocket } from 'lucide-react';
+import { Search, Filter, Layers, MapPin, Sparkles, Globe, X, Rocket } from 'lucide-react';
 import { PublicPool, JoinPoolResult, City, Category } from '@/types';
 import { CITIES as FALLBACK_CITIES, CATEGORIES as STATIC_CATEGORIES, CATEGORY_SLUG_MAP } from '@/lib/constants';
 import { getCountdownParts } from '@/lib/format';

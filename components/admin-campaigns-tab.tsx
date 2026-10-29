@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Campaign, AdminPool, Category, City, PoolStatus, CampaignStatus } from '@/types';
 import { formatINR } from '@/lib/format';
+import { AdminGroupDetailModal } from './admin-group-detail-modal';
 
 interface CampaignDependencyInfo {
   poolsCount: number;
@@ -1711,96 +1712,18 @@ export function AdminCampaignsTab() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 6: VIEW CITY POOL DETAILS                                           */}
+      {/* MODAL 6: CITY POOL OPERATIONS DEEP-DIVE MODAL (MEMBERS, WAITLIST, QUOTES) */}
       {/* ========================================================================= */}
       {viewPool && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-gray-200 my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">{viewPool.name}</h3>
-                  <p className="text-xs text-gray-500 font-mono">ID: {viewPool.id}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewPool(null)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase font-bold">City Cohort</div>
-                  <div className="font-bold text-slate-900">{viewPool.city}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase font-bold">Status</div>
-                  <div className="font-bold text-slate-900">{viewPool.status}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase font-bold">Confirmed Buyers</div>
-                  <div className="font-bold text-emerald-700">{viewPool.currentBuyers} / {viewPool.targetBuyers}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase font-bold">Waitlist Queue</div>
-                  <div className="font-bold text-slate-900">{viewPool.waitlistCount || 0} waiting</div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-900 mb-1">Pricing Configuration</h4>
-                <div className="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <span className="text-gray-500">Group Target Price: </span>
-                    <span className="font-bold text-emerald-700">
-                      {viewPool.groupPrice ? formatINR(viewPool.groupPrice) : 'Indicative'}
-                    </span>
-                    {viewPool.marketPrice && (
-                      <span className="text-gray-400 line-through ml-2">{formatINR(viewPool.marketPrice)}</span>
-                    )}
-                  </div>
-                  <div>
-                    {viewPool.priceIsVerified ? (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-[10px]">
-                        ✓ Verified Supplier Quotation
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full text-[10px]">
-                        Indicative Estimate
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-900 mb-1">Closing Deadline</h4>
-                <p className="text-gray-600 bg-white p-3 rounded-xl border border-gray-200">
-                  {new Date(viewPool.deadline).toLocaleString('en-IN', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </p>
-              </div>
-
-              <div className="flex justify-end pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setViewPool(null)}
-                  className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold hover:bg-gray-200 cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AdminGroupDetailModal
+          pool={viewPool}
+          isOpen={Boolean(viewPool)}
+          onClose={() => setViewPool(null)}
+          onPoolUpdated={(updatedPool) => {
+            setPools((prev) => prev.map((p) => (p.id === updatedPool.id ? updatedPool : p)));
+            loadData();
+          }}
+        />
       )}
 
       {/* ========================================================================= */}

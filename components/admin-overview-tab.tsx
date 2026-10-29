@@ -13,7 +13,7 @@ import {
 import { AdminOverviewMetrics } from '@/types';
 
 interface AdminOverviewTabProps {
-  onNavigateTab?: (tab: 'categories' | 'locations' | 'campaigns') => void;
+  onNavigateTab?: (tab: 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes') => void;
 }
 
 export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
