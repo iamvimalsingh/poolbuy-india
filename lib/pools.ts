@@ -104,6 +104,16 @@ interface D1PoolRow {
   updated_at: string;
 }
 
+/**
+ * Calculates the canonical waitlist capacity limit for a pool.
+ * Approved business rule: maximum waitlist capacity = ceil(pool target / 2).
+ * Examples: Target 10 -> Waitlist 5; Target 20 -> Waitlist 10.
+ */
+export function calculateMaxWaitlistCapacity(targetBuyers: number): number {
+  const target = targetBuyers > 0 ? targetBuyers : 10;
+  return Math.ceil(target / 2);
+}
+
 function mapRowToPublicPool(row: D1PoolRow): PublicPool {
   const quoteExpiry = row.quote_valid_until || row.offer_valid_until;
   const isQuoteExpired = quoteExpiry ? new Date(quoteExpiry).getTime() < Date.now() : false;
@@ -141,7 +151,9 @@ function mapRowToPublicPool(row: D1PoolRow): PublicPool {
     connectionStatus: (row.connection_status || 'NOT_ELIGIBLE') as PublicPool['connectionStatus'],
     savingsDisplayApproved: Boolean(row.savings_display_approved),
     sourceRequestId: row.source_request_id || null,
-    maxWaitlistSize: row.max_waitlist_size !== null && row.max_waitlist_size !== undefined ? Number(row.max_waitlist_size) : undefined,
+    maxWaitlistSize: row.max_waitlist_size === 0
+      ? 0
+      : calculateMaxWaitlistCapacity(Number(row.target_buyers) || 10),
     categorySlug: row.category_slug || undefined,
     productTitle: row.product_title || row.name,
     variantName: row.variant_name || undefined,

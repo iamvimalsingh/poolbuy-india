@@ -105,11 +105,6 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
         label: `⏳ Closing ${timeLabel}`,
         className: 'bg-amber-100/90 text-amber-800 border-amber-200/90 shadow-amber-950/5',
       };
-    } else {
-      urgencyBadge = {
-        label: '⚡ Active Demand',
-        className: 'bg-emerald-100/80 text-emerald-800 border-emerald-200/80 shadow-emerald-950/5',
-      };
     }
   }
 
@@ -197,41 +192,51 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
           </p>
 
           {/* 4. Typography & Pricing: Prominent Target Price + Crossed-out Market Price */}
-          <div className="mb-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
+          <div className="mb-3.5 pt-3 border-t border-gray-100 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                 {isVerifiedQuote
                   ? 'Verified Supplier Quote'
                   : hasGroupPrice
-                  ? 'Indicative Target Price'
+                  ? 'Indicative target price — subject to supplier confirmation'
                   : 'Supplier Quote Status'}
-              </div>
-              <div className="flex items-baseline flex-wrap gap-2">
-                <span className="text-2xl font-extrabold text-gray-950 font-mono tracking-tight">
-                  {hasGroupPrice ? formatINR(pool.groupPrice) : 'Negotiation in Progress'}
+              </span>
+              {isVerifiedQuote ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Verified Quote
                 </span>
-                {showMarketDiscount && (
-                  <span className="text-sm font-semibold text-gray-400 line-through decoration-gray-400/80 font-mono">
-                    {formatINR(pool.marketPrice)}
-                  </span>
-                )}
-                {showMarketDiscount && (
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded">
-                    {discountPercent}% OFF
-                  </span>
-                )}
-              </div>
+              ) : (
+                <span className="inline-flex items-center text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                  Aggregating Demand
+                </span>
+              )}
             </div>
 
-            {isVerifiedQuote ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                Verified
+            <div className="flex items-baseline flex-wrap gap-2">
+              <span className="text-2xl font-extrabold text-gray-950 font-mono tracking-tight">
+                {hasGroupPrice ? formatINR(pool.groupPrice) : 'Negotiation in Progress'}
               </span>
-            ) : (
-              <span className="inline-flex items-center text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
-                Aggregating Demand
-              </span>
+              {showMarketDiscount && (
+                <span className="text-sm font-semibold text-gray-400 line-through decoration-gray-400/80 font-mono">
+                  {formatINR(pool.marketPrice)}
+                </span>
+              )}
+              {showMarketDiscount ? (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded">
+                  {discountPercent}% OFF (Estimated — not guaranteed)
+                </span>
+              ) : !hasMarketPrice && hasGroupPrice ? (
+                <span className="text-[10px] text-gray-400 font-medium">
+                  Discount being negotiated
+                </span>
+              ) : null}
+            </div>
+
+            {pool.quoteValidUntil && isVerifiedQuote && (
+              <p className="text-[10px] text-emerald-700 font-medium">
+                Quote valid until: {new Date(pool.quoteValidUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </p>
             )}
           </div>
 
@@ -255,21 +260,36 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
               />
             </div>
 
-            {maxWaitlistSize > 0 && (
-              <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-200/60">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-amber-500" />
-                  <span>FIFO Waitlist</span>
+            {/* Show FIFO Waitlist ONLY when confirmed member capacity is full and waitlisting is allowed */}
+            {isCapacityFull && maxWaitlistSize > 0 && (
+              <div className="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/90 px-2.5 py-1.5 rounded-xl border border-amber-200/70 pt-1 mt-1">
+                <span className="flex items-center gap-1 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>FIFO Waitlist Queue</span>
                 </span>
-                <span className="font-mono font-semibold text-gray-700">
-                  {waitlistCount} / {maxWaitlistSize}
+                <span className="font-mono font-bold text-amber-900">
+                  {waitlistCount} / {maxWaitlistSize} spots
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* 5. CTA Button (Full Width with Hover Translate Icon) */}
+        {/* Next Step Clarity */}
+          <div className="text-[11px] text-gray-500 bg-gray-50/80 rounded-xl px-2.5 py-1.5 border border-gray-100 flex items-center gap-1.5 mb-2.5">
+            <span className="font-semibold text-gray-700 shrink-0">Next Step:</span>
+            <span className="truncate">
+              {isCompletelyFull
+                ? 'Pool & Waitlist are full. Submit a proposal.'
+                : isCapacityFull
+                ? 'Target reached. Join waitlist for vacancies.'
+                : isVerifiedQuote
+                ? 'Verified supplier offer confirmed.'
+                : 'Free to join. Group bids sought at target.'}
+            </span>
+          </div>
+
+          {/* 5. CTA Button (Full Width with Hover Translate Icon) */}
         <div>
           <div className="pt-2 border-t border-gray-100">
             {onJoinClick ? (

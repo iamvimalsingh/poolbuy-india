@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShieldAlert, Users2 } from 'lucide-react';
-import { CITIES, CATEGORIES } from '@/lib/constants';
+import { ShieldAlert, Users2, ExternalLink } from 'lucide-react';
+import { CITIES } from '@/lib/constants';
 
 export function SiteFooter() {
   return (
@@ -13,10 +13,9 @@ export function SiteFooter() {
             <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="leading-relaxed">
               <strong>Legal Disclaimer:</strong> GroupBuying.store (PoolBuy India) is an interest-aggregation discovery platform.
-              We are not an authorized automobile dealer, manufacturer, solar installer, financial lender, escrow service, or direct seller.
-              Joining a group deal expresses non-binding purchase intent. Group discounts are subject to reaching minimum buyer thresholds
-              and written verification of commercial terms by licensed local dealerships. Illustrative prices shown in demo
-              modes are estimates and do not constitute legal quotations.
+              We are not an authorized installer, contractor, financial lender, escrow provider, or direct merchant.
+              Joining a group deal registers free, non-binding purchase interest. Group discounts are subject to reaching minimum cohort thresholds
+              and verified supplier quotations. Indicative prices shown are estimates and do not constitute legal contracts.
             </p>
           </div>
         </div>
@@ -40,21 +39,21 @@ export function SiteFooter() {
               </div>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed mb-4">
-              Empowering Indian homeowners and consumers to access transparent bulk commercial pricing on rooftop solar, power backup, and water softeners through coordinated collective demand.
+              Empowering Indian homeowners and consumers to aggregate collective local demand for rooftop solar installations and essential home equipment.
             </p>
             <div className="text-[11px] text-slate-500 font-mono">
-              Engineered for India • Zero Signup Required
+              Engineered for India • 100% Free Interest
             </div>
           </div>
 
-          {/* Supported Cities (Dense Multi-Column Grid) */}
+          {/* Supported Cities */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
-                Supported Cities
+                Launch Markets
               </h4>
               <span className="text-[10px] text-slate-500 font-medium font-mono">
-                {CITIES.length} Hubs
+                {CITIES.length} Cities
               </span>
             </div>
             <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
@@ -73,42 +72,68 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          {/* Deal Categories */}
+          {/* Deal Categories & Platform Navigation */}
           <div className="lg:col-span-1">
             <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">
-              Deal Categories
+              Platform &amp; Navigation
             </h4>
             <ul className="space-y-1.5 text-xs">
-              {CATEGORIES.map((cat) => (
-                <li key={cat.slug}>
-                  <Link
-                    href={`/category/${cat.slug}`}
-                    className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5"
-                  >
-                    {cat.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/#how-it-works" className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5">
+                  How It Works
+                </Link>
+              </li>
+              <li>
+                <Link href="/#categories" className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5">
+                  Categories
+                </Link>
+              </li>
+              <li>
+                <Link href="/#faqs" className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5">
+                  FAQs
+                </Link>
+              </li>
+              <li>
+                <Link href="/#request-pool" className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5">
+                  Start a Pool
+                </Link>
+              </li>
+              <li>
+                <Link href="/blog" className="text-slate-400 hover:text-emerald-400 transition-colors block py-0.5">
+                  Blog &amp; Solar Guides
+                </Link>
+              </li>
+              <li className="pt-2">
+                <a
+                  href="https://pmsuryaghar.gov.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-blue-400 transition-colors inline-flex items-center gap-1 py-0.5"
+                >
+                  <span>PM Surya Ghar Portal</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
             </ul>
           </div>
 
-          {/* Platform & Safety */}
+          {/* Trust & Operator */}
           <div className="lg:col-span-1">
             <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">
-              Platform & Safety
+              Trust &amp; Transparency
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
               <li>
                 <span className="text-slate-300 font-medium">Free Interest Registration</span>
               </li>
               <li>
-                <span>No Advance Fees to Browse</span>
+                <span>No Advance Fees to Browse or Join</span>
               </li>
               <li>
-                <span>Zero Platform Fees • Direct Supplier Invoicing</span>
+                <span>Zero Platform Fees in MVP</span>
               </li>
               <li>
-                <span>Direct Delivery by Authorized Showrooms</span>
+                <span>Direct Supplier Invoicing &amp; Fulfillment</span>
               </li>
               <li className="pt-2">
                 <Link
@@ -125,7 +150,7 @@ export function SiteFooter() {
         <div className="pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>© 2026 GroupBuying.store • PoolBuy India. All rights reserved.</p>
           <p className="text-center sm:text-right">
-            Privacy Version: 2026-10-26-v1 • Respecting DPDP Act buyer privacy norms
+            Privacy: In strict compliance with DPDP Act buyer privacy norms • Zero customer data selling
           </p>
         </div>
       </div>

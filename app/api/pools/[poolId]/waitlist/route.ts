@@ -44,7 +44,7 @@ export async function POST(
       const existingWaitlist = (getDemoWaitlist(poolId) || []).filter(
         (w) => w.status === 'WAITING' || w.status === 'INVITED'
       );
-      const maxWl = pool.maxWaitlistSize ?? 20;
+      const maxWl = pool.maxWaitlistSize !== undefined ? pool.maxWaitlistSize : Math.ceil(((pool as unknown as { targetBuyers?: number }).targetBuyers || 10) / 2);
       if (existingWaitlist.length >= maxWl) {
         return NextResponse.json(
           {
@@ -88,9 +88,9 @@ export async function POST(
 
     // Check pool existence
     const pool = await db
-      .prepare('SELECT id, name, max_waitlist_size FROM pools WHERE id = ? AND deleted_at IS NULL')
+      .prepare('SELECT id, name, target_buyers, max_waitlist_size FROM pools WHERE id = ? AND deleted_at IS NULL')
       .bind(poolId)
-      .first<{ id: string; name: string; max_waitlist_size?: number | null }>();
+      .first<{ id: string; name: string; target_buyers?: number | null; max_waitlist_size?: number | null }>();
 
     if (!pool) {
       return NextResponse.json(
@@ -105,7 +105,8 @@ export async function POST(
       .bind(poolId)
       .first<{ total: number }>();
 
-    const maxWaitlist = pool.max_waitlist_size ?? 20;
+    const targetBuyers = pool.target_buyers ? Number(pool.target_buyers) : 10;
+    const maxWaitlist = pool.max_waitlist_size === 0 ? 0 : Math.ceil(targetBuyers / 2);
     if (activeWaitlistCount && activeWaitlistCount.total >= maxWaitlist) {
       return NextResponse.json(
         {

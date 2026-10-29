@@ -17,8 +17,8 @@ export const CATEGORIES: CategoryMeta[] = [
   {
     category: 'ROOFTOP_SOLAR',
     slug: 'rooftop-solar',
-    label: 'Rooftop Solar (3kW & 5kW)',
-    description: 'Residential rooftop solar installations with DISCOM subsidy guidance.',
+    label: 'Home Rooftop Solar Installation',
+    description: 'Residential rooftop solar installations under PM Surya Ghar with DISCOM subsidy guidance.',
   },
   {
     category: 'ROOFTOP_SOLAR',

@@ -2,13 +2,24 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { MapPin, Search, Check, ChevronDown, Globe, Navigation, Loader2, AlertCircle } from 'lucide-react';
+import {
+  MapPin,
+  Search,
+  Check,
+  ChevronDown,
+  Navigation,
+  Loader2,
+  AlertCircle,
+  X,
+  Sparkles,
+} from 'lucide-react';
 import { LAUNCH_CITIES } from '@/lib/constants';
+import { INDIA_LOCATION_DIRECTORY } from '@/lib/location-directory';
 import { useSelectedCity } from '@/lib/location-store';
 
 interface LocationSelectorProps {
   currentCitySlug?: string | null;
-  onSelectCity?: (citySlug: string) => void;
+  onSelectCity?: (citySlug: string | null) => void;
   className?: string;
 }
 
@@ -55,6 +66,39 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   return R * c;
 }
 
+// Flat list of directory locations for search
+interface DirectoryLocation {
+  name: string;
+  slug: string;
+  state: string;
+  isLaunchMarket: boolean;
+}
+
+const ALL_DIRECTORY_LOCATIONS: DirectoryLocation[] = (() => {
+  const launchSlugs = new Set(LAUNCH_CITIES.map((c) => c.slug));
+  const list: DirectoryLocation[] = LAUNCH_CITIES.map((c) => ({
+    name: c.name,
+    slug: c.slug,
+    state: c.state,
+    isLaunchMarket: true,
+  }));
+
+  for (const st of INDIA_LOCATION_DIRECTORY) {
+    for (const city of st.cities) {
+      if (!launchSlugs.has(city.slug)) {
+        list.push({
+          name: city.name,
+          slug: city.slug,
+          state: st.name,
+          isLaunchMarket: false,
+        });
+      }
+    }
+  }
+
+  return list;
+})();
+
 export function LocationSelector({
   currentCitySlug: propCitySlug,
   onSelectCity,
@@ -97,27 +141,30 @@ export function LocationSelector({
   // Current active city meta
   const currentCity = useMemo(() => {
     if (!effectiveCitySlug || effectiveCitySlug === 'all') return null;
-    return LAUNCH_CITIES.find((c) => c.slug === effectiveCitySlug) || {
-      name: effectiveCitySlug.charAt(0).toUpperCase() + effectiveCitySlug.slice(1),
-      slug: effectiveCitySlug,
-      state: 'India',
-    };
+    return (
+      ALL_DIRECTORY_LOCATIONS.find((c) => c.slug === effectiveCitySlug) || {
+        name: effectiveCitySlug.charAt(0).toUpperCase() + effectiveCitySlug.slice(1),
+        slug: effectiveCitySlug,
+        state: 'India',
+        isLaunchMarket: false,
+      }
+    );
   }, [effectiveCitySlug]);
 
-  const isAllIndiaActive = !effectiveCitySlug || effectiveCitySlug === 'all';
+  const hasSelectedCity = Boolean(currentCity);
 
-  const handleCitySelect = (slug: string) => {
-    const nextSlug = slug === 'all' ? null : slug;
+  const handleCitySelect = (slug: string | null) => {
+    const nextSlug = slug === 'all' || !slug ? null : slug;
     setStoreCity(nextSlug);
 
     if (onSelectCity) {
-      onSelectCity(slug);
+      onSelectCity(nextSlug);
     } else {
       if (pathname.startsWith('/city/')) {
         if (nextSlug) {
           router.push(`/city/${nextSlug}`);
         } else {
-          router.push('/#pools');
+          router.push('/');
         }
       }
     }
@@ -173,29 +220,55 @@ export function LocationSelector({
     );
   };
 
-  const filteredCities = useMemo(() => {
-    if (!searchQuery.trim()) return LAUNCH_CITIES;
+  const { launchMatches, otherMatches } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return LAUNCH_CITIES.filter(
+    if (!q) {
+      return {
+        launchMatches: LAUNCH_CITIES,
+        otherMatches: [],
+      };
+    }
+    const matchingLaunch = LAUNCH_CITIES.filter(
       (c) => c.name.toLowerCase().includes(q) || c.state.toLowerCase().includes(q) || c.slug.includes(q)
     );
+    const launchSlugs = new Set(matchingLaunch.map((c) => c.slug));
+    const matchingOther = ALL_DIRECTORY_LOCATIONS.filter(
+      (c) =>
+        !c.isLaunchMarket &&
+        !launchSlugs.has(c.slug) &&
+        (c.name.toLowerCase().includes(q) || c.state.toLowerCase().includes(q) || c.slug.includes(q))
+    );
+    return {
+      launchMatches: matchingLaunch,
+      otherMatches: matchingOther,
+    };
   }, [searchQuery]);
 
   return (
     <div className={`relative ${className}`}>
-      {/* Trigger Button */}
+      {/* Trigger Button: Displays "Choose City" when no city is selected */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+          hasSelectedCity
+            ? 'bg-emerald-50/90 text-emerald-950 border border-emerald-300/80 hover:bg-emerald-100/80'
+            : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-800'
+        }`}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
       >
         <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
         <span className="truncate max-w-[130px] sm:max-w-[180px]">
-          {currentCity ? `${currentCity.name}, ${currentCity.state}` : 'All India (National)'}
+          {hasSelectedCity ? `${currentCity!.name}, ${currentCity!.state}` : 'Choose City'}
         </span>
-        <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        {hasSelectedCity ? (
+          <span className="text-[10px] font-bold text-emerald-700 underline decoration-emerald-400">
+            Change
+          </span>
+        ) : (
+          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        )}
       </button>
 
       {/* Popover / Dialog */}
@@ -203,48 +276,41 @@ export function LocationSelector({
         <div
           ref={popoverRef}
           className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-[420px] max-w-[420px] bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-scale-in"
+          role="dialog"
+          aria-label="City Selection"
         >
-          {/* Header & Search */}
-          <div className="p-3.5 border-b border-slate-100 bg-slate-50/70">
-            <div className="flex items-center justify-between mb-2.5">
+          {/* Header & Controls */}
+          <div className="p-3.5 border-b border-slate-100 bg-slate-50/80">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                Select Discovery Location
+                Select Your City
               </span>
               <span className="text-[10px] text-gray-500 font-medium">
-                25 Launch Markets
+                25 Launch Markets • All India Directory
               </span>
             </div>
 
-            {/* All India Button */}
-            <button
-              type="button"
-              onClick={() => handleCitySelect('all')}
-              className={`w-full text-left p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all mb-2 cursor-pointer ${
-                isAllIndiaActive
-                  ? 'border-emerald-600 bg-emerald-50/80 text-emerald-950 font-bold ring-1 ring-emerald-600 shadow-2xs'
-                  : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div>
-                  <div className="font-bold flex items-center gap-1.5">
-                    <span>All India (Default)</span>
-                    {isAllIndiaActive && (
-                      <span className="text-[10px] font-semibold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
-                        Active
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-slate-500 font-normal">
-                    Show group deals from all Indian launch cities
-                  </div>
+            {/* If a city is currently active, show clear affordance */}
+            {hasSelectedCity && (
+              <div className="mb-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-950">
+                <div className="flex items-center gap-1.5 truncate">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="font-semibold truncate">
+                    Current: {currentCity!.name}, {currentCity!.state}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleCitySelect(null)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-white px-2 py-0.5 rounded-lg border border-emerald-300 shrink-0 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Clear</span>
+                </button>
               </div>
-              {isAllIndiaActive && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
-            </button>
+            )}
 
-            {/* Optional Geolocation Action */}
+            {/* Optional Geolocation Action (permission requested ONLY on explicit click) */}
             <div className="mb-2.5">
               <button
                 type="button"
@@ -275,7 +341,7 @@ export function LocationSelector({
                   <div>
                     <span className="font-semibold">Nearest launch city: {suggestedCity.name}</span>
                     <span className="text-[10px] text-emerald-700 block">
-                      ~{suggestedCity.distanceKm} km away. Click to confirm.
+                      ~{suggestedCity.distanceKm} km away. Click to select.
                     </span>
                   </div>
                   <button
@@ -294,7 +360,7 @@ export function LocationSelector({
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search launch cities..."
+                placeholder="Search city or state..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden font-medium"
@@ -302,35 +368,88 @@ export function LocationSelector({
             </div>
           </div>
 
-          {/* Cities Grid */}
-          <div className="max-h-[260px] overflow-y-auto p-2">
-            <div className="grid grid-cols-2 gap-1.5">
-              {filteredCities.map((city) => {
-                const isSelected = effectiveCitySlug === city.slug;
-                return (
-                  <button
-                    key={city.slug}
-                    type="button"
-                    onClick={() => handleCitySelect(city.slug)}
-                    className={`text-left p-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-300'
-                        : 'hover:bg-slate-50 text-slate-700 border border-slate-100'
-                    }`}
-                  >
-                    <div className="truncate">
-                      <div className="font-semibold text-gray-900 truncate">{city.name}</div>
-                      <div className="text-[10px] text-gray-400 truncate">{city.state}</div>
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Cities List / Grid */}
+          <div className="max-h-[280px] overflow-y-auto p-2.5 space-y-3">
+            {/* Launch Markets Section */}
+            {launchMatches.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mb-1.5">
+                  <span>Configured Launch Markets ({launchMatches.length})</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">Active Aggregation</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {launchMatches.map((city) => {
+                    const isSelected = effectiveCitySlug === city.slug;
+                    return (
+                      <button
+                        key={city.slug}
+                        type="button"
+                        onClick={() => handleCitySelect(city.slug)}
+                        className={`text-left p-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-300'
+                            : 'hover:bg-slate-50 text-slate-700 border border-slate-100'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <div className="font-semibold text-gray-900 truncate">{city.name}</div>
+                          <div className="text-[10px] text-gray-400 truncate">{city.state}</div>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-            {filteredCities.length === 0 && (
-              <div className="p-4 text-center text-xs text-gray-400">
-                No matching launch city. Requests are accepted from anywhere in India via the Request a Pool form.
+            {/* Other Directory Locations */}
+            {otherMatches.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mb-1.5 pt-2 border-t border-slate-100">
+                  <span>All India Directory ({otherMatches.length})</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Demand Proposals</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {otherMatches.map((city) => {
+                    const isSelected = effectiveCitySlug === city.slug;
+                    return (
+                      <button
+                        key={city.slug}
+                        type="button"
+                        onClick={() => handleCitySelect(city.slug)}
+                        className={`text-left p-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-300'
+                            : 'hover:bg-slate-50 text-slate-700 border border-slate-100'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <div className="font-semibold text-gray-900 truncate">{city.name}</div>
+                          <div className="text-[10px] text-gray-400 truncate">{city.state}</div>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {launchMatches.length === 0 && otherMatches.length === 0 && (
+              <div className="p-4 text-center text-xs text-gray-500 space-y-2">
+                <p>No matching city found in directory.</p>
+                <p className="text-[11px] text-gray-400">
+                  You can propose a buying pool for any town or city in India via the Request a Pool form.
+                </p>
+                <a
+                  href="#request-pool"
+                  onClick={() => setIsOpen(false)}
+                  className="inline-flex items-center gap-1 text-emerald-700 font-bold hover:underline"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Propose Your City</span>
+                </a>
               </div>
             )}
           </div>
