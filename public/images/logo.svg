@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100" viewBox="0 0 400 100" fill="none">
+  <!-- Brand Icon Box -->
+  <rect x="10" y="15" width="70" height="70" rx="18" fill="url(#brandGrad)"/>
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Users Community Icon in Box -->
+  <g transform="translate(45, 50)" fill="#FFFFFF">
+    <circle cx="0" cy="-6" r="6"/>
+    <path d="M-10 10C-10 5.5 -5 3 0 3C5 3 10 5.5 10 10"/>
+    <circle cx="-11" cy="-3" r="4" fill="#D1FAE5"/>
+    <path d="M-18 10C-18 7 -14 5 -11 5" stroke="#D1FAE5" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <circle cx="11" cy="-3" r="4" fill="#D1FAE5"/>
+    <path d="M18 10C18 7 14 5 11 5" stroke="#D1FAE5" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="96" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="#0F172A" letter-spacing="-0.5">
+    GroupBuying<tspan font-size="18" font-weight="500" fill="#64748B">.store</tspan>
+  </text>
+
+  <!-- Sub-badge -->
+  <g transform="translate(96, 62)">
+    <rect x="0" y="0" width="84" height="18" rx="9" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1"/>
+    <text x="42" y="13" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" fill="#065F46" text-anchor="middle">POOLBUY INDIA</text>
+  </g>
+</svg>

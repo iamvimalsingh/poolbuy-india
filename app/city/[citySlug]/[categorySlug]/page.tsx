@@ -50,6 +50,20 @@ export async function generateMetadata({ params }: CityCategoryPageProps): Promi
       siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
+      images: [
+        {
+          url: `${siteUrl}/images/category-default.svg`,
+          width: 800,
+          height: 600,
+          alt: `${category.label} Deals in ${city.name}`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${siteUrl}/images/category-default.svg`],
     },
     // Noindex thin or empty city/category combinations to prevent search index pollution
     robots: getRobotsMetadata(isThinOrEmpty),

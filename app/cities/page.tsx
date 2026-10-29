@@ -27,6 +27,20 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
+      images: [
+        {
+          url: `${siteUrl}/images/og-image.svg`,
+          width: 1200,
+          height: 630,
+          alt: 'GroupBuying.store Operational Cities Directory',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${siteUrl}/images/og-image.svg`],
     },
     robots: getRobotsMetadata(false),
   };

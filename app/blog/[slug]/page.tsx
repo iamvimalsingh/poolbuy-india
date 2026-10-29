@@ -16,12 +16,12 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
 
   if (!post) {
     return {
-      title: 'Article Not Found | PoolBuy India',
+      title: 'Article Not Found | GroupBuying.store',
     };
   }
 
   const siteUrl = getSiteUrl();
-  const title = post.metaTitle || `${post.title} | PoolBuy India`;
+  const title = post.metaTitle || `${post.title} | GroupBuying.store`;
   const description = post.metaDescription || post.excerpt;
   const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
   const imageUrl = post.coverImageUrl?.startsWith('http')
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       title,
       description,
       url: canonicalUrl,
-      siteName: 'PoolBuy India',
+      siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'article',
       publishedTime: post.publishedAt || post.createdAt,

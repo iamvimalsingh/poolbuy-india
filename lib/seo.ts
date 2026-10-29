@@ -7,14 +7,29 @@ import { getPoolFallbackImage } from './pool-image-fallback';
  * Returns the sanitized base site URL without trailing slashes.
  */
 export function getSiteUrl(): string {
+  // 1. In browser environment: if the browser is running on a deployed host (e.g. groupbuying.store or workers.dev),
+  // always use the current window origin so share links match the exact active domain.
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/+$/, '');
+    if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      return origin;
+    }
+  }
   const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
-    return envUrl.replace(/\/+$/, '');
+    const sanitized = envUrl.replace(/\/+$/, '');
+    if (process.env.NODE_ENV === 'production' && (sanitized.includes('localhost') || sanitized.includes('127.0.0.1'))) {
+      return 'https://groupbuying.store';
+    }
+    return sanitized;
   }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL.replace(/\/+$/, '')}`;
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
+    if (process.env.NODE_ENV === 'production') {
+      return 'https://groupbuying.store';
+    }
     return window.location.origin.replace(/\/+$/, '');
   }
   if (process.env.NODE_ENV === 'production') {
@@ -170,7 +185,7 @@ export function buildArticleJsonLd(post: BlogPost) {
       url: siteUrl,
       logo: {
         '@type': 'ImageObject',
-        url: `${siteUrl}/images/logo.png`,
+        url: `${siteUrl}/images/logo.svg`,
       },
     },
     mainEntityOfPage: {
@@ -207,7 +222,7 @@ export function buildOrganizationJsonLd() {
     name: 'GroupBuying.store',
     alternateName: 'PoolBuy India',
     url: siteUrl,
-    logo: `${siteUrl}/images/logo.png`,
+    logo: `${siteUrl}/images/logo.svg`,
     description: 'Collective demand aggregation and local group-buying platform for solar, power backup, and water softeners in India.',
   };
 }

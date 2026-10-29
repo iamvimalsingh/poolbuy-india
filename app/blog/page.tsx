@@ -7,7 +7,7 @@ import { BookOpen, Calendar, Clock, User, ArrowRight } from 'lucide-react';
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = getSiteUrl();
-  const title = 'Educational Guides & Market Insights | PoolBuy India';
+  const title = 'Educational Guides & Market Insights | GroupBuying.store';
   const description =
     'Practical, unbiased consumer guides on PM Surya Ghar rooftop solar, inverters, deep-cycle batteries, water treatment, and community group buying dynamics across Indian cities.';
 
@@ -21,9 +21,23 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: `${siteUrl}/blog`,
-      siteName: 'PoolBuy India',
+      siteName: 'GroupBuying.store',
       locale: 'en_IN',
       type: 'website',
+      images: [
+        {
+          url: `${siteUrl}/images/blog-default.svg`,
+          width: 1200,
+          height: 630,
+          alt: 'GroupBuying Guides & Market Insights',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Educational Guides & Market Insights | GroupBuying.store',
+      description: 'Practical, unbiased consumer guides on rooftop solar, inverters, deep-cycle batteries, water treatment, and community group buying dynamics across Indian cities.',
+      images: [`${siteUrl}/images/blog-default.svg`],
     },
     robots: getRobotsMetadata(),
   };

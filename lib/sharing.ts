@@ -51,6 +51,37 @@ export function buildPoolShareContent(pool: PoolShareData, siteUrl?: string): Sh
   };
 }
 
+export interface GenericPageShareData {
+  title: string;
+  description?: string;
+  path: string; // e.g. '/', '/city/bhopal', '/category/rooftop-solar', '/blog'
+}
+
+/**
+ * Builds canonical sharing parameters and honest message copy for public landing pages
+ * (homepage, city directory, category directory, blog articles).
+ */
+export function buildPageShareContent(data: GenericPageShareData, siteUrl?: string): ShareContentResult {
+  const base = (siteUrl || getSiteUrl()).replace(/\/+$/, '');
+  const cleanPath = data.path.startsWith('/') ? data.path : `/${data.path}`;
+  const canonicalUrl = `${base}${cleanPath}`;
+
+  const title = data.title.includes('GroupBuying') ? data.title : `${data.title} | GroupBuying.store`;
+  const text = data.description
+    ? `${data.title}: ${data.description}`
+    : `Explore community-led group buying opportunities on GroupBuying.store:`;
+  const fullMessage = `${text} ${canonicalUrl}`;
+  const whatsAppUrl = `https://wa.me/?text=${encodeURIComponent(fullMessage)}`;
+
+  return {
+    title,
+    text,
+    url: canonicalUrl,
+    fullMessage,
+    whatsAppUrl,
+  };
+}
+
 /**
  * Safe browser sharing helper. Attempts Web Share API when supported;
  * returns a boolean indicating whether native share succeeded or modal fallback is needed.
