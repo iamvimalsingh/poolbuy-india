@@ -98,15 +98,13 @@ describe('WhatsApp Integration Tests', () => {
       const message = buildUnlockedPoolMessage(
         'Vikram Sharma',
         adminPool,
-        'https://checkout.dealer.com/token/tvs-bhopal-01',
-        499
+        'https://groupbuying.store/deals/bhopal/tvs-iqube'
       );
 
       assert.ok(message.includes('Namaste Vikram Sharma'));
-      assert.ok(message.includes('₹499'));
       assert.ok(message.includes('Bhopal TVS Main Showroom'));
-      assert.ok(message.includes('https://checkout.dealer.com/token/tvs-bhopal-01'));
-      assert.ok(message.includes('100% refundable'));
+      assert.ok(message.includes('https://groupbuying.store/deals/bhopal/tvs-iqube'));
+      assert.ok(message.includes('zero platform fees'));
     });
 
     test('Lead fallback message mentions direct quotation without fake guarantees', () => {

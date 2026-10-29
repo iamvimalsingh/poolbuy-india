@@ -69,7 +69,7 @@ export function AdminQuotesTab() {
 
   // WhatsApp template preview state
   const [selectedTemplate, setSelectedTemplate] = useState<
-    'TARGET_REACHED' | 'QUOTE_AVAILABLE' | 'PAYMENT_INSTRUCTIONS' | 'WAITLIST_INVITE'
+    'TARGET_REACHED' | 'QUOTE_AVAILABLE' | 'SUPPLIER_COORDINATION' | 'WAITLIST_INVITE'
   >('QUOTE_AVAILABLE');
   const [customPhone, setCustomPhone] = useState('');
   const [buyerNamePreview, setBuyerNamePreview] = useState('Rahul Verma');
@@ -212,12 +212,12 @@ export function AdminQuotesTab() {
           selectedPool.city,
           selectedPool.targetBuyers
         );
-      case 'PAYMENT_INSTRUCTIONS':
+      case 'SUPPLIER_COORDINATION':
         return buildPaymentInstructionsMessage(
           buyerNamePreview,
           selectedPool.name,
-          500, // standard connection fee
-          'UPI / Net Banking link: https://groupbuying.store/pay-demo'
+          selectedPool.dealerName || 'Authorized Local Partner',
+          'The authorized supplier will contact you directly for site consultation and official invoicing.\nZero platform fees collected by GroupBuying.'
         );
       case 'WAITLIST_INVITE':
         return buildWaitlistInvitationMessage(
@@ -448,7 +448,7 @@ export function AdminQuotesTab() {
                     e.target.value as
                       | 'TARGET_REACHED'
                       | 'QUOTE_AVAILABLE'
-                      | 'PAYMENT_INSTRUCTIONS'
+                      | 'SUPPLIER_COORDINATION'
                       | 'WAITLIST_INVITE'
                   )
                 }
@@ -456,7 +456,7 @@ export function AdminQuotesTab() {
               >
                 <option value="QUOTE_AVAILABLE">Quote / Price Drop Available</option>
                 <option value="TARGET_REACHED">Cohort Target Reached</option>
-                <option value="PAYMENT_INSTRUCTIONS">Token Payment Instructions</option>
+                <option value="SUPPLIER_COORDINATION">Supplier Connection &amp; Fulfillment</option>
                 <option value="WAITLIST_INVITE">Waitlist Queue Slot Invitation</option>
               </select>
             </div>

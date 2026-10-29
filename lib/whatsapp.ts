@@ -33,17 +33,15 @@ export function buildBuyerViralShareUrl(pool: PublicPool, siteUrl?: string): str
 export function buildUnlockedPoolMessage(
   buyerName: string,
   pool: AdminPool,
-  tokenPaymentUrl: string,
-  tokenAmount: number
+  coordinationUrl?: string
 ): string {
-  const tokenFormatted = formatINR(tokenAmount);
   return (
     `Namaste ${buyerName.trim()},\n\n` +
     `Great news! The group-buy pool for *${pool.name}* in ${pool.city} has reached its buyer target. ` +
-    `We have verified the group quotation and delivery terms with authorized dealership *${pool.dealerName || 'our dealer partner'}*.\n\n` +
-    `To confirm your allocation, please complete your fully refundable token deposit of *${tokenFormatted}* using this official link:\n` +
-    `${tokenPaymentUrl}\n\n` +
-    `*Note:* This token is 100% refundable as per dealer terms if you choose not to proceed before final showroom invoicing.`
+    `We have verified the bulk group quotation and delivery terms with authorized local partner *${pool.dealerName || 'our verified partner'}*.\n\n` +
+    `Our team will now coordinate direct introductions between verified buyers and the authorized supplier.\n` +
+    (coordinationUrl ? `You can review verified deal specifications here:\n${coordinationUrl}\n\n` : '') +
+    `*Note:* GroupBuying collects zero platform fees — all invoicing, warranty, and delivery remain 100% direct with the authorized partner.`
   );
 }
 
@@ -170,17 +168,26 @@ export function buildConnectionFeeDisclosureMessage(
   buyerName: string,
   productName: string,
   cityName: string,
-  feeAmount: number,
-  feeBasis: number
+  feeAmount?: number,
+  feeBasis?: number
 ): string {
-  const feeFormatted = formatINR(feeAmount);
-  const basisFormatted = formatINR(feeBasis);
+  if (feeAmount && feeBasis) {
+    const feeFormatted = formatINR(feeAmount);
+    const basisFormatted = formatINR(feeBasis);
+    return (
+      `Namaste ${buyerName.trim()},\n\n` +
+      `The group for *${productName}* in ${cityName} is preparing for direct supplier introduction.\n\n` +
+      `As per our terms, the connection fee for this group is *${feeFormatted}* (calculated as max(₹99, 0.10% × approved basis of ${basisFormatted})).\n\n` +
+      `This fee covers supplier verification, delivery coordination, and group representation.\n` +
+      `Please confirm if you agree to these disclosed terms to receive payment instructions.`
+    );
+  }
   return (
     `Namaste ${buyerName.trim()},\n\n` +
     `The group for *${productName}* in ${cityName} is preparing for direct supplier introduction.\n\n` +
-    `As per our terms, the connection fee for this group is *${feeFormatted}* (calculated as max(₹99, 0.10% × approved basis of ${basisFormatted})).\n\n` +
-    `This fee covers supplier verification, delivery coordination, and group representation.\n` +
-    `Please confirm if you agree to these disclosed terms to receive payment instructions.`
+    `As per our terms, GroupBuying collects zero platform charges in MVP. ` +
+    `All invoicing and warranty terms are issued directly by the authorized local supplier.\n\n` +
+    `Please reply with *READY* to receive direct dealer contact and scheduling details.`
   );
 }
 
@@ -190,15 +197,15 @@ export function buildConnectionFeeDisclosureMessage(
 export function buildPaymentInstructionsMessage(
   buyerName: string,
   productName: string,
-  feeAmount: number,
-  paymentDetails: string
+  partnerOrAmount?: string | number,
+  coordinationDetails?: string
 ): string {
-  const feeFormatted = formatINR(feeAmount);
+  const partnerName = typeof partnerOrAmount === 'string' ? partnerOrAmount : 'Authorized Local Supplier';
   return (
     `Namaste ${buyerName.trim()},\n\n` +
-    `Payment details for connecting to *${productName}* (Fee: *${feeFormatted}*):\n\n` +
-    `${paymentDetails}\n\n` +
-    `After completing payment, please share your UPI / UTR transaction reference number here for manual verification by our operator.`
+    `Direct supplier coordination details for *${productName}* (${partnerName}):\n\n` +
+    `${coordinationDetails || 'The authorized dealer will contact you directly for site inspection and official invoicing.'}\n\n` +
+    `Reminder: GroupBuying collects zero platform fees. Product purchase and invoicing remain directly between you and the verified supplier.`
   );
 }
 
