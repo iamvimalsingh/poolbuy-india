@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
-import { CheckCircle2, Share2, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle2, Share2, Sparkles, AlertCircle, ArrowRight, Copy, Check, MessageCircle, ExternalLink } from 'lucide-react';
 import { PublicPool, JoinPoolResult } from '@/types';
-import { buildBuyerViralShareUrl } from '@/lib/whatsapp';
+import { buildPoolShareContent, copyShareLinkToClipboard, triggerNativeShare } from '@/lib/sharing';
 import { isDemoMode } from '@/lib/data-mode';
 import { getSiteUrl } from '@/lib/seo';
 
@@ -16,7 +16,24 @@ interface JoinSuccessProps {
 export function JoinSuccess({ pool, result, onClose }: JoinSuccessProps) {
   const isDemo = isDemoMode();
   const siteUrl = getSiteUrl();
-  const shareUrl = buildBuyerViralShareUrl(pool, siteUrl);
+  const [copied, setCopied] = useState(false);
+  const shareContent = buildPoolShareContent(pool, siteUrl);
+
+  const handleCopy = async () => {
+    const success = await copyShareLinkToClipboard(shareContent.url);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    await triggerNativeShare({
+      title: shareContent.title,
+      text: shareContent.text,
+      url: shareContent.url,
+    });
+  };
   const resObj = result as unknown as Record<string, unknown>;
   const isWaitlisted = Boolean(resObj.isWaitlisted || resObj.leadStatus === 'WAITLISTED');
 
@@ -103,18 +120,48 @@ export function JoinSuccess({ pool, result, onClose }: JoinSuccessProps) {
           <span>Help reach the buyer target faster!</span>
         </div>
         <p className="text-xs text-emerald-950/80 leading-relaxed">
-          Share this pool with friends, family, or colleagues in {pool.city}. The sooner {result.targetBuyers} buyers join, the faster authorized dealers unlock group pricing.
+          Registration of interest is completely free and non-binding. Share this pool with friends or neighbors in {pool.city} to help reach the buyer target faster.
         </p>
 
         <a
-          href={shareUrl}
+          href={shareContent.whatsAppUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-98 transition-all shadow-xs"
+          className="w-full inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white active:scale-98 transition-all shadow-xs cursor-pointer"
         >
-          <Share2 className="w-4 h-4" aria-hidden="true" />
+          <MessageCircle className="w-4 h-4" aria-hidden="true" />
           <span>Share Deal on WhatsApp</span>
+          <ExternalLink className="w-3 h-3 opacity-80" />
         </a>
+
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="w-full inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 active:scale-98 transition-all shadow-2xs cursor-pointer"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span className="text-emerald-700">Link Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4 text-emerald-600" />
+              <span>Copy Share Link</span>
+            </>
+          )}
+        </button>
+
+        {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+          <button
+            type="button"
+            onClick={handleNativeShare}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 py-1 transition-colors cursor-pointer"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>More Sharing Options</span>
+          </button>
+        )}
       </div>
 
       {/* Done button */}

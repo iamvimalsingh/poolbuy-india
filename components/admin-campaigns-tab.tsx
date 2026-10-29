@@ -611,6 +611,8 @@ export function AdminCampaignsTab() {
           deadline: editPool.deadline,
           status: editPool.status,
           isPublished: editPool.isPublished,
+          marketPrice: editPool.marketPrice,
+          groupPrice: editPool.groupPrice,
         }),
       });
 
@@ -1862,6 +1864,41 @@ export function AdminCampaignsTab() {
             </div>
 
             <form onSubmit={handleEditPoolSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Market Price (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editPool.marketPrice ?? ''}
+                    onChange={(e) =>
+                      setEditPool({
+                        ...editPool,
+                        marketPrice: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="e.g. 150000"
+                    className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Group Target Price (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editPool.groupPrice ?? ''}
+                    onChange={(e) =>
+                      setEditPool({
+                        ...editPool,
+                        groupPrice: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                    placeholder="e.g. 120000"
+                    className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Target Buyers (Capacity)</label>
                 <input

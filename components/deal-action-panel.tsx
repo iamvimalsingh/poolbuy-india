@@ -7,6 +7,7 @@ import { PoolProgress } from './pool-progress';
 import { Countdown } from './countdown';
 import { formatInr } from '@/lib/format';
 import { Toast, DEFAULT_JOIN_SUCCESS_MESSAGE } from './toast';
+import { SharePoolButton } from './share-pool-button';
 
 interface DealActionPanelProps {
   pool: PublicPool;
@@ -155,6 +156,25 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
               </p>
             </div>
           )}
+
+          {/* Share Pool Button */}
+          <div className="pt-1">
+            <SharePoolButton
+              pool={{
+                name: pool.name,
+                city: pool.city,
+                citySlug: pool.citySlug,
+                slug: pool.slug,
+                marketPrice: pool.marketPrice,
+                groupPrice: pool.groupPrice,
+                priceIsVerified: pool.priceIsVerified,
+                currentBuyers,
+                targetBuyers: pool.targetBuyers,
+              }}
+              variant="outline"
+              label="Share Pool with Friends"
+            />
+          </div>
 
           {/* Trust Guarantees */}
           <ul className="pt-3 space-y-2 text-xs text-slate-500">

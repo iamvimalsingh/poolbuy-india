@@ -6,6 +6,7 @@ import { MapPin, ArrowRight, ShieldCheck, Users, Clock, CheckCircle2 } from 'luc
 import { PublicPool } from '@/types';
 import { getCountdownParts, formatINR } from '@/lib/format';
 import { PoolImage } from './pool-image';
+import { SharePoolButton } from './share-pool-button';
 
 export { PoolCardSkeleton, PoolCardSkeletonGrid } from './pool-card-skeleton';
 
@@ -291,40 +292,59 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
 
           {/* 5. CTA Button (Full Width with Hover Translate Icon) */}
         <div>
-          <div className="pt-2 border-t border-gray-100">
-            {onJoinClick ? (
-              <button
-                type="button"
-                disabled={!isActionEnabled}
-                onClick={() => onJoinClick(pool)}
-                className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer ${
-                  isCompletelyFull
-                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                    : !isActionEnabled
-                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                    : isCapacityFull
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20 active:scale-[0.98]'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>{actionLabel}</span>
-                <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
-              </button>
-            ) : (
-              <Link
-                href={dealUrl}
-                className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 ${
-                  isActionEnabled
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
-                    : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>{actionLabel}</span>
-                <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
-              </Link>
-            )}
+          <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+            <div className="flex-1">
+              {onJoinClick ? (
+                <button
+                  type="button"
+                  disabled={!isActionEnabled}
+                  onClick={() => onJoinClick(pool)}
+                  className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer ${
+                    isCompletelyFull
+                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                      : !isActionEnabled
+                      ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                      : isCapacityFull
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20 active:scale-[0.98]'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <span>{actionLabel}</span>
+                  <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
+                </button>
+              ) : (
+                <Link
+                  href={dealUrl}
+                  className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 ${
+                    isActionEnabled
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
+                      : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <span>{actionLabel}</span>
+                  <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
+                </Link>
+              )}
+            </div>
+            <SharePoolButton
+              pool={{
+                name: pool.name,
+                city: pool.city,
+                citySlug: pool.citySlug,
+                slug: pool.slug,
+                productTitle: pool.productTitle,
+                category: pool.category,
+                marketPrice: pool.marketPrice,
+                groupPrice: pool.groupPrice,
+                priceIsVerified: pool.priceIsVerified,
+                currentBuyers: pool.currentBuyers,
+                targetBuyers: pool.targetBuyers,
+              }}
+              variant="icon"
+              className="py-3 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-2xs shrink-0"
+            />
           </div>
 
           <p className="text-[10px] text-gray-400 text-center mt-2.5">

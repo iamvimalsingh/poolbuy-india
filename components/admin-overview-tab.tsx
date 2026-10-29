@@ -13,7 +13,7 @@ import {
 import { AdminOverviewMetrics } from '@/types';
 
 interface AdminOverviewTabProps {
-  onNavigateTab?: (tab: 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes') => void;
+  onNavigateTab?: (tab: 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes' | 'blog' | 'activity') => void;
 }
 
 export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
@@ -161,7 +161,7 @@ export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
               <h3 className="font-bold text-sm tracking-tight">Campaign & Pool Infrastructure Active</h3>
               <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                Step 2 of 4 Complete
+                Core Operations Active
               </span>
             </div>
             <p className="text-xs text-slate-300 max-w-xl">
@@ -176,7 +176,7 @@ export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
         </div>
       </div>
 
-      {/* Operational Pools Preview (Step 2 Preview) */}
+      {/* Operational Pools Preview */}
       <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -185,7 +185,7 @@ export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
               <span>Operational Demand Aggregation Status</span>
             </h4>
             <p className="text-[11px] text-gray-500">
-              Live statistics from Cloudflare D1. Campaigns & Pools management UI scheduled for Step 2.
+              Live statistics from Cloudflare D1. Multi-city campaigns and city pools lifecycle management operational.
             </p>
           </div>
           {onNavigateTab && (

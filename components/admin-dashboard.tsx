@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Users,
   Activity,
+  BookOpen,
 } from 'lucide-react';
 import { AdminOverviewTab } from './admin-overview-tab';
 import { AdminCategoriesTab } from './admin-categories-tab';
@@ -21,8 +22,10 @@ import { AdminLocationsTab } from './admin-locations-tab';
 import { AdminCampaignsTab } from './admin-campaigns-tab';
 import { AdminMembersRequestsTab } from './admin-members-requests-tab';
 import { AdminQuotesTab } from './admin-quotes-tab';
+import { AdminBlogTab } from './admin-blog-tab';
+import { AdminActivityTab } from './admin-activity-tab';
 
-export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes';
+export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns' | 'members' | 'quotes' | 'blog' | 'activity';
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -54,7 +57,7 @@ export function AdminDashboard() {
                 GroupBuying Operator Console
               </h1>
               <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Step 1 Foundation
+                Production Console
               </span>
             </div>
             <p className="text-xs text-gray-500">
@@ -167,18 +170,32 @@ export function AdminDashboard() {
           <span>Quotes & Messages</span>
         </button>
 
-        {/* 7. Activity Log (Reserved Later Step) */}
+        {/* 7. Blog & Articles */}
         <button
           type="button"
-          disabled
-          title="Reserved for a later implementation step"
-          className="flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 border-transparent text-gray-400 cursor-not-allowed whitespace-nowrap opacity-60"
+          onClick={() => setActiveTab('blog')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'blog'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
         >
-          <Activity className="w-4 h-4" />
+          <BookOpen className="w-4 h-4 text-emerald-600" />
+          <span>Blog & Content</span>
+        </button>
+
+        {/* 8. Activity Log */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('activity')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'activity'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
+          }`}
+        >
+          <Activity className="w-4 h-4 text-emerald-600" />
           <span>Activity Log</span>
-          <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.2 rounded">
-            Step 4
-          </span>
         </button>
       </div>
 
@@ -191,6 +208,8 @@ export function AdminDashboard() {
       {activeTab === 'campaigns' && <AdminCampaignsTab />}
       {activeTab === 'members' && <AdminMembersRequestsTab />}
       {activeTab === 'quotes' && <AdminQuotesTab />}
+      {activeTab === 'blog' && <AdminBlogTab />}
+      {activeTab === 'activity' && <AdminActivityTab />}
     </div>
   );
 }
