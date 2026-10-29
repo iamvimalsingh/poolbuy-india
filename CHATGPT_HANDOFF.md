@@ -180,3 +180,32 @@ Live HTTP verification against `https://groupbuying.store` (Production Version I
 5. **Zero Customer Payments:** 100% free interest registration in MVP. Zero payment gateways, zero token fees, zero customer deposits.
 6. **Data Truthfulness:** Public counts reflect actual validated leads in D1 SQLite; no fictitious counters, countdown timers, fake discounts, or fabricated testimonials.
 7. **Public Sharing:** Built with honest copy ("Joining is non-binding. Share this pool with friends in [city] to help reach the buyer target faster."). Canonical link with safe non-sensitive attribution parameter (`?ref=share`) and zero PII.
+
+
+---
+
+## 6. Website-Wide SEO, Branding & Social Sharing Audit & Fix (29 October 2026)
+
+- **Status:** **PASS** (372/372 automated tests pass across 102 test suites, clean Next.js 16.4.3 production build verified)
+- **Git Commit:** `94c4c3a` ("fix(seo): site-wide metadata, social sharing, and brand asset alignment")
+- **Brand Identity:** Standardized to primary `GroupBuying.store` with contextually accurate `PoolBuy India` secondary badge.
+- **Production Origin:** Canonical HTTPS origin strictly resolved to `https://groupbuying.store`.
+- **Brand & Preview Assets Created:**
+  - `public/images/logo.svg` (400x100 approved brand vector wordmark + badge)
+  - `public/images/og-image.svg` (1200x630 branded social preview card)
+  - `public/images/blog-default.svg` (600x400 consumer research guide fallback)
+- **Metadata Alignment Across Routes:**
+  - Homepage (`app/layout.tsx`): Configured with standard OpenGraph and Twitter `summary_large_image` referencing `https://groupbuying.store/images/og-image.svg`.
+  - Categories Directory (`app/categories/page.tsx`): Aligned title, canonical, OpenGraph, and Twitter image metadata.
+  - Cities Directory (`app/cities/page.tsx`): Aligned title, canonical, OpenGraph, and Twitter image metadata.
+  - City Landing Pages (`app/city/[citySlug]/page.tsx`): Dynamic title, description, canonical, OpenGraph, and fallback images.
+  - City x Category Pages (`app/city/[citySlug]/[categorySlug]/page.tsx`): Dynamic metadata, canonical, OpenGraph, and Twitter images; `noindex` guard for thin combinations without active pools.
+  - Deal Details (`app/deals/[citySlug]/[poolSlug]/page.tsx`): Deal-specific OpenGraph, Product JSON-LD (with conditional Offer only when price is verified).
+  - Blog Index & Posts (`app/blog/page.tsx`, `app/blog/[slug]/page.tsx`): Aligned publisher to GroupBuying.store, canonical URLs, BlogPosting JSON-LD, and verified fallback images.
+  - 301 Redirects: Handled gracefully for `/categories/[categorySlug]`, `/cities/[citySlug]`, and `/cities/[citySlug]/[categorySlug]`.
+- **Canonical Social Sharing:**
+  - `buildPoolShareContent`: Generates truthful non-binding invitation copy with canonical deal URL and non-PII `?ref=share`.
+  - `buildPageShareContent`: Generic helper for sharing homepage, directories, or blog posts.
+  - Production safeguard in `getSiteUrl()` prevents localhost or unintended staging origin leaks.
+- **Automated Test Coverage:**
+  - Added `lib/__tests__/site-wide-seo-audit.test.ts` covering 12 comprehensive SEO, brand, sitemap, robots, and sharing invariants (all 12 passing).
