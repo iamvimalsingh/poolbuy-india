@@ -172,3 +172,59 @@ The v7.3.0 Simple MVP shared-pool contract is completely verified end-to-end aga
 - Established durable recovery references: branch `checkpoint/gate-0-baseline` and git tag `checkpoint-gate-1-reconciliation`.
 - Reconciled `PRODUCT_CONTRACT.md` and `IMPLEMENTATION_PLAN.md` to v1.1.0 with explicit city mismatch, cross-city duplicate detection, privacy safeguards, and 25-city Solar rollout acceptance criteria.
 - Verified test suite: **273/273 tests PASS (100%)**, `npx tsc --noEmit` **0 errors**, `npm run lint` **0 errors**, `npm run build` **48 routes compiled**, `npm run build:worker` **OpenNext worker compiled**.
+
+### Gate 2 (Core Data Model & Admin Foundation) Completed:
+- Commit: `e73a812`
+- Created and applied additive migration `migrations/d1/0009_canonical_25_launch_cities.sql` (`INSERT OR IGNORE` for 25 canonical launch cities into D1 `cities` table; 28 active operational cities total in D1).
+- Enforced category-agnostic architecture: Solar is a configurable category row among many, not hardcoded into platform architecture.
+- Enforced independent city pools under 1 campaign: separate stable IDs, capacity, confirmed buyers, waitlists, and statuses.
+- Pincode integrity: validated as 6-digit string preserving leading zeros (`^[0-9]{6}$`).
+- Test suite: `lib/__tests__/gate-2-core-data-model.test.ts` (7/7 tests PASS).
+
+### Gate 3 (Admin Solar Campaign & 25-City Bulk Rollout) Completed:
+- Commit: `865620b`
+- Implemented `previewCampaignRollout` and `executeCampaignRollout` in `lib/campaigns.ts`.
+- Created rollout API endpoint `app/api/admin/campaigns/[campaignId]/rollout/route.ts` (GET for preview, POST for idempotent execution).
+- Integrated 25-City Bulk Rollout into Admin UI (`components/admin-campaigns-tab.tsx` Modal 9 with real-time preview stats, progress indicators, results banner, and button triggers).
+- Enforced rollout idempotency: running rollout on an existing campaign preserves existing city pools, buyer counts, and member IDs unchanged.
+- Test suite: `lib/__tests__/gate-3-solar-campaign-bulk-rollout.test.ts` (6/6 tests PASS).
+
+### Gate 4 (Public Catalog & City Discovery) Completed:
+- Commit: `d3e74a3`
+- Hardened `components/pool-card.tsx` to handle all pool lifecycle states truthfully: `DRAFT`, `PAUSED`, `CLOSED`, `CONCLUDED`, `WAITLIST_FULL`, and `ACTIVE`.
+- Validated urgency badge mathematical truthfulness: only displays "Fast filling - Only X spots left" if `percentFull >= 80%` and `remainingSpots > 0`; closing soon badges strictly based on `countdown.days < 5`. Suppressed for closed/draft/full pools.
+- Updated `components/pool-catalog.tsx` and `lib/pools.ts` (`getPublicPools`) to exclude `DRAFT` and `CLOSED` pools from public discovery.
+- Eliminated legacy fee disclosure in deal page FAQ (`app/deals/[citySlug]/[poolSlug]/page.tsx`) and site footer (`components/site-footer.tsx`), affirming strict zero platform fees in MVP.
+- Verified PII protection on canonical deal routes (`/deals/[citySlug]/[poolSlug]`).
+- Test suite: `lib/__tests__/gate-4-public-catalog-discovery.test.ts` (5/5 tests PASS).
+
+### Gate 5 (Join Pool & Cross-City Registration) Completed:
+- Commit: `564d02e`
+- Prominent target cohort city displayed in modal header with MapPin badge (`components/join-pool-modal.tsx`).
+- Implemented City Mismatch detection: if user indicates a different city, displays explicit notice *"You are joining the [Target] pool, not the [User's City] pool"* with required confirmation checkbox.
+- Implemented Cross-City Duplicate Detection in `lib/pools.ts` (`executeJoinPool`) & `app/api/pools/[poolId]/join/route.ts`:
+  - Exact pool checked first (idempotent return without duplicate rows or count increments).
+  - Active confirmed/waitlist registration in another city within the same category triggers `CROSS_CITY_DUPLICATE_NOTICE`.
+  - Upon user confirmation (`confirmCrossCity: true`), permits separate registration in new city while leaving prior city's registration and count 100% intact.
+  - Different category registrations (e.g. solar vs water purifier) are exempt from cross-city alerts.
+- Enforced strict 6-digit postal code string validation (`^[0-9]{6}$`).
+- Test suite: `lib/__tests__/gate-5-cross-city-join.test.ts` (6/6 tests PASS).
+
+### Gate 6 (CRM, Waitlist, Proposals, Quotes & Share Pool) Completed:
+- Commit: `1ab701b`
+- Replaced obsolete token payment / deposit templates in `lib/whatsapp.ts` (`buildUnlockedPoolMessage`, `buildConnectionFeeDisclosureMessage`, `buildPaymentInstructionsMessage`) with transparent, truthful demand coordination messages.
+- Replaced `PAYMENT_INSTRUCTIONS` dropdown option with `SUPPLIER_COORDINATION` in `components/admin-quotes-tab.tsx`.
+- Verified viral share pool deep link (`buildBuyerViralShareUrl`) resolves to `/deals/[citySlug]/[poolSlug]` without PII.
+- Verified FIFO waitlist sequence ordering, leading-zero pincode preservation, and existing quote retention.
+- Verified tri-classification non-conflation: `pool_leads`, `pool_waitlist`, and `pool_requests` stay strictly isolated.
+- Test suite: `lib/__tests__/gate-6-crm-quotes-share.test.ts` (5/5 tests PASS).
+
+### Gate 7 (Automated Test/Fix/Retest Loop) Completed:
+- Commit: `fbb9e9f`
+- Reconciled `lib/__tests__/v73-shared-pool.test.ts` with Test 9 establishing the canonical 1 Campaign &rarr; N Independent City Pools architecture.
+- Full verification passed 100%:
+  - `npm test`: **303 / 303 tests PASS (100%) across 90 suites**.
+  - `npx tsc --noEmit`: **0 TypeScript diagnostic errors** (Exit code 0).
+  - `npm run lint`: **0 ESLint errors, 0 warnings** (Exit code 0).
+  - `npm run build`: **66 / 66 routes compiled** (Exit code 0).
+  - `npm run build:worker`: **Worker saved to `.open-next\worker.js`** (Exit code 0).
