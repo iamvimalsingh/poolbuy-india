@@ -6,6 +6,7 @@ import { JoinPoolModal } from './join-pool-modal';
 import { PoolProgress } from './pool-progress';
 import { Countdown } from './countdown';
 import { formatInr } from '@/lib/format';
+import { Toast, DEFAULT_JOIN_SUCCESS_MESSAGE } from './toast';
 
 interface DealActionPanelProps {
   pool: PublicPool;
@@ -14,6 +15,7 @@ interface DealActionPanelProps {
 export function DealActionPanel({ pool }: DealActionPanelProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localJoinedCount, setLocalJoinedCount] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentBuyers = localJoinedCount !== null ? localJoinedCount : pool.currentBuyers;
 
@@ -26,6 +28,7 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
 
   const handleJoinSuccess = (result: { currentBuyers: number }) => {
     setLocalJoinedCount(result.currentBuyers);
+    setToastMessage(DEFAULT_JOIN_SUCCESS_MESSAGE);
   };
 
   return (
@@ -180,6 +183,13 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
           onSuccess={handleJoinSuccess}
         />
       )}
+
+      {/* Premium Success Notification Toast */}
+      <Toast
+        message={toastMessage || ''}
+        isOpen={Boolean(toastMessage)}
+        onClose={() => setToastMessage(null)}
+      />
     </>
   );
 }
