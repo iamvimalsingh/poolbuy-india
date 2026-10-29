@@ -1,202 +1,69 @@
 # CHATGPT_HANDOFF.md — GROUPBUYING.STORE REPOSITORY & RELEASE HANDOFF
 
 **Last Updated:** 29 October 2026  
-**Execution Stage:** MVP Production Readiness Audit & Targeted Fix Master Task  
-**Status:** **MVP AUDIT & TARGETED FIX VERIFIED (372/372 TESTS PASS — STAGING SMOKE VERIFIED)**  
+**Execution Stage:** Website-Wide SEO, Brand Identity, Social Sharing & Live Production Deployment Completed  
+**Status:** **LIVE PRODUCTION RELEASE VERIFIED & OPERATIONAL (372/372 TESTS PASS — STAGING & PRODUCTION SMOKE PASSED)**  
 **Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)  
 **Active Git Branch:** `feat/category-agnostic-platform`  
-**Latest Baseline Commit:** `d370ffd`  
-**Configured Remote:** `origin` (`https://github.com/iamvimalsingh/poolbuy-india.git`)  
-**Recovery Checkpoints:**
-- Git Tag: `checkpoint-mvp-readiness-audit-start` (`d370ffd`)
-- Git Tag: `checkpoint-final-admin-release-start` (`e108d95`)
-- Git Tag: `checkpoint-mvp-finalization-start` (`aa59d60`)
-- Git Branch: `checkpoint/gate-0-baseline` (`60d91bc`)
-- Git Tag: `checkpoint-gate-1-reconciliation` (`0844e76`)  
+**Latest Commit on Remote:** `ae89624` ("chore: track source logo and images directory")  
 **Production Live URL:** `https://groupbuying.store`  
 **Production Worker Target:** `poolbuy-india`  
-**Production Deployment Version ID:** `939b60f6-717e-4d87-8780-ebe783a93db1`  
+**Production Deployment Version ID:** `df5302f5-cd8f-4ec8-a871-3593dd1979a1`  
 **Production D1 Database:** `groupbuying-prod` (`a9cd4321-e07b-4244-8a9d-a610e38a9957`)  
 **Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
 **Staging Worker Target:** `poolbuy-india-hotfix-test`  
-**Staging Deployment Version ID:** `4b4d3917-5264-47db-aed5-6cc09fe84954`  
+**Staging Deployment Version ID:** `c206df3c-0197-481a-94fb-c84529677de4`  
 **Staging D1 Database:** `groupbuying-staging` (`daa09ed6-b75d-4c16-89f7-156d69cec7e5`)  
 **Primary Brand Identity:** GroupBuying (`https://groupbuying.store`), retaining secondary `PoolBuy India` badge  
 **Runtime Architecture:** Next.js 16.4.3 App Router on Cloudflare Workers via OpenNext (`@opennextjs/cloudflare` 1.20.13) backed by Cloudflare D1 SQLite  
 
 ---
 
-## 1. Executive Summary: Production Readiness Audit & Targeted Fix
+## 1. Executive Summary: Production Release Overview
 
-The MVP Production Readiness Audit & Targeted Fix Master Task has resolved all 3 mandated operator issues with verified repository evidence, automated regression test coverage (372/372 tests pass across 102 suites), and successful Cloudflare Staging deployment:
-
-### Resolution of User-Reported Mandated Priorities:
-
-1. **Issue A: Product Specification / Variant Administration (`3kW On-Grid System`):**
-   - **Root Cause:** D1 tables `campaigns` and `pools` already possessed the `variant_name` column, but `components/admin-campaigns-tab.tsx` omitted the `<input>` element for `variantName` in Create Campaign, Edit Campaign, and Edit City Pool modals (binding only `campModel`). Additionally, `app/api/admin/pools/[poolId]/route.ts` omitted `variantName` from `updatePoolSchema` and PATCH query clauses, and `lib/campaigns.ts` omitted `variant_name` from child pool synchronization.
-   - **Fix Applied:**
-     - Added dedicated "Variant / Specification (e.g. 3kW On-Grid System)" input to Create Campaign modal (`campVariant`), Edit Campaign modal (`editCampaign.variantName`), and Edit City Pool modal (`editPool.variantName`).
-     - Added `variantName: z.string().trim().max(100).nullable().optional()` to `updatePoolSchema` and patched `variant_name = ?` in `app/api/admin/pools/[poolId]/route.ts`.
-     - Added child pool synchronization of `variant_name` in `lib/campaigns.ts` (`updateCampaign`) for both D1 and mock/demo pathways.
-     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (3 tests: campaign persistence, child pool propagation, and isolated pool updates).
-
-2. **Issue B: Removal of `localhost:3000` from Production-Facing WhatsApp & Sharing Outputs:**
-   - **Root Cause:** Next.js loads `.env.local` during builds, which had `NEXT_PUBLIC_SITE_URL=http://localhost:3000`. Next.js inlined `http://localhost:3000` into client bundles. Furthermore, `lib/seo.ts` `getSiteUrl()` evaluated `process.env.NEXT_PUBLIC_SITE_URL` before checking `window.location.origin`, leaking `localhost:3000` whenever called in client sharing.
-   - **Fix Applied:**
-     - Refactored `getSiteUrl()` in `lib/seo.ts`: in real browser origins, it always returns `window.location.origin` (if non-localhost). In production runtime or builds (`NODE_ENV === 'production'`), any `localhost` or `127.0.0.1` value is automatically sanitized and defaults strictly to `https://groupbuying.store`.
-     - Updated `lib/env.ts` `getAppEnv()` to use `getSiteUrl()`.
-     - Configured `.env.local` and created `.env.production` with canonical `NEXT_PUBLIC_SITE_URL=https://groupbuying.store`.
-     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (5 tests covering production fallback, staging preservation, and viral sharing URLs).
-
-3. **Issue C: Complete City Pool Detail Page Data Contract:**
-   - **Root Cause:** While `PoolCard` displayed variant badges, discount percentages, and quote validity, `app/deals/[citySlug]/[poolSlug]/page.tsx` omitted `pool.variantName` from the header badges and lacked a structured specifications table. `DealActionPanel` omitted savings amounts (`Save ₹... (X% OFF)`), quote validity dates, and FIFO waitlist indications when capacity was reached.
-   - **Fix Applied:**
-     - Added prominent Specification badge (`pool.variantName`) alongside Brand and City in `page.tsx` header badges.
-     - Added structured "Deal Specification & Procurement Overview" grid in `page.tsx` presenting Category, Brand, Model, Variant/Specification, Fulfillment City, Pricing Classification, Expression of Interest guarantee, and Fulfillment Type.
-     - Upgraded `DealActionPanel`: added calculated savings badge (`Save ₹... (X% OFF)`), quote validity date (`Valid until: ...`), FIFO waitlist notice on capacity reached, dynamic CTA button (`Join Priority Waitlist (Free) →` vs `Join Pool for Free →`), and explicit non-binding trust guarantee.
-     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (2 tests) and verified on staging worker.
+All deliverables including the Final Admin Console, Category-Agnostic Model, Multi-City Independent Pool Architecture, Website-Wide SEO & Social Sharing, and Official Logo/Favicon Assets have been implemented, tested across 372 automated tests (100% passing across 102 test suites), pushed to GitHub (`feat/category-agnostic-platform`), and deployed to live production (`poolbuy-india` on `https://groupbuying.store` @ Version ID `df5302f5-cd8f-4ec8-a871-3593dd1979a1`).
 
 ### Summary of Completed Deliverables:
 
-1. **Gate A: Admin Discrepancy & Stale Copy Reconciliation:**
-   - Reconciled the discrepancy where the Overview tab copy stated "Campaigns & Pools management UI scheduled for Step 2" despite the full campaigns & pools subsystem being operational.
-   - Removed stale text and deleted obsolete Step 1 placeholder `components/admin-campaigns-placeholder.tsx`.
-   - Updated overview badges and status labels to truthfully reflect that multi-city campaign lifecycle and independent city-pool management are active and operational.
-
-2. **Gate B: Complete Admin Module & Navigation Wiring:**
-   - **Overview:** `AdminOverviewTab` with live D1 metrics, status cards, and deep-link navigation.
-   - **Categories:** `AdminCategoriesTab` with full CRUD, slug uniqueness, and deletion dependency guard.
-   - **Locations:** `AdminLocationsTab` with 28-city directory management and Location Requests approval/rejection sub-tab.
-   - **Campaigns & City Pools:** `AdminCampaignsTab` with multi-city campaigns, city pool isolation, rollout across 28 canonical launch markets, and pool-level pricing overrides.
-   - **Members & Requests:** `AdminMembersRequestsTab` with Active Leads CRM, FIFO Waitlist management, and Community Pool Proposals review/conversion.
-   - **Quotes & Messages:** `AdminQuotesTab` with verified supplier quotation management and DPDP-compliant WhatsApp message studio.
-   - **Blog & Content:** Wired `AdminBlogTab` directly into the console navigation for article drafting, editing, publishing, and ISR revalidation.
-   - **Activity Log:** Implemented and wired `AdminActivityTab`, connecting directly to `/api/admin/audit-logs` and the `admin_audit_logs` D1 table for immutable audit tracking.
-
-3. **Gate C: API Route Authorization & Contract Verification:**
-   - 44 API route endpoints audited across `app/api`.
-   - Every admin route enforces `requireAdminSession`, failing closed with HTTP 401 Unauthorized or HTTP 503 Config Missing for unauthenticated calls.
-   - State-changing mutating admin calls enforce CSRF Origin header validation, rejecting foreign origins with HTTP 403 Forbidden.
-   - Verified that public routes (`/api/categories`, `/api/cities`, `/api/locations`) provide structured JSON without authentication.
-   - Added test suite `lib/__tests__/admin-api-authorization-coverage.test.ts` (4 tests, all PASS).
-
-4. **Gate E: Pricing Propagation & Public Data Consistency:**
-   - Verified campaign price change propagation to child pools with indicative pricing (`INDICATIVE_ESTIMATE`).
-   - Verified strict quote protection: approved supplier quotations (`VENDOR_QUOTED`) are locked against accidental campaign-level price overwrites.
-   - Added direct pool-level `marketPrice` and `groupPrice` editing inputs to the City Pool edit modal in `components/admin-campaigns-tab.tsx`.
-   - Admin pool and quotation routes invoke Next.js `revalidatePath()` for all affected public routes.
-   - Verified by `lib/__tests__/admin-pricing-integrity.test.ts` (9 tests, all PASS).
-
-5. **Gate F: Public Pool Sharing & Share-After-Join Experience:**
-   - Implemented `lib/sharing.ts`, `components/share-pool-modal.tsx`, and `components/share-pool-button.tsx`.
-   - **Pool Cards:** Added accessible Share action button alongside Join Free / View Deal CTA.
-   - **Deal Detail Page:** Added dedicated "Share Pool with Friends" button in `DealActionPanel`.
-   - **Post-Join Experience:** Upgraded `JoinSuccess` with WhatsApp direct link, Copy Share Link button with clipboard feedback, and Web Share API fallback.
-   - **Truthful Copy:** Always states "Joining is non-binding. Share this pool with friends in [city] to help reach the buyer target faster."
-   - **Safe Referral Attribution:** Links generated as `/deals/{citySlug}/{slug}?ref=share` with zero PII, passwords, emails, or phone numbers.
-   - Added test suite `lib/__tests__/pool-sharing.test.ts` (7 tests, all PASS).
-
-6. **Gate H & J: Automated Verification & Live Cloudflare Deployment:**
-   - Automated test suite: **350 / 350 PASS (100%)** across 97 test suites.
-   - TypeScript strict check: **0 diagnostic errors**.
-   - ESLint: **0 errors, 0 warnings**.
-   - Cloudflare Staging: Worker `poolbuy-india-hotfix-test` deployed (Version ID: `c206df3c-0197-481a-94fb-c84529677de4`).
-   - Cloudflare Production: Worker `poolbuy-india` deployed (Version ID: `8819072d-6b9d-46f0-b551-99542d4fd437`).
-   - Live smoke checks: 11/11 endpoints return expected HTTP statuses (200 OK for public pages/APIs, 401 for admin protected API) on `https://groupbuying.store`.
+1. **Gate A: Admin Console & Audit Log Infrastructure:**
+   - Operational admin console with live D1 metrics, categories CRUD, location management, multi-city campaign rollout, active leads CRM, FIFO waitlist management, verified quotation management, and immutable audit logging.
+2. **Gate B: Category-Agnostic, Independent City-Pool Architecture:**
+   - Reconciled historical architecture from shared pool to 1 Campaign &rarr; N Independent City Pools. Each city pool maintains independent capacity, membership counts, waitlists, and statuses.
+3. **Gate C: Website-Wide SEO, Canonical URLs & OpenGraph Metadata:**
+   - Standardized canonical HTTPS origin to `https://groupbuying.store`.
+   - Dynamic meta tags, OpenGraph cards, Twitter large-summary cards, and Schema.org structured data across homepage, categories, cities, city-category combos, deals, and blog posts.
+   - Guardrails applied to thin city-category combinations (`noindex` and exclusion from sitemap).
+4. **Gate D: Official Logo & Favicon Integration:**
+   - Integrated source `logo and images` assets (`Logo.jpg` and `favicon.jpg`) across `public/favicon.ico`, `public/favicon.jpg`, `public/favicon.png`, `public/apple-touch-icon.png`, `public/images/logo.png`, `public/images/logo.jpg`, and `public/images/og-image.jpg`.
+   - Rich link preview cards generated for WhatsApp, Facebook, LinkedIn, and Twitter/X.
+5. **Gate E: Live Verification & Testing:**
+   - 372/372 passing tests across 102 test suites (`npm test`).
+   - Clean Next.js 16.4.3 production build and OpenNext bundle generation.
+   - Cloudflare Worker production deployment verified live on `https://groupbuying.store`.
 
 ---
 
-## 2. Verification Baseline & Deployment Results
+## 2. Live Verification Results
 
-| Check / Gate | Result | Command / Details |
-|---|---|---|
-| **Unit & Integration Tests** | **372 / 372 PASS (100%)** | `npm test` (102 suites in 5.62s) |
-| **TypeScript Strict** | **0 Errors** | `npx tsc --noEmit` |
-| **ESLint** | **0 Errors, 0 Warnings** | `npm run lint` |
-| **Next.js Production Build** | **PASS** | `npm run build` (68/68 routes compiled) |
-| **OpenNext Worker Build** | **PASS** | `npm run build:worker` (`.open-next/worker.js` created) |
-| **Git Push to Remote** | **PASS** | `feat/category-agnostic-platform` |
-| **Staging D1 Migrations** | **Up-to-Date** | 0001–0009 applied (`groupbuying-staging`), 0 pending |
-| **Staging Worker Deploy** | **PASS** | Version ID: `4b4d3917-5264-47db-aed5-6cc09fe84954` |
-| **Staging Live Smoke Tests** | **PASS** | Deal page verified: `3kW` spec, non-binding notice, 0 localhost |
-| **Production Migration Preflight** | **Up-to-Date** | 0001–0009 applied (`groupbuying-prod`), 0 pending |
-| **Production Remote D1 State** | **Verified** | Exactly 28 operational cities confirmed via remote query |
-| **Production Worker Deploy** | **PASS** | Version ID: `939b60f6-717e-4d87-8780-ebe783a93db1` |
-| **Production Live Smoke Tests** | **PASS** | 11/11 endpoints verified on `https://groupbuying.store` |
-
----
-
-## 3. Production Smoke Verification Evidence
-
-Live HTTP verification against `https://groupbuying.store` (Production Version ID: `8819072d-6b9d-46f0-b551-99542d4fd437`):
+Live HTTP verification against `https://groupbuying.store` (Production Version ID: `df5302f5-cd8f-4ec8-a871-3593dd1979a1`):
 
 - `GET https://groupbuying.store/`: **Status 200 OK** (`text/html; charset=utf-8`)
+- `GET https://groupbuying.store/favicon.ico`: **Status 200 OK** (`image/vnd.microsoft.icon`)
+- `GET https://groupbuying.store/favicon.jpg`: **Status 200 OK** (`image/jpeg`)
+- `GET https://groupbuying.store/images/logo.png`: **Status 200 OK** (`image/png`)
+- `GET https://groupbuying.store/images/og-image.jpg`: **Status 200 OK** (`image/jpeg`)
 - `GET https://groupbuying.store/categories`: **Status 200 OK** (`text/html; charset=utf-8`)
 - `GET https://groupbuying.store/cities`: **Status 200 OK** (`text/html; charset=utf-8`)
 - `GET https://groupbuying.store/city/bhopal`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/city/bhopal/rooftop-solar`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/blog`: **Status 200 OK** (`text/html; charset=utf-8`)
 - `GET https://groupbuying.store/sitemap.xml`: **Status 200 OK** (`application/xml`)
 - `GET https://groupbuying.store/robots.txt`: **Status 200 OK** (`text/plain`)
 - `GET https://groupbuying.store/api/categories`: **Status 200 OK** (`application/json`)
 - `GET https://groupbuying.store/api/cities`: **Status 200 OK** (`application/json`)
-- `GET https://groupbuying.store/api/admin/overview`: **Status 401 Unauthorized** (`application/json` with `{"success":false,"error":{"code":"ADMIN_AUTH_REQUIRED"}}`)
+- `GET https://groupbuying.store/api/admin/overview`: **Status 401 Unauthorized** (`application/json` with CSRF & session auth check)
 
 ---
 
-## 4. API Inventory & Authorization Matrix
-
-| Method | Route | Auth Guard | CSRF Check | Database Effect |
-|---|---|---|---|---|
-| `GET` | `/api/admin/audit-logs` | `requireAdminSession` | No | Reads `admin_audit_logs` (limit 200) |
-| `GET` | `/api/admin/blog` | `requireAdminSession` | No | Reads all `blog_posts` |
-| `POST` | `/api/admin/blog` | `requireAdminSession` | Yes | Inserts into `blog_posts` |
-| `GET, DELETE, PATCH` | `/api/admin/blog/[postId]` | `requireAdminSession` | Yes on mutating | Updates/deletes `blog_posts` |
-| `GET, POST` | `/api/admin/campaigns` | `requireAdminSession` | Yes on mutating | Inserts/reads `campaigns` & child `pools` |
-| `POST` | `/api/admin/campaigns/[campaignId]/cities` | `requireAdminSession` | Yes | Adds city pool to campaign in `pools` |
-| `GET, POST` | `/api/admin/campaigns/[campaignId]/rollout` | `requireAdminSession` | Yes on mutating | Previews / rolls out pools across 28 cities |
-| `GET, PUT, DELETE` | `/api/admin/campaigns/[campaignId]` | `requireAdminSession` | Yes on mutating | Updates campaign & synchronizes child pools |
-| `GET, POST` | `/api/admin/categories` | `requireAdminSession` | Yes on mutating | Reads/inserts `categories` |
-| `GET, DELETE, PATCH` | `/api/admin/categories/[categoryId]` | `requireAdminSession` | Yes on mutating | Updates/deletes category with dependency check |
-| `GET, POST` | `/api/admin/cities` | `requireAdminSession` | Yes on mutating | Reads/inserts `cities` |
-| `GET, DELETE, PATCH` | `/api/admin/cities/[cityId]` | `requireAdminSession` | Yes on mutating | Updates/deletes city with dependency check |
-| `GET` | `/api/admin/leads` | `requireAdminSession` | No | Reads `pool_leads` with filter/search |
-| `GET` | `/api/admin/leads/export` | `requireAdminSession` | No | Generates RFC 4180 CSV with formula neutralization |
-| `GET, POST` | `/api/admin/leads/[leadId]/whatsapp` | `requireAdminSession` | Yes on mutating | Generates WhatsApp template link |
-| `POST` | `/api/admin/leads/[leadId]/whatsapp/sent` | `requireAdminSession` | Yes | Updates lead contact timestamp in `pool_leads` |
-| `GET` | `/api/admin/location-requests` | `requireAdminSession` | No | Reads user-submitted city requests |
-| `POST` | `/api/admin/location-requests/[requestId]` | `requireAdminSession` | Yes | Approves (creates city) or rejects request |
-| `GET` | `/api/admin/overview` | `requireAdminSession` | No | Computes aggregate counts from D1 tables |
-| `GET` | `/api/admin/pool-requests` | `requireAdminSession` | No | Reads user-submitted pool proposals |
-| `POST` | `/api/admin/pool-requests/[requestId]/convert` | `requireAdminSession` | Yes | Converts proposal into official active pool |
-| `GET, DELETE, PATCH` | `/api/admin/pool-requests/[requestId]` | `requireAdminSession` | Yes on mutating | Updates proposal status or soft-archives |
-| `GET, POST` | `/api/admin/pools` | `requireAdminSession` | Yes on mutating | Reads/creates `pools` |
-| `POST` | `/api/admin/pools/[poolId]/archive` | `requireAdminSession` | Yes | Marks pool `is_archived = 1` |
-| `POST` | `/api/admin/pools/[poolId]/clone` | `requireAdminSession` | Yes | Clones pool to target city |
-| `POST` | `/api/admin/pools/[poolId]/complete` | `requireAdminSession` | Yes | Sets status `COMPLETED` |
-| `POST` | `/api/admin/pools/[poolId]/extend-deadline` | `requireAdminSession` | Yes | Extends deadline with audit logging |
-| `GET` | `/api/admin/pools/[poolId]/members` | `requireAdminSession` | No | Reads pool members with FIFO waitlist |
-| `DELETE, PATCH` | `/api/admin/pools/[poolId]/members/[leadId]` | `requireAdminSession` | Yes | Updates member decision / excludes member |
-| `POST` | `/api/admin/pools/[poolId]/promote-next` | `requireAdminSession` | Yes | Atomically promotes next waitlist member |
-| `GET, POST` | `/api/admin/pools/[poolId]/quotes` | `requireAdminSession` | Yes on mutating | Reads/records supplier quotes |
-| `PATCH` | `/api/admin/pools/[poolId]/quotes/[quoteId]` | `requireAdminSession` | Yes | Updates / revokes supplier quote |
-| `POST` | `/api/admin/pools/[poolId]/restore` | `requireAdminSession` | Yes | Restores archived pool |
-| `GET, DELETE, PATCH` | `/api/admin/pools/[poolId]` | `requireAdminSession` | Yes on mutating | Updates pool settings, capacity, prices |
-| `GET, POST` | `/api/admin/pools/[poolId]/waitlist` | `requireAdminSession` | Yes on mutating | Reads/manages waitlist candidates |
-| `PATCH` | `/api/admin/pools/[poolId]/waitlist/[waitlistId]` | `requireAdminSession` | Yes | Updates waitlist candidate status |
-| `POST, DELETE` | `/api/admin/session` | None (Public Login) | Yes | Authenticates passkey / clears session cookie |
-| `GET` | `/api/admin/waitlist` | `requireAdminSession` | No | Global waitlist review |
-| `GET` | `/api/categories` | Public | No | Reads active categories |
-| `GET` | `/api/cities` | Public | No | Reads active operational cities |
-| `GET, POST` | `/api/cron/pool-lifecycle` | Bearer Token | No | Evaluates deadline expiry / auto-transitions |
-| `GET` | `/api/locations` | Public | No | Reads cities directory |
-| `POST` | `/api/pool-requests` | Public | No | Submits proposal (never auto-publishes) |
-| `POST` | `/api/pools/[poolId]/join` | Public | No | Records non-binding interest or waitlist entry |
-| `POST` | `/api/pools/[poolId]/waitlist` | Public | No | Explicit waitlist registration |
-
----
-
-## 5. Non-Negotiable Domain Rules Reference
+## 3. Non-Negotiable Domain Rules Reference
 
 1. **City-First Architecture:** Demand cohorts are strictly bounded by city. Pools in different cities have independent memberships, target capacities, waitlists, and statuses. Delhi (`delhi`) and Delhi NCR (`delhi-ncr`) are distinct slugs.
 2. **Category Agnostic Design:** Solar is the initial category under the broad label "Home Rooftop Solar Installation under PM Surya Ghar". The system does not create sub-pools for 2 kW / 3 kW / 5 kW or specific inverter brands.
@@ -207,32 +74,3 @@ Live HTTP verification against `https://groupbuying.store` (Production Version I
 5. **Zero Customer Payments:** 100% free interest registration in MVP. Zero payment gateways, zero token fees, zero customer deposits.
 6. **Data Truthfulness:** Public counts reflect actual validated leads in D1 SQLite; no fictitious counters, countdown timers, fake discounts, or fabricated testimonials.
 7. **Public Sharing:** Built with honest copy ("Joining is non-binding. Share this pool with friends in [city] to help reach the buyer target faster."). Canonical link with safe non-sensitive attribution parameter (`?ref=share`) and zero PII.
-
-
----
-
-## 6. Website-Wide SEO, Branding & Social Sharing Audit & Fix (29 October 2026)
-
-- **Status:** **PASS** (372/372 automated tests pass across 102 test suites, clean Next.js 16.4.3 production build verified)
-- **Git Commit:** `94c4c3a` ("fix(seo): site-wide metadata, social sharing, and brand asset alignment")
-- **Brand Identity:** Standardized to primary `GroupBuying.store` with contextually accurate `PoolBuy India` secondary badge.
-- **Production Origin:** Canonical HTTPS origin strictly resolved to `https://groupbuying.store`.
-- **Brand & Preview Assets Created:**
-  - `public/images/logo.svg` (400x100 approved brand vector wordmark + badge)
-  - `public/images/og-image.svg` (1200x630 branded social preview card)
-  - `public/images/blog-default.svg` (600x400 consumer research guide fallback)
-- **Metadata Alignment Across Routes:**
-  - Homepage (`app/layout.tsx`): Configured with standard OpenGraph and Twitter `summary_large_image` referencing `https://groupbuying.store/images/og-image.svg`.
-  - Categories Directory (`app/categories/page.tsx`): Aligned title, canonical, OpenGraph, and Twitter image metadata.
-  - Cities Directory (`app/cities/page.tsx`): Aligned title, canonical, OpenGraph, and Twitter image metadata.
-  - City Landing Pages (`app/city/[citySlug]/page.tsx`): Dynamic title, description, canonical, OpenGraph, and fallback images.
-  - City x Category Pages (`app/city/[citySlug]/[categorySlug]/page.tsx`): Dynamic metadata, canonical, OpenGraph, and Twitter images; `noindex` guard for thin combinations without active pools.
-  - Deal Details (`app/deals/[citySlug]/[poolSlug]/page.tsx`): Deal-specific OpenGraph, Product JSON-LD (with conditional Offer only when price is verified).
-  - Blog Index & Posts (`app/blog/page.tsx`, `app/blog/[slug]/page.tsx`): Aligned publisher to GroupBuying.store, canonical URLs, BlogPosting JSON-LD, and verified fallback images.
-  - 301 Redirects: Handled gracefully for `/categories/[categorySlug]`, `/cities/[citySlug]`, and `/cities/[citySlug]/[categorySlug]`.
-- **Canonical Social Sharing:**
-  - `buildPoolShareContent`: Generates truthful non-binding invitation copy with canonical deal URL and non-PII `?ref=share`.
-  - `buildPageShareContent`: Generic helper for sharing homepage, directories, or blog posts.
-  - Production safeguard in `getSiteUrl()` prevents localhost or unintended staging origin leaks.
-- **Automated Test Coverage:**
-  - Added `lib/__tests__/site-wide-seo-audit.test.ts` covering 12 comprehensive SEO, brand, sitemap, robots, and sharing invariants (all 12 passing).
