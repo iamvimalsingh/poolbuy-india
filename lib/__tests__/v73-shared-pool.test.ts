@@ -5,7 +5,8 @@ import path from 'node:path';
 import { setTestD1Database } from '../d1/db';
 import { D1Database, D1PreparedStatement, D1Result, D1ExecResult } from '../d1/types';
 import { executePoolRequest, getPoolRequestById } from '../requests';
-import { getPublicPools, executeJoinPool } from '../pools';
+import { getPublicPools, executeJoinPool, getCanonicalMemberCount } from '../pools';
+import { createCampaign } from '../campaigns';
 import { LAUNCH_CITIES } from '../constants';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -659,5 +660,37 @@ describe('PoolBuy India Simple MVP v7.3.0 Shared Pool Specification Suite', () =
     assert.equal(archivedRow.is_archived, 1, 'is_archived must be set to 1');
     assert.equal(archivedRow.status, 'ARCHIVED', 'status must be ARCHIVED');
     assert.ok(archivedRow.archived_at, 'archived_at timestamp must be recorded');
+  });
+
+  test('9. Canonical Architecture Reconciliation: 1 Campaign -> N Independent City Pools ensures no cross-city count conflation', async () => {
+    // Product Contract v1.1.0 authoritative model: A campaign creates independent pools per city
+    const { pools } = await createCampaign({
+      title: 'Canonical Solar Campaign',
+      categorySlug: 'rooftop-solar',
+      status: 'ACTIVE',
+      cities: [
+        { cityName: 'Bhopal', citySlug: 'bhopal', targetBuyers: 10 },
+        { cityName: 'Lucknow', citySlug: 'lucknow', targetBuyers: 10 },
+      ],
+    });
+
+    const bhopalPool = pools.find((p) => p.citySlug === 'bhopal')!;
+    const lucknowPool = pools.find((p) => p.citySlug === 'lucknow')!;
+
+    assert.notEqual(bhopalPool.id, lucknowPool.id, 'Each city pool must have a distinct stable ID');
+
+    // Join Bhopal pool
+    await executeJoinPool(bhopalPool.id, {
+      fullName: 'Bhopal Buyer',
+      whatsappNumber: '9826000001',
+      pincode: '462001',
+    });
+
+    // Counts must remain strictly isolated
+    const bhopalCount = await getCanonicalMemberCount(bhopalPool.id);
+    const lucknowCount = await getCanonicalMemberCount(lucknowPool.id);
+
+    assert.equal(bhopalCount, 1, 'Bhopal pool must have 1 member');
+    assert.equal(lucknowCount, 0, 'Lucknow pool must have 0 members - zero shared capacity across cities');
   });
 });

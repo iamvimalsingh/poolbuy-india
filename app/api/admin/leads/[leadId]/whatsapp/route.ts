@@ -257,7 +257,7 @@ export async function POST(
               { status: 400, headers: { 'Cache-Control': 'no-store' } }
             );
           }
-          messageText = buildUnlockedPoolMessage(buyerName, pool, pool.tokenPaymentUrl, pool.tokenAmount);
+          messageText = buildUnlockedPoolMessage(buyerName, pool, pool.tokenPaymentUrl || undefined);
         } else {
           messageText = `Namaste ${buyerName},\n\n[DEMO] The group pool for ${poolName} is unlocked! Complete your refundable token deposit: https://example.com/demo-pay`;
         }
