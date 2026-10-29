@@ -117,16 +117,26 @@ export async function getAuditLogs(limit: number = 200): Promise<AuditLogEntry[]
       }>();
 
     type AuditRow = NonNullable<typeof results>[number];
-    return (results || []).map((row: AuditRow) => ({
-      id: row.id,
-      action: row.action,
-      targetType: row.target_type as AuditLogEntry['targetType'],
-      targetId: row.target_id,
-      adminIdentifier: row.admin_identifier,
-      changesSummary: row.changes_summary,
-      details: row.details ? JSON.parse(row.details) : null,
-      createdAt: row.created_at,
-    }));
+    return (results || []).map((row: AuditRow) => {
+      let parsedDetails: Record<string, unknown> | null = null;
+      if (row.details) {
+        try {
+          parsedDetails = JSON.parse(row.details);
+        } catch {
+          parsedDetails = null;
+        }
+      }
+      return {
+        id: row.id,
+        action: row.action,
+        targetType: row.target_type as AuditLogEntry['targetType'],
+        targetId: row.target_id,
+        adminIdentifier: row.admin_identifier,
+        changesSummary: row.changes_summary,
+        details: parsedDetails,
+        createdAt: row.created_at,
+      };
+    });
   } catch (err) {
     console.error('Failed to load audit logs from D1:', err);
     return [];

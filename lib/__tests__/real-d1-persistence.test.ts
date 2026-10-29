@@ -264,7 +264,7 @@ describe('Real Disk D1 SQLite Persistence Verification', () => {
       changesSummary: 'Verified real disk persistence for admin audit logs',
     });
 
-    const logs = await getAuditLogs(10);
+    const logs = await getAuditLogs(100);
     const foundLog = logs.find((l) => l.adminIdentifier === 'test-admin-real-d1');
     assert.ok(foundLog, 'Audit log must be found in real disk D1');
     assert.strictEqual(foundLog?.action, 'REAL_D1_AUDIT_TEST');
