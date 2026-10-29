@@ -901,19 +901,27 @@ export async function updateCampaign(
     const updated = updateDemoCampaign(campaignId, updates);
     if (!updated) return null;
 
-    // Synchronize shared product metadata to child pools
+    // Synchronize shared product metadata & pricing to child pools
     if (
       updates.title !== undefined ||
       updates.brand !== undefined ||
       updates.model !== undefined ||
       updates.shortDescription !== undefined ||
       updates.longDescription !== undefined ||
-      updates.imageUrl !== undefined
+      updates.imageUrl !== undefined ||
+      updates.defaultMarketPrice !== undefined ||
+      updates.defaultGroupPrice !== undefined
     ) {
       const childPools = MOCK_ADMIN_POOLS.filter(
         (p) => p.campaignId === updated.id || p.slug === updated.slug
       );
       for (const pool of childPools) {
+        // Only update groupPrice if pool does not have an active verified quotation
+        const shouldUpdateGroupPrice =
+          updates.defaultGroupPrice !== undefined &&
+          !pool.priceIsVerified &&
+          pool.groupPriceType !== 'VENDOR_QUOTED';
+
         updateDemoPool(pool.id, {
           ...(updates.title !== undefined && { productTitle: updates.title, name: `${updates.title} (${pool.city})` }),
           ...(updates.brand !== undefined && { productBrand: updates.brand }),
@@ -921,6 +929,8 @@ export async function updateCampaign(
           ...(updates.shortDescription !== undefined && { shortDescription: updates.shortDescription }),
           ...(updates.longDescription !== undefined && { longDescription: updates.longDescription }),
           ...(updates.imageUrl !== undefined && { imageUrl: updates.imageUrl }),
+          ...(updates.defaultMarketPrice !== undefined && { marketPrice: updates.defaultMarketPrice }),
+          ...(shouldUpdateGroupPrice && { groupPrice: updates.defaultGroupPrice }),
         });
       }
     }
@@ -1027,10 +1037,37 @@ export async function updateCampaign(
       poolSets.push('image_url = ?');
       poolVals.push(updates.imageUrl);
     }
-    poolVals.push(campaignId);
+    poolVals.push(campaignId, campaignId);
     await db
-      .prepare(`UPDATE pools SET ${poolSets.join(', ')} WHERE campaign_id = ?`)
+      .prepare(`UPDATE pools SET ${poolSets.join(', ')} WHERE campaign_id = ? OR (campaign_id IS NULL AND slug = (SELECT slug FROM campaigns WHERE id = ?))`)
       .bind(...poolVals)
+      .run();
+  }
+
+  // Synchronize pricing to child pools
+  // Market price propagates to all child pools under this campaign.
+  // Group price propagates ONLY to pools that do not have an active verified quotation (VENDOR_QUOTED / price_is_verified = 1).
+  if (updates.defaultMarketPrice !== undefined) {
+    await db
+      .prepare(`
+        UPDATE pools
+        SET market_price = ?, updated_at = ?
+        WHERE campaign_id = ? OR (campaign_id IS NULL AND slug = (SELECT slug FROM campaigns WHERE id = ?))
+      `)
+      .bind(updates.defaultMarketPrice, now, campaignId, campaignId)
+      .run();
+  }
+
+  if (updates.defaultGroupPrice !== undefined) {
+    await db
+      .prepare(`
+        UPDATE pools
+        SET group_price = ?, updated_at = ?
+        WHERE (campaign_id = ? OR (campaign_id IS NULL AND slug = (SELECT slug FROM campaigns WHERE id = ?)))
+          AND (price_is_verified = 0 OR price_is_verified IS NULL)
+          AND (group_price_type != 'VENDOR_QUOTED' OR group_price_type IS NULL)
+      `)
+      .bind(updates.defaultGroupPrice, now, campaignId, campaignId)
       .run();
   }
 

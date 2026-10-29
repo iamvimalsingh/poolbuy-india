@@ -207,7 +207,7 @@ export async function createPoolQuotation(
       input.vendorContactRef || null,
       input.quotedAmount,
       input.currency || 'INR',
-      input.quoteDate,
+      input.quoteDate || now,
       input.validUntil,
       input.scope,
       JSON.stringify(input.inclusions || []),

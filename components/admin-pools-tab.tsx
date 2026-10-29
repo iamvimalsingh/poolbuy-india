@@ -421,6 +421,8 @@ export function AdminPoolsTab() {
       const targetBuyers = parseInt(formData.get('targetBuyers') as string, 10);
       const groupPriceStr = formData.get('groupPrice') as string;
       const groupPrice = groupPriceStr ? parseFloat(groupPriceStr) : null;
+      const marketPriceStr = formData.get('marketPrice') as string;
+      const marketPrice = marketPriceStr ? parseFloat(marketPriceStr) : null;
       const isPublished = formData.get('isPublished') === 'true';
       const marketPriceType = (formData.get('marketPriceType') as string) || undefined;
       const groupPriceType = (formData.get('groupPriceType') as string) || undefined;
@@ -442,6 +444,7 @@ export function AdminPoolsTab() {
         tokenAmount,
         targetBuyers: isNaN(targetBuyers) ? undefined : targetBuyers,
         groupPrice: isNaN(Number(groupPrice)) ? undefined : groupPrice,
+        marketPrice: isNaN(Number(marketPrice)) ? undefined : marketPrice,
         isPublished,
         marketPriceType,
         groupPriceType,
@@ -1034,6 +1037,17 @@ export function AdminPoolsTab() {
                     className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-800 mb-1">Reference / Market Price (₹)</label>
+                <input
+                  type="number"
+                  name="marketPrice"
+                  placeholder="e.g. 180000"
+                  defaultValue={editingPool.marketPrice || ''}
+                  className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-hidden"
+                />
               </div>
 
               {/* Dealer Showroom Details */}

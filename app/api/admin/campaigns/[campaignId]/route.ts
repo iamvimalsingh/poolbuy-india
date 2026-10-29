@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
 import {
   getCampaignById,
@@ -86,6 +87,25 @@ export async function PUT(
       targetId: campaignId,
       changesSummary: `Updated campaign "${updated.title}". Status: ${updated.status}. Published: ${updated.isPublished}.`,
     });
+
+    try {
+      revalidatePath('/');
+      revalidatePath('/categories');
+      revalidatePath('/cities');
+      if (updated.categorySlug) {
+        revalidatePath(`/category/${updated.categorySlug}`);
+      }
+      if (updated.cityPools) {
+        for (const pool of updated.cityPools) {
+          if (pool.citySlug) {
+            revalidatePath(`/city/${pool.citySlug}`);
+            revalidatePath(`/deals/${pool.citySlug}/${pool.slug}`);
+          }
+        }
+      }
+    } catch (revalErr) {
+      console.warn('Campaign update revalidation notice:', revalErr);
+    }
 
     return NextResponse.json(
       { success: true, data: updated },

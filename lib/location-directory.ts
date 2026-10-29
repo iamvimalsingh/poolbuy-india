@@ -353,9 +353,10 @@ export const INDIA_LOCATION_DIRECTORY: SeedState[] = [
     slug: 'uttar-pradesh',
     type: 'STATE',
     cities: [
+      { name: 'Noida', slug: 'noida', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Lucknow', slug: 'lucknow', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Kanpur', slug: 'kanpur', placeType: 'CITY', availabilityState: 'ACTIVE' },
       { name: 'Banda', slug: 'banda', placeType: 'TOWN', availabilityState: 'ACTIVE' },
-      { name: 'Lucknow', slug: 'lucknow', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
-      { name: 'Kanpur', slug: 'kanpur', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
       { name: 'Varanasi', slug: 'varanasi', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
       { name: 'Agra', slug: 'agra', placeType: 'CITY', availabilityState: 'DEMAND_COLLECTING' },
     ],
@@ -429,7 +430,8 @@ export const INDIA_LOCATION_DIRECTORY: SeedState[] = [
     slug: 'delhi',
     type: 'UNION_TERRITORY',
     cities: [
-      { name: 'Delhi NCR', slug: 'delhi', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Delhi', slug: 'delhi', placeType: 'CITY', availabilityState: 'ACTIVE' },
+      { name: 'Delhi NCR', slug: 'delhi-ncr', placeType: 'CITY', availabilityState: 'ACTIVE' },
     ],
   },
   {

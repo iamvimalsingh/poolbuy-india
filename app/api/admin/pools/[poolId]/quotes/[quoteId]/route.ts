@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireAdminSession } from '@/lib/require-admin';
 import { updateQuoteSchema } from '@/lib/validation';
 import { updatePoolQuotation } from '@/lib/quotes';
@@ -53,6 +54,14 @@ export async function PATCH(
           : `Updated quote ${quoteId} from "${updated.vendorName}".`,
         details: updates as Record<string, unknown>,
       });
+
+      try {
+        revalidatePath('/');
+        revalidatePath('/categories');
+        revalidatePath('/cities');
+      } catch (revalErr) {
+        console.warn('Quote revalidation notice:', revalErr);
+      }
 
       return NextResponse.json(
         { success: true, data: updated },

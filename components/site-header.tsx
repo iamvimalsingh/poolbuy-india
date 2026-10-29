@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Users2, ShieldCheck, Sparkles, Menu, X, HelpCircle, Layers, Info } from 'lucide-react';
+import { Users2, BookOpen, ShieldCheck, Sparkles, Menu, X, HelpCircle, Layers, Info } from 'lucide-react';
 import { LocationSelector } from './location-selector';
 
 export function SiteHeader() {
@@ -10,21 +10,21 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-gray-900 group transition-transform active:scale-98"
+            className="flex items-center gap-2 sm:gap-2.5 text-gray-900 group transition-transform active:scale-98 shrink-0"
             aria-label="GroupBuying Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 group-hover:shadow-md group-hover:shadow-emerald-500/30 transition-all">
+            <div className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20 group-hover:shadow-md transition-all shrink-0">
               <Users2 className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg tracking-tight text-gray-950 font-sans">
-                  GroupBuying<span className="text-gray-400 font-normal text-xs ml-0.5">.store</span>
+                <span className="font-bold text-base sm:text-lg tracking-tight text-gray-950 font-sans">
+                  GroupBuying<span className="text-gray-400 font-normal text-xs ml-0.5 hidden xs:inline">.store</span>
                 </span>
                 <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-1.5 py-0.5 rounded-full tracking-wider hidden sm:inline-block">
                   PoolBuy India
@@ -69,7 +69,7 @@ export function SiteHeader() {
           </nav>
 
           {/* Right Action Buttons */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <LocationSelector />
 
             <div className="hidden xl:flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
@@ -125,6 +125,14 @@ export function SiteHeader() {
               >
                 <Sparkles className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                 <span>Start a Pool</span>
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-xl hover:bg-emerald-50 hover:text-emerald-800 transition-colors flex items-center gap-2"
+              >
+                <BookOpen className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                <span>Blog &amp; Consumer Guides</span>
               </Link>
             </nav>
             <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500 px-3">

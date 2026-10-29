@@ -10,12 +10,22 @@ export const revalidate = 86400;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = getSiteUrl();
 
-  // Root landing page
+  // Core Directory landing pages
   const routes: MetadataRoute.Sitemap = [
     {
       url: `${siteUrl}/`,
       changeFrequency: 'daily',
       priority: 1.0,
+    },
+    {
+      url: `${siteUrl}/categories`,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
+      url: `${siteUrl}/cities`,
+      changeFrequency: 'weekly',
+      priority: 0.9,
     },
   ];
 
@@ -58,12 +68,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       (p) => p.status === 'ACTIVE' || p.status === 'UNLOCKED'
     );
 
+    const cityCategoryPairs = new Set<string>();
     for (const pool of indexablePools) {
       routes.push({
         url: `${siteUrl}/deals/${pool.citySlug}/${pool.slug}`,
         lastModified: pool.updatedAt ? new Date(pool.updatedAt) : undefined,
         changeFrequency: 'daily',
         priority: 0.9,
+      });
+
+      if (pool.citySlug && pool.categorySlug) {
+        cityCategoryPairs.add(`${pool.citySlug}/${pool.categorySlug}`);
+      }
+    }
+
+    // Add city+category combinations ONLY when active pools exist (avoid thin page indexation)
+    for (const pair of cityCategoryPairs) {
+      routes.push({
+        url: `${siteUrl}/city/${pair}`,
+        changeFrequency: 'weekly',
+        priority: 0.8,
       });
     }
   } catch (err) {

@@ -110,6 +110,16 @@ export const LAUNCH_CITIES: CityMeta[] = [
   { name: 'Bhubaneswar', slug: 'bhubaneswar', state: 'Odisha' },
 ];
 
+/**
+ * All 28 Operational Cities for demand aggregation directory
+ */
+export const OPERATIONAL_CITIES: CityMeta[] = [
+  ...LAUNCH_CITIES,
+  { name: 'Delhi NCR', slug: 'delhi-ncr', state: 'Delhi' },
+  { name: 'Gwalior', slug: 'gwalior', state: 'Madhya Pradesh' },
+  { name: 'Jabalpur', slug: 'jabalpur', state: 'Madhya Pradesh' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 export const CITIES: CityMeta[] = LAUNCH_CITIES;
 
 export const TIMELINE_LABELS: Record<BuyingTimeline, string> = {
