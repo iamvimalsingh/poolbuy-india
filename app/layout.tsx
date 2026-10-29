@@ -29,11 +29,14 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon.png', type: 'image/png' },
       { url: '/favicon.jpg', type: 'image/jpeg' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png' },
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/favicon-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/favicon.jpg' },
     ],
   },
@@ -45,6 +48,12 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     type: 'website',
     images: [
+      {
+        url: `${siteUrl}/images/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} - ${SITE_TAGLINE}`,
+      },
       {
         url: `${siteUrl}/images/og-image.jpg`,
         width: 1200,
@@ -63,7 +72,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${SITE_NAME} | ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
-    images: [`${siteUrl}/images/og-image.jpg`, `${siteUrl}/images/og-image.svg`],
+    images: [`${siteUrl}/images/og-image.png`, `${siteUrl}/images/og-image.jpg`, `${siteUrl}/images/og-image.svg`],
   },
 };
 

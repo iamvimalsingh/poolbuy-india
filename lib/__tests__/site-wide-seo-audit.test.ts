@@ -141,6 +141,12 @@ describe('Comprehensive SEO, Brand Identity & Social Sharing Audit Suite', () =>
     // Verify social preview asset exists on disk
     const ogImagePath = path.join(process.cwd(), 'public', 'images', 'og-image.svg');
     assert.ok(fs.existsSync(ogImagePath), 'public/images/og-image.svg must exist');
+    const ogPngPath = path.join(process.cwd(), 'public', 'images', 'og-image.png');
+    assert.ok(fs.existsSync(ogPngPath), 'public/images/og-image.png must exist');
+    const faviconPngPath = path.join(process.cwd(), 'public', 'favicon.png');
+    assert.ok(fs.existsSync(faviconPngPath), 'public/favicon.png must exist');
+    const logoPngPath = path.join(process.cwd(), 'public', 'images', 'logo.png');
+    assert.ok(fs.existsSync(logoPngPath), 'public/images/logo.png must exist');
     const ogContent = fs.readFileSync(ogImagePath, 'utf8');
     assert.ok(ogContent.includes('GROUPBUYING.STORE'), 'OG image must contain brand title');
     assert.ok(ogContent.includes('PoolBuy India'), 'OG image must contain secondary badge');

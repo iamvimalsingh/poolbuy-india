@@ -1,6 +1,6 @@
 # GROUPBUYING.STORE — CANONICAL PRODUCT CONTRACT
 
-**Version:** 1.2.0  
+**Version:** 1.3.0  
 **Effective Date:** 29 October 2026  
 **Status:** Approved Canonical Specification  
 **Primary Brand Identity:** GroupBuying (`https://groupbuying.store`)  
@@ -29,9 +29,17 @@
    - Primary: **GroupBuying.store**
    - Secondary Badge: **PoolBuy India**
 2. **Approved Visual Assets:**
-   - Official Logo: `public/images/logo.png` & `public/images/logo.jpg`
-   - Official Favicon: `public/favicon.ico`, `public/favicon.jpg`, `public/favicon.png`, `public/apple-touch-icon.png`, and `app/favicon.ico`
-   - OpenGraph & Social Preview: `public/images/og-image.jpg` and `public/images/og-image.svg`
+   - Official Logo: `public/images/logo.png` (460x124 tight-cropped high-res PNG) & `public/images/logo.jpg`
+   - Official Favicon Suite:
+     - `public/favicon.ico`
+     - `public/favicon.png` (48x48 PNG)
+     - `public/favicon-32x32.png` & `public/favicon-16x16.png`
+     - `public/apple-touch-icon.png` (180x180 PNG)
+     - `public/favicon-192x192.png` & `public/favicon-512x512.png`
+     - `app/favicon.ico`
+   - OpenGraph & WhatsApp Social Preview Cards:
+     - `public/images/og-image.png` (1200x630 high-res card with centered brand logo and 3 value pillars)
+     - `public/images/og-image.jpg` (78 KB optimized fallback)
 3. **Social Sharing:**
    - Truthful non-binding copy across WhatsApp, Web Share API, and clipboard copy.
    - Non-sensitive referral tracking (`?ref=share`) with zero personal data transmission.
