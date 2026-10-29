@@ -185,7 +185,7 @@ export async function getPublicPools(filters?: PoolFilters | string): Promise<Pu
     const now = getNowMs();
     let result = MOCK_POOLS.filter((p) => {
       if (p.deletedAt || p.isArchived || p.isPublished === false) return false;
-      if (p.status === 'CLOSED') return false;
+      if (p.status === 'CLOSED' || p.status === 'DRAFT') return false;
       if (new Date(p.deadline).getTime() <= now) return false;
       return true;
     });
@@ -244,7 +244,7 @@ export async function getPublicPools(filters?: PoolFilters | string): Promise<Pu
 
   const nowIso = getNowIso();
   const whereClauses: string[] = [
-    "status != 'CLOSED'",
+    "status NOT IN ('CLOSED', 'DRAFT')",
     'is_published = 1',
     'is_archived = 0',
     'deleted_at IS NULL',

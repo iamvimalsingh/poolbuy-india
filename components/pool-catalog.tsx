@@ -142,8 +142,8 @@ export function PoolCatalog({
   // When selectedCity is chosen, filters strictly to that city.
   const filteredPools = useMemo(() => {
     return pools.filter((pool) => {
-      // 1. Authoritative status exclusion: CLOSED and past-deadline pools never appear in active listings
-      if (pool.status === 'CLOSED') return false;
+      // 1. Authoritative status exclusion: CLOSED, DRAFT, and past-deadline pools never appear in active listings
+      if (pool.status === 'CLOSED' || pool.status === 'DRAFT') return false;
       const { isExpired } = getCountdownParts(pool.deadline);
       if (isExpired) return false;
 

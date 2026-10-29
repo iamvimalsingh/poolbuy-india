@@ -105,7 +105,7 @@ export function SiteFooter() {
                 <span>No Advance Fees to Browse</span>
               </li>
               <li>
-                <span>Coordination Fee Only After Pool Target &amp; Quote Verified</span>
+                <span>Zero Platform Fees • Direct Supplier Invoicing</span>
               </li>
               <li>
                 <span>Direct Delivery by Authorized Showrooms</span>

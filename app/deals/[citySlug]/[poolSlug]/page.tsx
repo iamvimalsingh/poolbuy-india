@@ -99,7 +99,7 @@ export default async function DealPage({ params }: DealPageProps) {
     },
     {
       question: `When is payment or service fee required?`,
-      answer: `Joining the pool is 100% free with zero upfront payment. Only after the pool reaches its target and a verified supplier quotation is confirmed, an agreed coordination fee is calculated as max(0.10% × purchase value, ₹99) and disclosed to you before connecting. Product purchase, invoice, and warranty remain directly between you and the verified supplier.`,
+      answer: `Joining the pool is 100% free with zero upfront payment, registration fee, or platform charges. The MVP contains zero payment processing. When the buyer target is reached and verified dealer quotes are confirmed, GroupBuying connects members directly with the authorized supplier. All product purchases, invoices, and warranties remain directly between you and the verified supplier.`,
     },
     {
       question: `Who sells and delivers the ${pool.productModel || pool.name}?`,

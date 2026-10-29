@@ -22,6 +22,8 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
   const isPastDeadline = countdown ? countdown.isExpired : false;
   const daysRemaining = countdown && !countdown.isExpired ? countdown.days : null;
   const isClosed = pool.status === 'CLOSED';
+  const isDraft = pool.status === 'DRAFT';
+  const isPaused = (pool.status as string) === 'PAUSED';
 
   const activeCount = pool.currentBuyers ?? 0;
   const targetBuyers = pool.targetBuyers && pool.targetBuyers > 0 ? pool.targetBuyers : 10;
@@ -42,6 +44,12 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
 
   if (isClosed) {
     actionLabel = 'Closed';
+    isActionEnabled = false;
+  } else if (isDraft) {
+    actionLabel = 'Draft';
+    isActionEnabled = false;
+  } else if (isPaused) {
+    actionLabel = 'Paused';
     isActionEnabled = false;
   } else if (isPastDeadline) {
     actionLabel = 'Concluded';
@@ -80,13 +88,13 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
   // Dynamic Urgency & FOMO evaluation
   let urgencyBadge: { label: string; className: string } | null = null;
 
-  if (!isClosed && !isPastDeadline) {
+  if (!isClosed && !isPastDeadline && !isDraft && !isPaused && !isCompletelyFull) {
     if (percentFull >= 80 && remainingSpots > 0) {
       urgencyBadge = {
         label: `🔥 Fast filling - Only ${remainingSpots} ${remainingSpots === 1 ? 'spot' : 'spots'} left!`,
         className: 'bg-rose-100/90 text-rose-800 border-rose-200/90 shadow-rose-950/5',
       };
-    } else if (daysRemaining !== null && daysRemaining < 5) {
+    } else if (daysRemaining !== null && daysRemaining < 5 && daysRemaining >= 0) {
       const timeLabel =
         daysRemaining === 0
           ? 'today'
@@ -134,12 +142,16 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
             className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border shadow-xs backdrop-blur-md ${
               isClosed
                 ? 'bg-rose-50/80 text-rose-700 border-rose-200/80'
+                : isDraft
+                ? 'bg-amber-50/80 text-amber-700 border-amber-200/80'
+                : isPaused
+                ? 'bg-slate-100/90 text-slate-700 border-slate-300/80'
                 : isPastDeadline
                 ? 'bg-amber-50/80 text-amber-700 border-amber-200/80'
                 : 'bg-white/80 text-emerald-700 border-emerald-200/80'
             }`}
           >
-            {isClosed ? 'Closed' : isPastDeadline ? 'Concluded' : 'Active Pool'}
+            {isClosed ? 'Closed' : isDraft ? 'Draft' : isPaused ? 'Paused' : isPastDeadline ? 'Concluded' : 'Active Pool'}
           </span>
         </div>
 
