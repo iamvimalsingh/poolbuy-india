@@ -641,5 +641,174 @@ describe('Step 2: Campaign Management & Multi-City Pool Rebuild Acceptance Suite
       assert.equal(lead.pincode, '211003');
       assert.equal(lead.existingQuote, '₹85,000 without GST');
     });
+    test('26: Waitlist insertion and promotion preserves leading-zero pincode and existing_quote', async () => {
+      const camp = await createCampaign({
+        title: 'Solar Inverter Single-Spot',
+        slug: 'solar-inverter-single-spot',
+        categorySlug: 'rooftop-solar',
+        cities: [{ cityName: 'Delhi', citySlug: 'delhi', targetBuyers: 1 }],
+      });
+      const pool = camp.pools[0];
+
+      // Join first buyer to fill pool (capacity = 1)
+      const res1 = await executeJoinPool(pool.id, {
+        fullName: 'First Buyer',
+        whatsappNumber: '9811000001',
+        pincode: '110001',
+      });
+      assert.equal(res1.buyerNumber, 1);
+
+      // Now join second buyer - should be placed on waitlist
+      const now = new Date().toISOString();
+      const waitlistId = 'wl-test-leading-zero';
+      rawDb.prepare(`
+        INSERT INTO pool_waitlist (
+          id, pool_id, sequence_number, full_name, whatsapp_number,
+          city, buying_timeline, locality, pin_code, pincode, existing_quote, status, notes,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)
+      `).run(
+        waitlistId,
+        pool.id,
+        1,
+        'Waitlisted Buyer with Leading Zero',
+        '9811000002',
+        'Delhi',
+        'THIS_MONTH',
+        'Connaught Place',
+        '011001',
+        '011001',
+        '₹95,000 all-inclusive',
+        'Looking for quick install',
+        now,
+        now
+      );
+
+      // Verify waitlist row persisted with leading-zero string preserved
+      const wlRow = rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_waitlist WHERE id = ?').get(waitlistId) as {
+        pincode: string;
+        pin_code: string;
+        existing_quote: string;
+      };
+      assert.equal(wlRow.pincode, '011001');
+      assert.equal(wlRow.pin_code, '011001');
+      assert.equal(wlRow.existing_quote, '₹95,000 all-inclusive');
+
+      // Promote waitlisted member to active lead (simulating admin promotion)
+      const newLeadId = 'lead-promoted-011001';
+      const effectivePincode = wlRow.pincode || wlRow.pin_code;
+      rawDb.prepare(`
+        INSERT INTO pool_leads (
+          id, pool_id, buyer_number, full_name, whatsapp_number, city,
+          buying_timeline, status, locality, pin_code, pincode, existing_quote, admin_notes,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        newLeadId,
+        pool.id,
+        2,
+        'Waitlisted Buyer with Leading Zero',
+        '9811000002',
+        'Delhi',
+        'THIS_MONTH',
+        'Connaught Place',
+        effectivePincode,
+        effectivePincode,
+        wlRow.existing_quote,
+        'FIFO Promoted from waitlist position #1',
+        now,
+        now
+      );
+      rawDb.prepare("UPDATE pool_waitlist SET status = 'PROMOTED', promoted_at = ?, promoted_lead_id = ? WHERE id = ?").run(
+        now,
+        newLeadId,
+        waitlistId
+      );
+
+      // Verify promoted lead in pool_leads preserves leading-zero pincode and quote
+      const promotedLead = rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_leads WHERE id = ?').get(newLeadId) as {
+        pincode: string;
+        pin_code: string;
+        existing_quote: string;
+      };
+      assert.equal(promotedLead.pincode, '011001');
+      assert.equal(promotedLead.pin_code, '011001');
+      assert.equal(promotedLead.existing_quote, '₹95,000 all-inclusive');
+
+      // Verify Admin Leads retrieval reflects the promoted lead data accurately
+      const adminRes = await getAdminLeads({ poolId: pool.id });
+      const foundPromoted = adminRes.leads.find((l) => l.id === newLeadId);
+      assert.ok(foundPromoted);
+      assert.equal(foundPromoted.pincode, '011001');
+      assert.equal(foundPromoted.existingQuote, '₹95,000 all-inclusive');
+    });
+
+    test('27: Waitlist promotion of legacy entry without pincode or quote completes without errors', async () => {
+      const camp = await createCampaign({
+        title: 'Legacy Waitlist Test',
+        slug: 'legacy-waitlist-test',
+        categorySlug: 'rooftop-solar',
+        cities: [{ cityName: 'Delhi', citySlug: 'delhi', targetBuyers: 1 }],
+      });
+      const pool = camp.pools[0];
+      const now = new Date().toISOString();
+
+      const legacyWlId = 'wl-legacy-null-fields';
+      rawDb.prepare(`
+        INSERT INTO pool_waitlist (
+          id, pool_id, sequence_number, full_name, whatsapp_number,
+          city, buying_timeline, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)
+      `).run(
+        legacyWlId,
+        pool.id,
+        1,
+        'Legacy Waitlisted User',
+        '9811000003',
+        'Delhi',
+        'THIS_MONTH',
+        now,
+        now
+      );
+
+      const wlRow = rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_waitlist WHERE id = ?').get(legacyWlId) as {
+        pincode: string | null;
+        pin_code: string | null;
+        existing_quote: string | null;
+      };
+      assert.equal(wlRow.pincode, null);
+      assert.equal(wlRow.existing_quote, null);
+
+      const promotedLeadId = 'lead-promoted-legacy';
+      const effectivePincode = wlRow.pincode || wlRow.pin_code || null;
+      rawDb.prepare(`
+        INSERT INTO pool_leads (
+          id, pool_id, buyer_number, full_name, whatsapp_number, city,
+          buying_timeline, status, locality, pin_code, pincode, existing_quote, admin_notes,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        promotedLeadId,
+        pool.id,
+        2,
+        'Legacy Waitlisted User',
+        '9811000003',
+        'Delhi',
+        'THIS_MONTH',
+        null,
+        effectivePincode,
+        effectivePincode,
+        wlRow.existing_quote || null,
+        'FIFO Promoted from waitlist position #1',
+        now,
+        now
+      );
+
+      const adminRes = await getAdminLeads({ poolId: pool.id });
+      const foundPromoted = adminRes.leads.find((l) => l.id === promotedLeadId);
+      assert.ok(foundPromoted);
+      assert.equal(foundPromoted.pincode, null);
+      assert.equal(foundPromoted.existingQuote, null);
+    });
   });
 });

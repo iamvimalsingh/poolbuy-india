@@ -398,17 +398,21 @@ export async function POST(
     // 3. Initial membership creation if explicit consent is established
     if (shouldCreateFirstMember) {
       const leadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const reqPincode = (reqRow as { pin_code?: string | null }).pin_code || null;
+      const reqLocality = (reqRow as { locality?: string | null }).locality || null;
       statements.push(
         db.prepare(
           `INSERT INTO pool_leads (
             id, pool_id, buyer_number, full_name, whatsapp_number, city,
             buying_timeline, has_existing_quote, existing_quote_amount,
             extra_message, consent_at, privacy_notice_version,
+            locality, pin_code, pincode,
             status, fee_status, member_connection_status, created_at, updated_at
           ) VALUES (
             ?, ?, 1, ?, ?, ?,
             'THIS_MONTH', 0, NULL,
             ?, ?, '2026-10-V4',
+            ?, ?, ?,
             'NEW', 'NOT_REQUESTED', 'NOT_READY', ?, ?
           )`
         ).bind(
@@ -419,6 +423,9 @@ export async function POST(
           primaryCityName,
           String(reqRow.extra_message || ''),
           now,
+          reqLocality,
+          reqPincode,
+          reqPincode,
           now,
           now
         )

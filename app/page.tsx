@@ -11,6 +11,7 @@ import { getOperationalCities } from '@/lib/cities';
 import { getOperationalCategories } from '@/lib/categories';
 import { connection } from 'next/server';
 import { PoolCatalog } from '@/components/pool-catalog';
+import { HowItWorks } from '@/components/how-it-works';
 import { PoolRequestForm } from '@/components/pool-request-form';
 
 export default async function HomePage() {
@@ -89,7 +90,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Pool Catalog with Interactive City/Category Filters & Join Modal */}
+      {/* 2. Educational Bridge: How Group Buying Works in 3 Steps */}
+      <HowItWorks />
+
+      {/* 3. Pool Catalog with Interactive City/Category Filters & Join Modal */}
       <section id="pools" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full scroll-mt-24">
         <PoolCatalog
           initialPools={pools}
@@ -98,83 +102,7 @@ export default async function HomePage() {
         />
       </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="bg-white border-y border-gray-200/70 py-16 scroll-mt-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center mb-12">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 inline-block mb-3">
-              Community Group Buying
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight">
-              How Group Buying Works in 4 Steps
-            </h2>
-            <p className="text-sm text-gray-600 mt-2">
-              GroupBuying coordinates local buyer interest so you can negotiate or choose quotations with real volume leverage.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Step 1 */}
-            <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                1
-              </div>
-              <h3 className="font-bold text-gray-950 text-sm">
-                Choose City &amp; Product
-              </h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Discover active pools in your city or start a new group buy proposal for a product you need.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                2
-              </div>
-              <h3 className="font-bold text-gray-950 text-sm">
-                Start or Join Free
-              </h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                No customer login, password, or upfront fees. Enter your name and WhatsApp number to register interest.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                3
-              </div>
-              <h3 className="font-bold text-gray-950 text-sm">
-                Build Local Demand
-              </h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Your group aggregates verified community demand towards a clear buyer target before the pool deadline.
-              </p>
-            </div>
-
-            {/* Step 4 */}
-            <div className="relative bg-gray-50/70 rounded-2xl p-6 border border-gray-200/70 space-y-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                4
-              </div>
-              <h3 className="font-bold text-gray-950 text-sm">
-                Review Offers &amp; Connect
-              </h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                When the target milestone is met, review available vendor quotations and choose whether and how to connect.
-              </p>
-            </div>
-          </div>
-
-          {/* Trust and Independence Disclosure */}
-          <div className="mt-10 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 text-center max-w-3xl mx-auto leading-relaxed">
-            <strong>Facilitator Disclosure:</strong> GroupBuying facilitates local demand coordination. We are not an escrow agent, manufacturer, or seller. Participation is free before target milestones. Targets do not guarantee manufacturer discounts. Participants and suppliers decide contracts, payments, and fulfilment directly.
-          </div>
-        </div>
-      </section>
-
-      {/* Demand Discovery Banner & Interactive PoolRequestForm */}
+      {/* 4. Demand Discovery Banner & Interactive PoolRequestForm */}
       <section id="request-pool" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full scroll-mt-24">
         <div className="bg-gradient-to-r from-emerald-900 to-teal-900 rounded-3xl p-6 sm:p-12 text-white relative overflow-hidden shadow-lg">
           <div className="relative z-10 max-w-2xl mb-8">

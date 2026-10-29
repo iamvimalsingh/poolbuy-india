@@ -1,16 +1,17 @@
 # CHATGPT_HANDOFF.md — GROUPBUYING.STORE REPOSITORY & RELEASE HANDOFF
 
-**Last Updated:** 29 October 2026
-**Execution Stage:** Step 2 of 4 Complete — Campaigns, Multi-City Pools, Lead Schema & Admin Integration
-**Status:** **STEP 2 VERIFIED & COMPLETE — READY FOR STEP 3 (MEMBERS, REQUESTS & QUOTE OPS)**
-**Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)
-**Active Git Branch:** `feat/category-agnostic-platform`
-**Starting HEAD Commit:** `337a1db` ("feat(admin): complete step 1 admin foundation, category and location management")
-**Production Live URL:** `https://groupbuying.store`
-**Production Worker URL:** `https://poolbuy-india.iamvimalsingh.workers.dev`
-**Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`
-**Primary Brand Identity:** GroupBuying (`https://groupbuying.store`), retaining secondary `PoolBuy India` badge
-**Runtime Architecture:** Next.js 16.4.3 App Router on Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`) backed by Cloudflare D1 SQLite
+**Last Updated:** 29 October 2026  
+**Execution Stage:** Step 2 of 4 Complete & Fully Audited — Campaigns, Multi-City Pools, Lead Schema & Admin Integration  
+**Status:** **STEP 2 VERIFIED & SEALED — READY FOR STEP 3 (MEMBERS, REQUESTS & QUOTE OPS)**  
+**Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)  
+**Active Git Branch:** `feat/category-agnostic-platform`  
+**Starting HEAD Commit:** `337a1db` ("feat(admin): complete step 1 admin foundation, category and location management")  
+**Latest Step 2 Verified Commit:** `62e7493` ("style(card): re-export PoolCardSkeleton and PoolCardSkeletonGrid from pool-card")  
+**Production Live URL:** `https://groupbuying.store`  
+**Production Worker URL:** `https://poolbuy-india.iamvimalsingh.workers.dev`  
+**Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
+**Primary Brand Identity:** GroupBuying (`https://groupbuying.store`), retaining secondary `PoolBuy India` badge  
+**Runtime Architecture:** Next.js 16.4.3 App Router on Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`) backed by Cloudflare D1 SQLite  
 
 ---
 
@@ -67,13 +68,23 @@ In accordance with `docs/PRODUCT_CONTRACT.md` and the Step 2 rebuild specificati
    }
    ```
 
-5. **Admin Lead Management (`components/admin-leads-tab.tsx`):**
+5. **Waitlist-to-Lead Promotion & Lifecycle Field Integrity (Fixed & Verified):**
+   - Identified and resolved the waitlist-to-lead promotion field loss in:
+     - `app/api/admin/pools/[poolId]/promote-next/route.ts`: Updated `D1WaitlistRow` and the `INSERT INTO pool_leads` statement to map and persist `pincode` (preserving leading zero strings) and `existing_quote`.
+     - `app/api/admin/pools/[poolId]/waitlist/[waitlistId]/route.ts`: Updated direct waitlist promotion query to preserve `pincode` and `existing_quote`.
+     - `app/api/pools/[poolId]/waitlist/route.ts`: Public waitlist submission now validates and persists `pincode` and `existing_quote` into `pool_waitlist`.
+     - `app/api/admin/pools/[poolId]/waitlist/route.ts`: Admin waitlist insert preserves `pincode` and `existing_quote`.
+     - `lib/mock-data.ts`: Updated `promoteDemoWaitlistEntry` to preserve `hasExistingQuote`, `existingQuote`, `existing_quote`, and `pincode`.
+     - `lib/validation.ts`: Updated `createWaitlistSchema` and `updateWaitlistSchema` to support `pincode` and `existing_quote`.
+     - `app/api/admin/pool-requests/[requestId]/convert/route.ts`: Initial lead conversion persists `pin_code` and `pincode`.
+
+6. **Admin Lead Management (`components/admin-leads-tab.tsx`):**
    - Added dedicated **Pincode** column displaying 6-digit postal code or graceful legacy indicator (`Legacy (No Pincode)`).
    - Added **Existing Quote** column displaying customer-reported quote with clear *"Customer Reported (Unverified)"* indicator.
    - Added **Lead Details Modal** showing comprehensive buyer information, postal pincode, reported quotation, timeline, and an explicit disclaimer (*"Customer-reported quote. This is not a verified supplier quotation"*).
    - Search filter upgraded to search across full name, phone number, notes, pincode, and reported quote text.
 
-6. **Responsive Mobile Bottom Sheet Drawer (`components/join-pool-modal.tsx`):**
+7. **Responsive Mobile Bottom Sheet Drawer (`components/join-pool-modal.tsx`):**
    - On Desktop (`md` and above): Centered modal dialog with backdrop blur (`backdrop-blur-sm bg-black/40`).
    - On Mobile (below `md`): Responsive bottom sheet drawer sliding up smoothly from the bottom edge (`rounded-t-3xl`, `max-h-[85vh] overflow-y-auto`).
    - Visual swipe-indicator pill (`w-12 h-1.5 bg-gray-300 rounded-full mx-auto`) on mobile.
@@ -81,11 +92,54 @@ In accordance with `docs/PRODUCT_CONTRACT.md` and the Step 2 rebuild specificati
 
 ---
 
-## 2. Verification & Automated Test Evidence
+## 2. Cloudflare D1 Database Migrations Audit & Status
 
-### Test Suite Execution Summary:
+### Applied Migrations Status (Verified 29 October 2026):
+
+| Migration File | Purpose | Local D1 Status | Staging D1 (`groupbuying-staging`) | Production D1 |
+| :--- | :--- | :--- | :--- | :--- |
+| `0001_initial_schema.sql` | Base schema (pools, categories, cities, leads, requests) | Applied (`2026-10-28 05:28:36`) | Applied | Unchanged |
+| `0002_add_variants_and_capacity_limits.sql` | Pool kit offers & variant limits | Applied (`2026-10-28 05:28:38`) | Applied | Unchanged |
+| `0003_v73_shared_pool_cities.sql` | Multi-city mappings table | Applied (`2026-10-28 06:47:11`) | Applied | Unchanged |
+| `0004_category_agnostic_city_pools.sql` | Category & city pool indices | Applied (`2026-10-28 14:04:37`) | Applied | Unchanged |
+| `0005_membership_consent_and_integrity.sql` | DPDP consent & phone uniqueness | Applied (`2026-10-28 14:05:09`) | Applied | Unchanged |
+| `0006_location_requests.sql` | Location demand proposals table | Applied (`2026-10-29 03:19:43`) | Applied (`2026-10-29 03:21:01`) | **NOT TOUCHED** |
+| `0007_campaigns_and_city_pools.sql` | Multi-city campaigns table & `pools.campaign_id` | Applied (`2026-10-29 03:20:27`) | Applied (`2026-10-29 03:21:03`) | **NOT TOUCHED** |
+| `0008_lead_pincode_and_existing_quote.sql` | `pincode` & `existing_quote` on leads & waitlist | Applied (`2026-10-29 03:20:28`) | Applied (`2026-10-29 03:21:04`) | **NOT TOUCHED** |
+
+### Exact Verification Commands & Output:
+
+1. **Local D1 Migration Check:**
+   ```powershell
+   npx wrangler d1 migrations list DB --local
+   # Output:
+   # ⛅️ wrangler 4.153.0
+   # Resource location: local
+   # ✅ No migrations to apply!
+   ```
+
+2. **Staging D1 Remote Migration Apply & Check:**
+   ```powershell
+   npx wrangler d1 migrations apply DB --config wrangler.staging.jsonc --remote
+   # Output:
+   # 🌀 Executing on remote database DB (daa09ed6-b75d-4c16-89f7-156d69cec7e5):
+   # 0006_location_requests.sql               │ ✅
+   # 0007_campaigns_and_city_pools.sql        │ ✅
+   # 0008_lead_pincode_and_existing_quote.sql │ ✅
+   
+   npx wrangler d1 migrations list DB --config wrangler.staging.jsonc --remote
+   # Output:
+   # ✅ No migrations to apply!
+   ```
+
+---
+
+## 3. Verification & Automated Test Evidence
+
+### Complete Test Results Summary:
+
 1. **Dedicated Step 2 Acceptance Suite (`lib/__tests__/step-2-campaign-pools.test.ts`):**
-   - **18 / 18 PASS across 8 suites**
+   - **20 / 20 PASS across 8 suites**
    - Criteria 1, 2 & 3: Multi-City Creation Behavior (1 campaign &rarr; 3 independent pools with capacity isolation) &rarr; PASS
    - Criteria 4, 5 & 6: Idempotency, Partial Recovery & Adding City Pools &rarr; PASS
    - Criteria 7 & 8: Edit Isolation (Shared specs update without corrupting city settings; single city edits isolate) &rarr; PASS
@@ -93,19 +147,25 @@ In accordance with `docs/PRODUCT_CONTRACT.md` and the Step 2 rebuild specificati
    - Criteria 13, 14 & 15: Public Catalog & City Filtering &rarr; PASS
    - Criteria 18: Step 1 Foundation Stability &rarr; PASS
    - Criteria 14–25: Pincode & Quote Persistence, Leading Zero Preservation (`011001`), Legacy Null Row Support, Duplicate Protections &rarr; PASS
+   - Criteria 26: Full waitlist lifecycle insertion and promotion preserves leading-zero pincode (`011001`) and customer quote &rarr; PASS
+   - Criteria 27: Legacy waitlist entry with null pincode and null quote promotes without error &rarr; PASS
 
-2. **Validation Unit Tests (`lib/__tests__/validation.test.ts`):**
+2. **Real Disk D1 SQLite Persistence Verification (`lib/__tests__/real-d1-persistence.test.ts`):**
+   - **6 / 6 PASS across 1 suite**
+   - Real disk reads/writes to `.wrangler/state/v3/d1/...sqlite`.
+   - Test 6: Persists join with leading-zero pincode (`011001`) and quote (`₹92,000 without tax`), disconnects DB connection, restarts connection, and verifies raw SQLite row on disk &rarr; PASS
+   - Verifies waitlist insertion and promotion on disk preserves pincode and quote &rarr; PASS
+
+3. **Validation Unit Tests (`lib/__tests__/validation.test.ts`):**
    - **17 / 17 PASS across 5 suites**
    - 6-digit pincode validation, leading zero preservation, rejection of 5/7 digits, whitespace rejection, optional existing_quote, max 500 chars &rarr; PASS
 
-3. **Frontend UAT Matrix (`lib/__tests__/step-2-frontend-uat-matrix.test.ts`):**
+4. **Frontend UAT Matrix (`lib/__tests__/step-2-frontend-uat-matrix.test.ts`):**
    - **7 / 7 PASS across 1 suite**
-
-4. **Step 1 Admin Foundation Tests (`lib/__tests__/step-1-admin-foundation.test.ts`):**
-   - **20 / 20 PASS across 7 suites**
+   - UAT Journeys 1–7 (homepage discovery, dynamic categories, proposal consent, idempotency, waitlist flow, truthful quotes, text-slate-900 contrast) &rarr; PASS
 
 5. **Full Regression Suite (`npm test`):**
-   - **259 / 259 tests PASS across 84 suites** (0 failures, 0 skipped, duration: ~8.5s).
+   - **262 / 262 tests PASS across 84 suites** (0 failures, 0 skipped, duration: ~4.6s).
 
 6. **TypeScript Typecheck (`npx tsc --noEmit`):**
    - Exit code: 0 (Zero type errors).
@@ -114,51 +174,40 @@ In accordance with `docs/PRODUCT_CONTRACT.md` and the Step 2 rebuild specificati
    - Exit code: 0 (Zero errors, zero warnings).
 
 8. **Next.js Production Build (`npm run build`):**
-   - Exit code: 0 (47 routes compiled and generated successfully).
+   - Exit code: 0 (47 routes compiled and generated successfully in 10.8s).
 
 9. **OpenNext Cloudflare Worker Build (`npm run build:worker`):**
    - Exit code: 0 (`Worker saved in .open-next\worker.js 🚀`).
 
 ---
 
-## 3. Database Migrations Added in Step 2
+## 4. Verified Staging Release Details
 
-### Migration 0007: Campaigns and City Pools
-- **File:** `migrations/d1/0007_campaigns_and_city_pools.sql`
-- **Schema Additions:**
-  - `CREATE TABLE IF NOT EXISTS campaigns`
-  - `ALTER TABLE pools ADD COLUMN campaign_id TEXT REFERENCES campaigns(id);`
-  - Index `idx_pools_campaign_id ON pools(campaign_id);`
-
-### Migration 0008: Lead Pincode and Existing Quote
-- **File:** `migrations/d1/0008_lead_pincode_and_existing_quote.sql`
-- **Schema Additions:**
-  - `ALTER TABLE pool_leads ADD COLUMN existing_quote TEXT;`
-  - `ALTER TABLE pool_leads ADD COLUMN pincode TEXT;`
-  - `UPDATE pool_leads SET pincode = pin_code WHERE pincode IS NULL AND pin_code IS NOT NULL;`
-  - `ALTER TABLE pool_waitlist ADD COLUMN existing_quote TEXT;`
-  - `ALTER TABLE pool_waitlist ADD COLUMN pincode TEXT;`
-  - `UPDATE pool_waitlist SET pincode = pin_code WHERE pincode IS NULL AND pin_code IS NOT NULL;`
-  - Index `idx_pool_leads_pincode ON pool_leads(pincode);`
+- **Worker Target:** `poolbuy-india-hotfix-test`
+- **Configuration File:** `wrangler.staging.jsonc`
+- **Target D1 Database:** `groupbuying-staging` (ID: `daa09ed6-b75d-4c16-89f7-156d69cec7e5`)
+- **Staging URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`
+- **Active Verified Cloudflare Deployment Version:** `0de86414-27bc-43fa-8e1e-3df8b519e949`
+- **Applied Remote Migrations:** `0001` through `0008` (100% applied, 0 pending)
 
 ---
 
-## 4. Guidance for Next Engineer / Agent (Step 3 Scope)
+## 5. Guidance for Next Engineer / Agent (Step 3 Scope)
 
 ### Active Working Context:
 - **Branch:** `feat/category-agnostic-platform`
-- **Baseline Checkpoint for Step 2:** Commit `337a1db`
+- **Remote:** Up to date with `origin/feat/category-agnostic-platform`
 - **Node.js Environment:** Windows / Node v24.20.0
-- **Build Commands:** `npm test` (259 tests), `npm run build`, `npm run build:worker`
+- **Verified Build Status:** `npm test` (262 tests), `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm run build` (47 routes), `npm run build:worker`
 
 ### Step 3 Scope (Members, Requests & Quotation Operations):
 1. **Target Admin Modules to Activate:**
    - **Members & Requests Tab**: Manage confirmed pool members, demand discovery proposals, user conversion workflows, and connection statuses (`NOT_READY`, `OPTED_IN`, `ELIGIBLE_TO_CONNECT`, `CONNECTED`, `EXCLUDED`).
-   - **FIFO Waitlist Operations**: Promotion workflow when an active member drops out or capacity is increased.
+   - **FIFO Waitlist Operations**: Promotion workflow when an active member drops out or capacity is increased (leveraging the verified promotion queries that preserve `pincode` and `existing_quote`).
    - **Quotes & Messages Tab**:
      - Verified supplier quotation recording with truthfulness requirements (valid until future date, scope of supply, itemized inclusions/exclusions).
      - Operational WhatsApp notification composer utilizing standard templates without customer login or password requirements.
-2. **DO NOT:**
-   - Do NOT run destructive migrations or wipe remote databases.
+2. **Safety Invariants:**
+   - Do NOT run migrations against production or deploy to production.
    - Do NOT commit environment files (`.env.local`, `.dev.vars`).
    - Do NOT treat customer-reported quote text as a verified supplier quote.

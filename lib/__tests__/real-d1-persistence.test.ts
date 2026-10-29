@@ -114,6 +114,7 @@ function createRealDiskD1Adapter(filePath: string): { d1: D1Database; rawDb: Sql
 function cleanTestRecords(rawDb: SqliteDatabase) {
   try {
     rawDb.exec("DELETE FROM pool_leads WHERE pool_id LIKE 'test-pool-%' OR whatsapp_number LIKE '98888%';");
+    rawDb.exec("DELETE FROM pool_waitlist WHERE pool_id LIKE 'test-pool-%' OR whatsapp_number LIKE '98888%';");
     rawDb.exec("DELETE FROM pool_kit_offers WHERE pool_id LIKE 'test-pool-%' OR id LIKE 'test-offer-%';");
     rawDb.exec("DELETE FROM pools WHERE id LIKE 'test-pool-%' OR slug LIKE 'test-%';");
     rawDb.exec("DELETE FROM pool_requests WHERE whatsapp_number LIKE '98888%';");
@@ -268,5 +269,129 @@ describe('Real Disk D1 SQLite Persistence Verification', () => {
     assert.ok(foundLog, 'Audit log must be found in real disk D1');
     assert.strictEqual(foundLog?.action, 'REAL_D1_AUDIT_TEST');
   });
-});
+  test('6. Real Disk Join Pool with Leading-Zero Pincode and Existing Quote: Persists to real SQLite file and recovers after connection restart', async () => {
+    const poolId = 'test-pool-real-d1-pincode';
+    const poolSlug = 'test-disk-pincode-pool';
 
+    adapter.rawDb.prepare(`
+      INSERT INTO pools (
+        id, slug, name, category, city, city_slug, target_buyers, current_buyers,
+        status, deadline, created_at, updated_at
+      ) VALUES (
+        ?, ?, 'Real Disk Pincode Pool', 'rooftop-solar', 'Bhopal', 'bhopal', 10, 0,
+        'ACTIVE', datetime('now', '+30 days'), datetime('now'), datetime('now')
+      );
+    `).run(poolId, poolSlug);
+
+    // 1. Join with leading-zero pincode and existing quote
+    const joinRes = await executeJoinPool(poolId, {
+      fullName: 'Disk Pincode User',
+      whatsappNumber: '9888800003',
+      city: 'Bhopal',
+      pincode: '011001',
+      existing_quote: '₹92,000 without tax',
+    });
+    assert.ok(joinRes.leadId);
+
+    // 2. Join second user with omitted quote
+    const joinRes2 = await executeJoinPool(poolId, {
+      fullName: 'Omitted Quote User',
+      whatsappNumber: '9888800004',
+      city: 'Bhopal',
+      pincode: '462001',
+    });
+    assert.ok(joinRes2.leadId);
+
+    // 3. Force connection restart to guarantee data was flushed to disk
+    adapter.rawDb.close();
+    adapter = createRealDiskD1Adapter(REAL_DB_PATH);
+    setTestD1Database(adapter.d1);
+
+    // 4. Inspect raw SQLite rows on disk
+    const row1 = adapter.rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_leads WHERE id = ?').get(joinRes.leadId) as {
+      pincode: string;
+      pin_code: string;
+      existing_quote: string;
+    };
+    assert.strictEqual(row1.pincode, '011001', 'Leading zero must not be stripped in real disk D1');
+    assert.strictEqual(row1.pin_code, '011001');
+    assert.strictEqual(row1.existing_quote, '₹92,000 without tax');
+
+    const row2 = adapter.rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_leads WHERE id = ?').get(joinRes2.leadId) as {
+      pincode: string;
+      pin_code: string;
+      existing_quote: string | null;
+    };
+    assert.strictEqual(row2.pincode, '462001');
+    assert.strictEqual(row2.existing_quote, null, 'Omitted existing_quote must persist as null in real disk D1');
+
+    // 5. Test waitlist persistence and promotion on real disk D1
+    const waitlistId = 'test-wl-disk-01';
+    const now = new Date().toISOString();
+    adapter.rawDb.prepare(`
+      INSERT INTO pool_waitlist (
+        id, pool_id, sequence_number, full_name, whatsapp_number,
+        city, buying_timeline, locality, pin_code, pincode, existing_quote, status, notes,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)
+    `).run(
+      waitlistId,
+      poolId,
+      1,
+      'Disk Waitlist Member',
+      '9888800005',
+      'Bhopal',
+      'THIS_MONTH',
+      'Arera Colony',
+      '011002',
+      '011002',
+      '₹89,000 direct offer',
+      'Disk waitlist note',
+      now,
+      now
+    );
+
+    // Verify raw waitlist row on disk
+    const wlRow = adapter.rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_waitlist WHERE id = ?').get(waitlistId) as {
+      pincode: string;
+      pin_code: string;
+      existing_quote: string;
+    };
+    assert.strictEqual(wlRow.pincode, '011002');
+    assert.strictEqual(wlRow.existing_quote, '₹89,000 direct offer');
+
+    // Promote waitlist member on real disk DB
+    const promotedLeadId = 'test-promoted-disk-01';
+    adapter.rawDb.prepare(`
+      INSERT INTO pool_leads (
+        id, pool_id, buyer_number, full_name, whatsapp_number, city,
+        buying_timeline, status, locality, pin_code, pincode, existing_quote, admin_notes,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      promotedLeadId,
+      poolId,
+      3,
+      'Disk Waitlist Member',
+      '9888800005',
+      'Bhopal',
+      'THIS_MONTH',
+      'Arera Colony',
+      wlRow.pincode,
+      wlRow.pincode,
+      wlRow.existing_quote,
+      'FIFO Promoted from waitlist position #1',
+      now,
+      now
+    );
+
+    // Inspect promoted row from real disk D1
+    const promotedRow = adapter.rawDb.prepare('SELECT pincode, pin_code, existing_quote FROM pool_leads WHERE id = ?').get(promotedLeadId) as {
+      pincode: string;
+      pin_code: string;
+      existing_quote: string;
+    };
+    assert.strictEqual(promotedRow.pincode, '011002');
+    assert.strictEqual(promotedRow.existing_quote, '₹89,000 direct offer');
+  });
+});

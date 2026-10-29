@@ -376,8 +376,8 @@ describe('Step 2: Frontend & E2E UAT Acceptance Matrix', () => {
       'components/join-pool-modal.tsx',
       'components/location-selector.tsx',
       'components/pool-catalog.tsx',
-      'components/admin-pools-tab.tsx',
-      'components/admin-requests-tab.tsx',
+      'components/admin-campaigns-tab.tsx',
+      'components/admin-locations-tab.tsx',
       'components/admin-categories-tab.tsx',
       'components/admin-login-form.tsx',
     ];

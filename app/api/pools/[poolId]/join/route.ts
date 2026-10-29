@@ -145,6 +145,12 @@ export async function POST(
             fullName: joinInput.fullName,
             whatsappNumber: joinInput.whatsappNumber,
             city: pool.city,
+            buyingTimeline: joinInput.buyingTimeline,
+            locality: joinInput.locality,
+            pinCode: joinInput.pincode || joinInput.pinCode || null,
+            pincode: joinInput.pincode || joinInput.pinCode || null,
+            existing_quote: joinInput.existing_quote || null,
+            notes: joinInput.extraMessage,
           });
 
           return NextResponse.json(

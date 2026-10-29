@@ -76,7 +76,12 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (isDemoMode()) {
-      const entry = addDemoWaitlistEntry(poolId, input);
+      const entry = addDemoWaitlistEntry(poolId, {
+        ...input,
+        pinCode: input.pincode || input.pinCode || null,
+        pincode: input.pincode || input.pinCode || null,
+        existing_quote: input.existing_quote || input.existingQuote || null,
+      });
 
       await recordAdminAudit({
         action: 'WAITLIST_ENTRY_ADDED',
@@ -102,13 +107,16 @@ export async function POST(
     const nextSeq = (countRow?.total || 0) + 1;
     const waitlistId = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+    const effectivePincode = input.pincode?.trim() || input.pinCode?.trim() || null;
+    const effectiveQuote = input.existing_quote?.trim() || input.existingQuote?.trim() || null;
+
     await db
       .prepare(
         `INSERT INTO pool_waitlist (
           id, pool_id, sequence_number, full_name, whatsapp_number,
-          city, buying_timeline, locality, pin_code, notes, status,
+          city, buying_timeline, locality, pin_code, pincode, existing_quote, notes, status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)`
       )
       .bind(
         waitlistId,
@@ -119,7 +127,9 @@ export async function POST(
         input.city,
         input.buyingTimeline || null,
         input.locality || null,
-        input.pinCode || null,
+        effectivePincode,
+        effectivePincode,
+        effectiveQuote,
         input.notes || null,
         now,
         now

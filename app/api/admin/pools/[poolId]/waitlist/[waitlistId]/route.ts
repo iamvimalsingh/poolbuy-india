@@ -20,6 +20,8 @@ interface D1WaitlistRow {
   buying_timeline: string | null;
   locality: string | null;
   pin_code: string | null;
+  pincode: string | null;
+  existing_quote: string | null;
   status: string;
   invited_at: string | null;
   invitation_expires_at: string | null;
@@ -173,13 +175,14 @@ export async function PATCH(
       const newLeadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
       // Execute promotional transaction batch
+      const effectivePincode = wl.pincode || wl.pin_code || null;
       await db.batch([
         db.prepare(
           `INSERT INTO pool_leads (
             id, pool_id, buyer_number, full_name, whatsapp_number, city,
-            buying_timeline, status, locality, pin_code, admin_notes,
+            buying_timeline, status, locality, pin_code, pincode, existing_quote, admin_notes,
             created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?)`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           newLeadId,
           poolId,
@@ -189,7 +192,9 @@ export async function PATCH(
           wl.city,
           wl.buying_timeline || 'THIS_MONTH',
           wl.locality || null,
-          wl.pin_code || null,
+          effectivePincode,
+          effectivePincode,
+          wl.existing_quote || null,
           `Promoted from waitlist position #${wl.sequence_number}`,
           now,
           now

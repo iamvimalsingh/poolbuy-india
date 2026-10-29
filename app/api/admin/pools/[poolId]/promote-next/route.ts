@@ -19,6 +19,8 @@ interface D1WaitlistRow {
   buying_timeline: string | null;
   locality: string | null;
   pin_code: string | null;
+  pincode: string | null;
+  existing_quote: string | null;
   status: string;
   created_at: string;
 }
@@ -118,13 +120,14 @@ export async function POST(
     const nextBuyerNumber = activeCount + 1;
 
     // 4. Atomically promote
+    const effectivePincode = earliest.pincode || earliest.pin_code || null;
     await db.batch([
       db.prepare(
         `INSERT INTO pool_leads (
           id, pool_id, buyer_number, full_name, whatsapp_number, city,
-          buying_timeline, status, locality, pin_code, admin_notes,
+          buying_timeline, status, locality, pin_code, pincode, existing_quote, admin_notes,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         newLeadId,
         poolId,
@@ -134,7 +137,9 @@ export async function POST(
         earliest.city,
         earliest.buying_timeline || 'THIS_MONTH',
         earliest.locality || null,
-        earliest.pin_code || null,
+        effectivePincode,
+        effectivePincode,
+        earliest.existing_quote || null,
         `FIFO Promoted from waitlist position #${earliest.sequence_number}`,
         now,
         now

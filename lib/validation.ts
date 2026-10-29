@@ -175,6 +175,9 @@ export const createWaitlistSchema = z.object({
   buyingTimeline: buyingTimelineEnum.optional(),
   locality: z.string().trim().max(100).optional().nullable(),
   pinCode: z.string().trim().max(10).optional().nullable(),
+  pincode: z.string().regex(/^[0-9]{6}$/, 'Pincode must match exactly 6 digits.').optional().nullable(),
+  existing_quote: z.string().max(100).optional().nullable(),
+  existingQuote: z.string().max(100).optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 
@@ -182,6 +185,8 @@ export const updateWaitlistSchema = z.object({
   status: waitlistStatusEnum.optional(),
   removalReason: z.string().trim().max(500).optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
+  pincode: z.string().regex(/^[0-9]{6}$/, 'Pincode must match exactly 6 digits.').optional().nullable(),
+  existing_quote: z.string().max(100).optional().nullable(),
 });
 
 export const createQuoteSchema = z.object({

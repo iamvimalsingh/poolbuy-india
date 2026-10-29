@@ -55,13 +55,17 @@ export async function POST(
         );
       }
 
+      const effectivePincode = input.pincode || input.pinCode || null;
+      const effectiveQuote = input.existing_quote || input.existingQuote || null;
       const entry = addDemoWaitlistEntry(poolId, {
         fullName: input.fullName,
         whatsappNumber: input.whatsappNumber,
         city: pool.city,
         buyingTimeline: input.buyingTimeline,
         locality: input.locality,
-        pinCode: input.pinCode,
+        pinCode: effectivePincode,
+        pincode: effectivePincode,
+        existing_quote: effectiveQuote,
         notes: input.extraMessage,
       });
 
@@ -149,13 +153,16 @@ export async function POST(
     const nextSeq = (countRow?.total || 0) + 1;
     const waitlistId = `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+    const effectivePincode = input.pincode?.trim() || input.pinCode?.trim() || null;
+    const effectiveQuote = input.existing_quote?.trim() || input.existingQuote?.trim() || null;
+
     await db
       .prepare(
         `INSERT INTO pool_waitlist (
           id, pool_id, sequence_number, full_name, whatsapp_number,
-          city, buying_timeline, locality, pin_code, status, notes,
+          city, buying_timeline, locality, pin_code, pincode, existing_quote, status, notes,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)`
       )
       .bind(
         waitlistId,
@@ -166,7 +173,9 @@ export async function POST(
         input.city || 'National',
         input.buyingTimeline || 'THIS_MONTH',
         input.locality?.trim() || null,
-        input.pinCode?.trim() || null,
+        effectivePincode,
+        effectivePincode,
+        effectiveQuote,
         input.extraMessage?.trim() || null,
         now,
         now
