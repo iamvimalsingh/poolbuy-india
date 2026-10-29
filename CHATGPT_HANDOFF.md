@@ -1,13 +1,14 @@
 # CHATGPT_HANDOFF.md — GROUPBUYING.STORE REPOSITORY & RELEASE HANDOFF
 
 **Last Updated:** 29 October 2026  
-**Execution Stage:** High-Resolution Brand & Favicon PNG Suite Deployed to Live Production  
+**Execution Stage:** Direct Production Release (feat/category-agnostic-platform @ 41a2230)  
 **Status:** **LIVE PRODUCTION RELEASE VERIFIED & OPERATIONAL (372/372 TESTS PASS — STAGING & PRODUCTION SMOKE PASSED)**  
 **Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)  
 **Active Git Branch:** `feat/category-agnostic-platform`  
 **Production Live URL:** `https://groupbuying.store`  
 **Production Worker Target:** `poolbuy-india`  
-**Production Deployment Version ID:** `ba680a48-f1f6-4170-a952-d888f789ccab`  
+**Production Deployment Version ID:** `2f45a579-c455-4d11-a663-5d0f83153773`  
+**Production Deployment Timestamp:** `2026-10-29 14:39:45 UTC (20:09:45 IST)`  
 **Production D1 Database:** `groupbuying-prod` (`a9cd4321-e07b-4244-8a9d-a610e38a9957`)  
 **Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
 **Staging Worker Target:** `poolbuy-india-hotfix-test`  
@@ -20,7 +21,7 @@
 
 ## 1. Executive Summary: Production Release Overview
 
-All deliverables including the Final Admin Console, Category-Agnostic Model, Multi-City Independent Pool Architecture, Website-Wide SEO & Social Sharing, and the High-Resolution PNG Zoomed Brand Assets & OpenGraph Social Sharing Card have been implemented, tested across 372 automated tests (100% passing across 102 test suites), pushed to GitHub (`feat/category-agnostic-platform`), and deployed to live production (`poolbuy-india` on `https://groupbuying.store` @ Version ID `ba680a48-f1f6-4170-a952-d888f789ccab`).
+All deliverables including the Final Admin Console, Category-Agnostic Model, Multi-City Independent Pool Architecture, Website-Wide SEO & Social Sharing, High-Resolution PNG Zoomed Brand Assets & OpenGraph Social Sharing Card, and Canonical Launch Cities Contract Reconciliation have been implemented, tested across 372 automated tests (100% passing across 102 test suites), committed (`41a2230`), pushed to GitHub (`origin/feat/category-agnostic-platform`), and deployed to live production (`poolbuy-india` on `https://groupbuying.store` @ Version ID `2f45a579-c455-4d11-a663-5d0f83153773`).
 
 ### Summary of Completed Deliverables:
 
@@ -46,7 +47,10 @@ All deliverables including the Final Admin Console, Category-Agnostic Model, Mul
      - `public/images/og-image.png` (116.8 KB crisp vector-aligned PNG card)
      - `public/images/og-image.jpg` (77.9 KB compressed fallback)
      - Features high-contrast typography, emerald accent, and three core trust pillars for link sharing in WhatsApp, Facebook, LinkedIn, and Twitter/X.
-5. **Gate E: Live Verification & Testing:**
+5. **Gate E: Canonical Launch Cities Contract Reconciliation:**
+   - Reconciled `docs/PRODUCT_CONTRACT.md` with Migration `0009_canonical_25_launch_cities.sql` and `lib/constants.ts` (Coimbatore, Kochi, Chandigarh, Gurugram, Noida, and Bhubaneswar).
+   - Documented the 3 operational extensions (Delhi NCR, Gwalior, Jabalpur) in Cloudflare D1.
+6. **Gate F: Live Verification & Testing:**
    - 372/372 passing tests across 102 test suites (`npm test`).
    - Clean Next.js 16.4.3 production build and OpenNext bundle generation.
    - Cloudflare Worker production deployment verified live on `https://groupbuying.store`.
@@ -55,24 +59,38 @@ All deliverables including the Final Admin Console, Category-Agnostic Model, Mul
 
 ## 2. Live Verification Results
 
-Live HTTP verification against `https://groupbuying.store` (Production Version ID: `ba680a48-f1f6-4170-a952-d888f789ccab`):
+Live HTTP verification against `https://groupbuying.store` (Production Version ID: `2f45a579-c455-4d11-a663-5d0f83153773` deployed at `2026-10-29 14:39:45 UTC`):
 
-- `GET https://groupbuying.store/`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/favicon.ico`: **Status 200 OK** (`image/vnd.microsoft.icon`)
-- `GET https://groupbuying.store/favicon.png`: **Status 200 OK** (`image/png`, 4,266 bytes)
-- `GET https://groupbuying.store/favicon-32x32.png`: **Status 200 OK** (`image/png`, 2,193 bytes)
-- `GET https://groupbuying.store/apple-touch-icon.png`: **Status 200 OK** (`image/png`, 33,487 bytes)
-- `GET https://groupbuying.store/images/logo.png`: **Status 200 OK** (`image/png`, 34,172 bytes)
+- `GET https://groupbuying.store/`: **Status 200 OK** (`text/html; charset=utf-8`, 216,212 bytes)
+- `GET https://groupbuying.store/categories`: **Status 200 OK** (`text/html; charset=utf-8`, 121,899 bytes)
+- `GET https://groupbuying.store/category/rooftop-solar`: **Status 200 OK** (`text/html; charset=utf-8`, 356,670 bytes)
+- `GET https://groupbuying.store/cities`: **Status 200 OK** (`text/html; charset=utf-8`, 170,815 bytes)
+- `GET https://groupbuying.store/city/delhi`: **Status 200 OK** (`text/html; charset=utf-8`, 120,647 bytes)
+- `GET https://groupbuying.store/city/mumbai`: **Status 200 OK** (`text/html; charset=utf-8`, 120,765 bytes)
+- `GET https://groupbuying.store/city/bhopal`: **Status 200 OK** (`text/html; charset=utf-8`, 120,789 bytes)
+- `GET https://groupbuying.store/city/delhi-ncr`: **Status 200 OK** (`text/html; charset=utf-8`, 121,030 bytes)
+- `GET https://groupbuying.store/deals/delhi/pm-surya-ghar-solar-for-home`: **Status 200 OK** (`text/html; charset=utf-8`, 119,327 bytes)
+- `GET https://groupbuying.store/sitemap.xml`: **Status 200 OK** (`application/xml`, 14,260 bytes)
+- `GET https://groupbuying.store/robots.txt`: **Status 200 OK** (`text/plain`, 140 bytes)
+- `GET https://groupbuying.store/api/locations`: **Status 200 OK** (`application/json`, 26,481 bytes)
+- `GET https://groupbuying.store/api/cities`: **Status 200 OK** (`application/json`, 4,551 bytes)
+- `GET https://groupbuying.store/api/categories`: **Status 200 OK** (`application/json`, 2,072 bytes)
 - `GET https://groupbuying.store/images/og-image.png`: **Status 200 OK** (`image/png`, 116,808 bytes)
-- `GET https://groupbuying.store/images/og-image.jpg`: **Status 200 OK** (`image/jpeg`, 77,967 bytes)
-- `GET https://groupbuying.store/categories`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/cities`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/city/bhopal`: **Status 200 OK** (`text/html; charset=utf-8`)
-- `GET https://groupbuying.store/sitemap.xml`: **Status 200 OK** (`application/xml`)
-- `GET https://groupbuying.store/robots.txt`: **Status 200 OK** (`text/plain`)
-- `GET https://groupbuying.store/api/categories`: **Status 200 OK** (`application/json`)
-- `GET https://groupbuying.store/api/cities`: **Status 200 OK** (`application/json`)
-- `GET https://groupbuying.store/api/admin/overview`: **Status 401 Unauthorized** (`application/json` with CSRF & session auth check)
+- `GET https://groupbuying.store/favicon.ico`: **Status 200 OK** (`image/vnd.microsoft.icon`, 4,266 bytes)
+- `GET https://groupbuying.store/api/admin/overview`: **Status 401 Unauthorized** (`application/json`, session and CSRF protected)
+
+---
+
+## 3. Migration & Rollback Reference
+
+- **Production D1 Migrations Status:** Fully synchronized. Migrations `0001` through `0009` applied to `groupbuying-prod`. Output of `npx wrangler d1 migrations list DB --remote`: `✅ No migrations to apply!`.
+- **Worker Rollback Baseline:**
+  - Active Version: `2f45a579-c455-4d11-a663-5d0f83153773`
+  - Previous Version: `ba680a48-f1f6-4170-a952-d888f789ccab`
+  - Rollback Command: `npx wrangler rollback ba680a48-f1f6-4170-a952-d888f789ccab -y`
+  - Rollback Status: **Not Required — Zero production defects observed.**
+- **Unresolved Risks or Failures:** None. 100% test passing rate and zero broken routes.
+- **Next Recommended Task:** Prepare PR merge from `feat/category-agnostic-platform` into `main`, or begin dynamic-city expansion via demand clustering.
 
 ---
 
