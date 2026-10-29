@@ -24,8 +24,11 @@ type RouteContext = {
 
 interface D1AdminPoolRow {
   id: string;
+  campaign_id?: string | null;
   slug: string;
   name: string;
+  product_title?: string | null;
+  variant_name?: string | null;
   short_description: string;
   long_description: string;
   category: string;
@@ -74,8 +77,11 @@ interface D1AdminPoolRow {
 function mapRowToAdminPool(row: D1AdminPoolRow): AdminPool {
   return {
     id: row.id,
+    campaignId: row.campaign_id || null,
     slug: row.slug,
     name: row.name,
+    productTitle: row.product_title || undefined,
+    variantName: row.variant_name || undefined,
     shortDescription: row.short_description || '',
     longDescription: row.long_description || '',
     category: row.category as AdminPool['category'],
@@ -129,6 +135,7 @@ const updatePoolSchema = z.object({
   city: z.string().trim().min(2).max(80).optional(),
   productBrand: z.string().trim().max(100).optional(),
   productModel: z.string().trim().max(150).optional(),
+  variantName: z.string().trim().max(100).nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   marketPrice: z.number().min(0).nullable().optional(),
   groupPrice: z.number().min(0).nullable().optional(),
@@ -431,6 +438,10 @@ export async function PATCH(
     if (updates.productModel !== undefined) {
       setClauses.push('product_model = ?');
       values.push(updates.productModel);
+    }
+    if (updates.variantName !== undefined) {
+      setClauses.push('variant_name = ?');
+      values.push(updates.variantName ? updates.variantName.trim() : null);
     }
     if (updates.imageUrl !== undefined) {
       setClauses.push('image_url = ?');

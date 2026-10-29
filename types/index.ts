@@ -370,7 +370,7 @@ export interface PublicPool {
   slug: string;
   name: string;
   productTitle?: string;
-  variantName?: string;
+  variantName?: string | null;
   shortDescription: string;
   longDescription: string;
   category: PoolCategory;

@@ -26,6 +26,15 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
   const isActive = pool.status === 'ACTIVE';
 
   const remaining = Math.max(0, pool.targetBuyers - currentBuyers);
+  const hasMarketDiscount = Boolean(
+    pool.marketPrice && pool.groupPrice && pool.groupPrice < pool.marketPrice
+  );
+  const savingsAmount = hasMarketDiscount
+    ? (pool.marketPrice as number) - (pool.groupPrice as number)
+    : 0;
+  const savingsPercent = hasMarketDiscount
+    ? Math.round((savingsAmount / (pool.marketPrice as number)) * 100)
+    : 0;
 
   const handleJoinSuccess = (result: { currentBuyers: number }) => {
     setLocalJoinedCount(result.currentBuyers);
@@ -50,9 +59,14 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
                 {formatInr(pool.marketPrice)}
               </span>
             )}
+            {hasMarketDiscount && (
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                Save {formatInr(savingsAmount)} ({savingsPercent}% OFF)
+              </span>
+            )}
           </div>
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
             {pool.priceIsVerified ? (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
                 ✓ Verified Dealer Quotation
@@ -60,6 +74,11 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
             ) : (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
                 ⚠ Indicative estimate — final price may differ
+              </span>
+            )}
+            {pool.quoteValidUntil && pool.priceIsVerified && (
+              <span className="text-[11px] text-emerald-800 font-medium">
+                Valid until: {new Date(pool.quoteValidUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
           </div>
@@ -110,6 +129,18 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
               Only <strong className="text-emerald-700">{remaining} more verified buyers</strong> needed in {pool.city} to trigger bulk negotiation!
             </p>
           )}
+
+          {remaining === 0 && isActive && (
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <span>⏱</span>
+                <span>Target of {pool.targetBuyers} Buyers Reached</span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                Confirmed buyer capacity is full. New submissions enter the priority FIFO waitlist.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* CTA Button */}
@@ -120,7 +151,9 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
               onClick={() => setIsModalOpen(true)}
               className="w-full py-4 px-6 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300 shadow-md transition-all text-base"
             >
-              Join Pool for Free →
+              {currentBuyers >= pool.targetBuyers
+                ? 'Join Priority Waitlist (Free) →'
+                : 'Join Pool for Free →'}
             </button>
           )}
 
@@ -180,7 +213,7 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
           <ul className="pt-3 space-y-2 text-xs text-slate-500">
             <li className="flex items-center gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
-              <span><strong>100% Free:</strong> No upfront payment or card details required</span>
+              <span><strong>100% Free & Non-Binding:</strong> Zero upfront payment, fee, or card details required</span>
             </li>
             <li className="flex items-center gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
@@ -188,7 +221,7 @@ export function DealActionPanel({ pool }: DealActionPanelProps) {
             </li>
             <li className="flex items-center gap-2">
               <span className="text-emerald-600 font-bold">✓</span>
-              <span><strong>Official Fulfillment:</strong> Delivered by certified brand dealer in {pool.city}</span>
+              <span><strong>Official Fulfillment:</strong> Delivered directly by certified brand partner in {pool.city}</span>
             </li>
           </ul>
         </div>

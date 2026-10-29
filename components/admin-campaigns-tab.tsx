@@ -613,6 +613,7 @@ export function AdminCampaignsTab() {
           isPublished: editPool.isPublished,
           marketPrice: editPool.marketPrice,
           groupPrice: editPool.groupPrice,
+          variantName: editPool.variantName,
         }),
       });
 
@@ -1176,12 +1177,23 @@ export function AdminCampaignsTab() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Model & Variant</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Product Model</label>
                   <input
                     type="text"
-                    placeholder="e.g. iQube S 3.4 kWh"
+                    placeholder="e.g. iQube / Solar Inverter"
                     value={campModel}
                     onChange={(e) => setCampModel(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Variant / Specification (e.g. 3kW On-Grid System)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3kW On-Grid System / S 3.4 kWh"
+                    value={campVariant}
+                    onChange={(e) => setCampVariant(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
                   />
                 </div>
@@ -1641,11 +1653,22 @@ export function AdminCampaignsTab() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Model & Variant</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Product Model</label>
                   <input
                     type="text"
                     value={editCampaign.model || ''}
                     onChange={(e) => setEditCampaign({ ...editCampaign, model: e.target.value })}
+                    className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Variant / Specification (e.g. 3kW On-Grid System)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3kW On-Grid System"
+                    value={editCampaign.variantName || ''}
+                    onChange={(e) => setEditCampaign({ ...editCampaign, variantName: e.target.value })}
                     className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
                   />
                 </div>
@@ -1864,6 +1887,17 @@ export function AdminCampaignsTab() {
             </div>
 
             <form onSubmit={handleEditPoolSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Variant / Specification (e.g. 3kW On-Grid System)</label>
+                <input
+                  type="text"
+                  value={editPool.variantName || ''}
+                  onChange={(e) => setEditPool({ ...editPool, variantName: e.target.value })}
+                  placeholder="e.g. 3kW On-Grid System"
+                  className="w-full px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-xl text-slate-900 focus:outline-emerald-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Market Price (₹)</label>

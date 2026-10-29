@@ -1,13 +1,14 @@
 # CHATGPT_HANDOFF.md — GROUPBUYING.STORE REPOSITORY & RELEASE HANDOFF
 
 **Last Updated:** 29 October 2026  
-**Execution Stage:** Final Admin, API, Sharing & Production Release Master Task Released & Verified on Live Production  
-**Status:** **LIVE PRODUCTION RELEASE VERIFIED & OPERATIONAL (350/350 TESTS PASS — STAGING & PRODUCTION SMOKE PASSED)**  
+**Execution Stage:** MVP Production Readiness Audit & Targeted Fix Master Task  
+**Status:** **MVP AUDIT & TARGETED FIX VERIFIED (372/372 TESTS PASS — STAGING SMOKE VERIFIED)**  
 **Canonical File:** `CHATGPT_HANDOFF.md` (Repository Root)  
 **Active Git Branch:** `feat/category-agnostic-platform`  
-**Latest Commit on Remote:** `ffdec3b` ("feat: complete admin console tabs, audit trail, pool sharing, and pricing overrides")  
+**Latest Baseline Commit:** `d370ffd`  
 **Configured Remote:** `origin` (`https://github.com/iamvimalsingh/poolbuy-india.git`)  
 **Recovery Checkpoints:**
+- Git Tag: `checkpoint-mvp-readiness-audit-start` (`d370ffd`)
 - Git Tag: `checkpoint-final-admin-release-start` (`e108d95`)
 - Git Tag: `checkpoint-mvp-finalization-start` (`aa59d60`)
 - Git Branch: `checkpoint/gate-0-baseline` (`60d91bc`)
@@ -18,16 +19,42 @@
 **Production D1 Database:** `groupbuying-prod` (`a9cd4321-e07b-4244-8a9d-a610e38a9957`)  
 **Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
 **Staging Worker Target:** `poolbuy-india-hotfix-test`  
-**Staging Deployment Version ID:** `c206df3c-0197-481a-94fb-c84529677de4`  
+**Staging Deployment Version ID:** `4b4d3917-5264-47db-aed5-6cc09fe84954`  
 **Staging D1 Database:** `groupbuying-staging` (`daa09ed6-b75d-4c16-89f7-156d69cec7e5`)  
 **Primary Brand Identity:** GroupBuying (`https://groupbuying.store`), retaining secondary `PoolBuy India` badge  
 **Runtime Architecture:** Next.js 16.4.3 App Router on Cloudflare Workers via OpenNext (`@opennextjs/cloudflare` 1.20.13) backed by Cloudflare D1 SQLite  
 
 ---
 
-## 1. Executive Summary: Production Release Overview
+## 1. Executive Summary: Production Readiness Audit & Targeted Fix
 
-The Final Admin, API, Sharing & Production Release Master Task has been implemented, tested across 350 automated tests (100% passing across 97 test suites), pushed to GitHub (`feat/category-agnostic-platform` @ `ffdec3b`), deployed to staging (`poolbuy-india-hotfix-test`), and deployed to live production (`poolbuy-india` on `https://groupbuying.store`).
+The MVP Production Readiness Audit & Targeted Fix Master Task has resolved all 3 mandated operator issues with verified repository evidence, automated regression test coverage (372/372 tests pass across 102 suites), and successful Cloudflare Staging deployment:
+
+### Resolution of User-Reported Mandated Priorities:
+
+1. **Issue A: Product Specification / Variant Administration (`3kW On-Grid System`):**
+   - **Root Cause:** D1 tables `campaigns` and `pools` already possessed the `variant_name` column, but `components/admin-campaigns-tab.tsx` omitted the `<input>` element for `variantName` in Create Campaign, Edit Campaign, and Edit City Pool modals (binding only `campModel`). Additionally, `app/api/admin/pools/[poolId]/route.ts` omitted `variantName` from `updatePoolSchema` and PATCH query clauses, and `lib/campaigns.ts` omitted `variant_name` from child pool synchronization.
+   - **Fix Applied:**
+     - Added dedicated "Variant / Specification (e.g. 3kW On-Grid System)" input to Create Campaign modal (`campVariant`), Edit Campaign modal (`editCampaign.variantName`), and Edit City Pool modal (`editPool.variantName`).
+     - Added `variantName: z.string().trim().max(100).nullable().optional()` to `updatePoolSchema` and patched `variant_name = ?` in `app/api/admin/pools/[poolId]/route.ts`.
+     - Added child pool synchronization of `variant_name` in `lib/campaigns.ts` (`updateCampaign`) for both D1 and mock/demo pathways.
+     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (3 tests: campaign persistence, child pool propagation, and isolated pool updates).
+
+2. **Issue B: Removal of `localhost:3000` from Production-Facing WhatsApp & Sharing Outputs:**
+   - **Root Cause:** Next.js loads `.env.local` during builds, which had `NEXT_PUBLIC_SITE_URL=http://localhost:3000`. Next.js inlined `http://localhost:3000` into client bundles. Furthermore, `lib/seo.ts` `getSiteUrl()` evaluated `process.env.NEXT_PUBLIC_SITE_URL` before checking `window.location.origin`, leaking `localhost:3000` whenever called in client sharing.
+   - **Fix Applied:**
+     - Refactored `getSiteUrl()` in `lib/seo.ts`: in real browser origins, it always returns `window.location.origin` (if non-localhost). In production runtime or builds (`NODE_ENV === 'production'`), any `localhost` or `127.0.0.1` value is automatically sanitized and defaults strictly to `https://groupbuying.store`.
+     - Updated `lib/env.ts` `getAppEnv()` to use `getSiteUrl()`.
+     - Configured `.env.local` and created `.env.production` with canonical `NEXT_PUBLIC_SITE_URL=https://groupbuying.store`.
+     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (5 tests covering production fallback, staging preservation, and viral sharing URLs).
+
+3. **Issue C: Complete City Pool Detail Page Data Contract:**
+   - **Root Cause:** While `PoolCard` displayed variant badges, discount percentages, and quote validity, `app/deals/[citySlug]/[poolSlug]/page.tsx` omitted `pool.variantName` from the header badges and lacked a structured specifications table. `DealActionPanel` omitted savings amounts (`Save ₹... (X% OFF)`), quote validity dates, and FIFO waitlist indications when capacity was reached.
+   - **Fix Applied:**
+     - Added prominent Specification badge (`pool.variantName`) alongside Brand and City in `page.tsx` header badges.
+     - Added structured "Deal Specification & Procurement Overview" grid in `page.tsx` presenting Category, Brand, Model, Variant/Specification, Fulfillment City, Pricing Classification, Expression of Interest guarantee, and Fulfillment Type.
+     - Upgraded `DealActionPanel`: added calculated savings badge (`Save ₹... (X% OFF)`), quote validity date (`Valid until: ...`), FIFO waitlist notice on capacity reached, dynamic CTA button (`Join Priority Waitlist (Free) →` vs `Join Pool for Free →`), and explicit non-binding trust guarantee.
+     - Verified in `lib/__tests__/mvp-production-readiness.test.ts` (2 tests) and verified on staging worker.
 
 ### Summary of Completed Deliverables:
 
@@ -83,15 +110,15 @@ The Final Admin, API, Sharing & Production Release Master Task has been implemen
 
 | Check / Gate | Result | Command / Details |
 |---|---|---|
-| **Unit & Integration Tests** | **350 / 350 PASS (100%)** | `npm test` (97 suites in 4.83s) |
+| **Unit & Integration Tests** | **372 / 372 PASS (100%)** | `npm test` (102 suites in 5.62s) |
 | **TypeScript Strict** | **0 Errors** | `npx tsc --noEmit` |
 | **ESLint** | **0 Errors, 0 Warnings** | `npm run lint` |
 | **Next.js Production Build** | **PASS** | `npm run build` (68/68 routes compiled) |
 | **OpenNext Worker Build** | **PASS** | `npm run build:worker` (`.open-next/worker.js` created) |
-| **Git Push to Remote** | **PASS** | Commit `ffdec3b` pushed to `origin/feat/category-agnostic-platform` |
+| **Git Push to Remote** | **PASS** | `feat/category-agnostic-platform` |
 | **Staging D1 Migrations** | **Up-to-Date** | 0001–0009 applied (`groupbuying-staging`), 0 pending |
-| **Staging Worker Deploy** | **PASS** | Version ID: `c206df3c-0197-481a-94fb-c84529677de4` |
-| **Staging Live Smoke Tests** | **PASS** | 11/11 endpoints verified on `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev` |
+| **Staging Worker Deploy** | **PASS** | Version ID: `4b4d3917-5264-47db-aed5-6cc09fe84954` |
+| **Staging Live Smoke Tests** | **PASS** | Deal page verified: `3kW` spec, non-binding notice, 0 localhost |
 | **Production Migration Preflight** | **Up-to-Date** | 0001–0009 applied (`groupbuying-prod`), 0 pending |
 | **Production Remote D1 State** | **Verified** | Exactly 28 operational cities confirmed via remote query |
 | **Production Worker Deploy** | **PASS** | Version ID: `8819072d-6b9d-46f0-b551-99542d4fd437` |

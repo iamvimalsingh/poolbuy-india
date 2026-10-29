@@ -2,6 +2,7 @@
  * Environment parsing and validation helpers for GroupBuying / PoolBuy India.
  */
 import { isDemoMode } from './data-mode';
+import { getSiteUrl } from './seo';
 
 export interface AppEnv {
   siteUrl: string;
@@ -14,7 +15,7 @@ export interface AppEnv {
 }
 
 export function getAppEnv(): AppEnv {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = getSiteUrl();
 
   return {
     siteUrl,

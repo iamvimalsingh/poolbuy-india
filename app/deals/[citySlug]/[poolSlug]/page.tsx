@@ -166,6 +166,11 @@ export default async function DealPage({ params }: DealPageProps) {
                     Brand: {pool.productBrand}
                   </span>
                 )}
+                {pool.variantName && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/90 text-emerald-900 border border-emerald-300">
+                    Specification: {pool.variantName}
+                  </span>
+                )}
               </div>
 
               {/* Title */}
@@ -199,6 +204,7 @@ export default async function DealPage({ params }: DealPageProps) {
                     <h2 className="text-xl font-bold text-slate-900">
                       Standardized Predefined Brand-Kit Packages
                     </h2>
+    
                     <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                       Fixed Inclusions • Zero Ambiguity
                     </span>
@@ -293,6 +299,50 @@ export default async function DealPage({ params }: DealPageProps) {
                 <h2 className="text-xl font-bold text-slate-900 mb-4">
                   Deal Specification & Procurement Overview
                 </h2>
+
+
+                {/* Structured Specifications Grid */}
+                <div className="mb-6 rounded-2xl bg-slate-50 border border-slate-200/80 p-4 sm:p-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-slate-400 block font-medium">Category</span>
+                      <span className="text-slate-800 font-bold mt-0.5 block">{categoryMeta?.label || pool.category}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-medium">Brand</span>
+                      <span className="text-slate-800 font-bold mt-0.5 block">{pool.productBrand || 'Multi-Brand'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-medium">Product / Model</span>
+                      <span className="text-slate-800 font-bold mt-0.5 block">{pool.productModel || pool.productTitle || pool.name}</span>
+                    </div>
+                    {pool.variantName && (
+                      <div>
+                        <span className="text-slate-400 block font-medium">Variant / Specification</span>
+                        <span className="text-emerald-800 font-extrabold mt-0.5 block">{pool.variantName}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-slate-400 block font-medium">Fulfillment City</span>
+                      <span className="text-slate-800 font-bold mt-0.5 block">📍 {pool.city}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-medium">Pricing Status</span>
+                      <span className={`font-bold mt-0.5 block ${pool.priceIsVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {pool.priceIsVerified ? '✓ Verified Supplier Quote' : 'Indicative Target Estimate'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-medium">Expression of Interest</span>
+                      <span className="text-emerald-700 font-bold mt-0.5 block">100% Free & Non-Binding</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-medium">Fulfillment Type</span>
+                      <span className="text-slate-800 font-bold mt-0.5 block">Authorized Local Showroom</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="prose prose-slate max-w-none text-slate-700 text-sm sm:text-base leading-relaxed space-y-3">
                   <p>
                     {pool.longDescription ||

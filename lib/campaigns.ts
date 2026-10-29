@@ -906,6 +906,8 @@ export async function updateCampaign(
       updates.title !== undefined ||
       updates.brand !== undefined ||
       updates.model !== undefined ||
+    updates.variantName !== undefined ||
+      updates.variantName !== undefined ||
       updates.shortDescription !== undefined ||
       updates.longDescription !== undefined ||
       updates.imageUrl !== undefined ||
@@ -926,6 +928,7 @@ export async function updateCampaign(
           ...(updates.title !== undefined && { productTitle: updates.title, name: `${updates.title} (${pool.city})` }),
           ...(updates.brand !== undefined && { productBrand: updates.brand }),
           ...(updates.model !== undefined && { productModel: updates.model }),
+          ...(updates.variantName !== undefined && { variantName: updates.variantName }),
           ...(updates.shortDescription !== undefined && { shortDescription: updates.shortDescription }),
           ...(updates.longDescription !== undefined && { longDescription: updates.longDescription }),
           ...(updates.imageUrl !== undefined && { imageUrl: updates.imageUrl }),
@@ -1007,6 +1010,7 @@ export async function updateCampaign(
     updates.title !== undefined ||
     updates.brand !== undefined ||
     updates.model !== undefined ||
+    updates.variantName !== undefined ||
     updates.shortDescription !== undefined ||
     updates.longDescription !== undefined ||
     updates.imageUrl !== undefined
@@ -1024,6 +1028,10 @@ export async function updateCampaign(
     if (updates.model !== undefined) {
       poolSets.push('product_model = ?');
       poolVals.push(updates.model.trim());
+    }
+    if (updates.variantName !== undefined) {
+      poolSets.push('variant_name = ?');
+      poolVals.push(updates.variantName ? updates.variantName.trim() : null);
     }
     if (updates.shortDescription !== undefined) {
       poolSets.push('short_description = ?');
