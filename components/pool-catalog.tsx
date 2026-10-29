@@ -242,6 +242,9 @@ export function PoolCatalog({
       ...prev,
       [activeJoinPool.id]: result.currentBuyers,
     }));
+
+    // Trigger premium Toast notification
+    setToastMessage(DEFAULT_JOIN_SUCCESS_MESSAGE);
   };
 
   return (
@@ -367,7 +370,7 @@ export function PoolCatalog({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setSelectedCategory('all')}
+              onClick={() => handleCategorySelect('all')}
               className={`text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                 selectedCategory === 'all'
                   ? 'bg-emerald-600 text-white shadow-xs'
@@ -380,7 +383,7 @@ export function PoolCatalog({
               <button
                 key={cat.slug}
                 type="button"
-                onClick={() => setSelectedCategory(cat.slug)}
+                onClick={() => handleCategorySelect(cat.slug)}
                 className={`text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                   selectedCategory === cat.slug
                     ? 'bg-emerald-600 text-white shadow-xs'
