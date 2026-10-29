@@ -29,6 +29,12 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       images: [
         {
+          url: `${siteUrl}/images/og-image.jpg`,
+          width: 1200,
+          height: 630,
+          alt: 'GroupBuying.store Operational Cities Directory',
+        },
+        {
           url: `${siteUrl}/images/og-image.svg`,
           width: 1200,
           height: 630,
@@ -40,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title,
       description,
-      images: [`${siteUrl}/images/og-image.svg`],
+      images: [`${siteUrl}/images/og-image.jpg`, `${siteUrl}/images/og-image.svg`],
     },
     robots: getRobotsMetadata(false),
   };

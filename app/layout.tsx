@@ -27,7 +27,15 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.png', type: 'image/png' },
+      { url: '/favicon.jpg', type: 'image/jpeg' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png' },
+      { url: '/favicon.jpg' },
+    ],
   },
   openGraph: {
     title: `${SITE_NAME} | ${SITE_TAGLINE}`,
@@ -37,6 +45,12 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     type: 'website',
     images: [
+      {
+        url: `${siteUrl}/images/og-image.jpg`,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} - ${SITE_TAGLINE}`,
+      },
       {
         url: `${siteUrl}/images/og-image.svg`,
         width: 1200,
@@ -49,7 +63,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: `${SITE_NAME} | ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
-    images: [`${siteUrl}/images/og-image.svg`],
+    images: [`${siteUrl}/images/og-image.jpg`, `${siteUrl}/images/og-image.svg`],
   },
 };
 

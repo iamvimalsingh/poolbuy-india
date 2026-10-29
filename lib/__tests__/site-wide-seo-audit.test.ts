@@ -144,6 +144,14 @@ describe('Comprehensive SEO, Brand Identity & Social Sharing Audit Suite', () =>
     const ogContent = fs.readFileSync(ogImagePath, 'utf8');
     assert.ok(ogContent.includes('GROUPBUYING.STORE'), 'OG image must contain brand title');
     assert.ok(ogContent.includes('PoolBuy India'), 'OG image must contain secondary badge');
+
+    // Verify uploaded raster assets exist on disk for WhatsApp/Facebook/Twitter rich previews
+    const ogJpgPath = path.join(process.cwd(), 'public', 'images', 'og-image.jpg');
+    assert.ok(fs.existsSync(ogJpgPath), 'public/images/og-image.jpg must exist');
+    const logoJpgPath = path.join(process.cwd(), 'public', 'images', 'logo.jpg');
+    assert.ok(fs.existsSync(logoJpgPath), 'public/images/logo.jpg must exist');
+    const faviconJpgPath = path.join(process.cwd(), 'public', 'favicon.jpg');
+    assert.ok(fs.existsSync(faviconJpgPath), 'public/favicon.jpg must exist');
   });
 
   // 2. City-page metadata and correct city identity
