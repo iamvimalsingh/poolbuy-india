@@ -76,10 +76,10 @@ In accordance with the Master Execution Prompt and `docs/PRODUCT_CONTRACT.md` (v
 | `0003_v73_shared_pool_cities.sql` | Multi-city mappings table (historical) | Applied (`2026-10-28`) | Applied | Applied |
 | `0004_category_agnostic_city_pools.sql` | Category & city pool indices | Applied (`2026-10-28`) | Applied | Applied |
 | `0005_membership_consent_and_integrity.sql` | DPDP consent & phone uniqueness index | Applied (`2026-10-28`) | Applied | Applied |
-| `0006_location_requests.sql` | Location demand proposals table | Applied (`2026-10-29`) | Applied (`2026-10-29`) | **Pending Production Apply** |
-| `0007_campaigns_and_city_pools.sql` | Multi-city campaigns table & `pools.campaign_id` | Applied (`2026-10-29`) | Applied (`2026-10-29`) | **Pending Production Apply** |
-| `0008_lead_pincode_and_existing_quote.sql` | `pincode` & `existing_quote` on leads & waitlist | Applied (`2026-10-29`) | Applied (`2026-10-29`) | **Pending Production Apply** |
-| `0009_canonical_25_launch_cities.sql` | Canonical 25 Solar launch cities seed (`INSERT OR IGNORE`) | Applied (`2026-10-29`) | **Pending Staging Apply** | **Pending Production Apply** |
+| `0006_location_requests.sql` | Location demand proposals table | Applied (`2026-10-29`) | Applied (`2026-10-29`) | Applied (`2026-10-29`) |
+| `0007_campaigns_and_city_pools.sql` | Multi-city campaigns table & `pools.campaign_id` | Applied (`2026-10-29`) | Applied (`2026-10-29`) | Applied (`2026-10-29`) |
+| `0008_lead_pincode_and_existing_quote.sql` | `pincode` & `existing_quote` on leads & waitlist | Applied (`2026-10-29`) | Applied (`2026-10-29`) | Applied (`2026-10-29`) |
+| `0009_canonical_25_launch_cities.sql` | Canonical 25 Solar launch cities seed (`INSERT OR IGNORE`) | Applied (`2026-10-29`) | Applied (`2026-10-29`) | Applied (`2026-10-29`) |
 
 ---
 
@@ -93,20 +93,32 @@ In accordance with the Master Execution Prompt and `docs/PRODUCT_CONTRACT.md` (v
 
 ---
 
-## 4. Release Checklist: Gates 9A, 9B, 9C
+## 4. Release Checklist: Gates 9A, 9B, 9C (ALL COMPLETE & VERIFIED)
 
-### Gate 9A: Git Push
+### Gate 9A: Git Push — COMPLETE
 - Remote target: `origin/feat/category-agnostic-platform`
-- Verification: Clean working tree, push all 8 commits (`0844e76` &rarr; `fbb9e9f`).
+- Verified: Pushed commit series up to `807520e` to remote repository successfully.
 
-### Gate 9B: Staging Release & Verification
-- Staging Worker: `poolbuy-india-hotfix-test` (`wrangler.staging.jsonc`)
-- Apply Migration `0009` to staging D1: `npx wrangler d1 migrations apply DB --config wrangler.staging.jsonc --remote`
-- Deploy Staging Worker: `npx wrangler deploy --config wrangler.staging.jsonc`
-- Staging Smoke Verification: Verify HTTP 200 on `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev/`, verify All India discovery, verify city pages, verify admin session login.
+### Gate 9B: Staging Release & Verification — COMPLETE
+- Remote D1 Migration: `0009_canonical_25_launch_cities.sql` applied cleanly (`✅`).
+- Worker: `poolbuy-india-hotfix-test` (`wrangler.staging.jsonc`)
+- Version ID: `4046ac2e-5b3f-4051-90ac-396b579f26ee`
+- Staging URL: `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`
+- Smoke Verification:
+  - Base URL `/`: HTTP 200 OK (contains GroupBuying brand)
+  - `/api/cities`: HTTP 200 OK (28 operational cities, including 25 launch cities)
+  - `/city/bhopal`: HTTP 200 OK
+  - Obsolete token deposit / ₹499/₹999 fee references: 0 found (clean)
 
-### Gate 9C: Production Release & Verification
-- Production Worker: `poolbuy-india` (`wrangler.jsonc`)
-- Apply Migrations `0006`, `0007`, `0008`, `0009` to production D1: `npx wrangler d1 migrations apply DB --remote`
-- Deploy Production Worker: `npx wrangler deploy`
-- Production Smoke Verification: Verify `https://groupbuying.store/`, verify discovery, verify no token deposit mentions.
+### Gate 9C: Production Release & Verification — COMPLETE
+- Remote D1 Migrations: `0006`, `0007`, `0008`, `0009` applied cleanly (`✅ No migrations to apply!`).
+- Worker: `poolbuy-india` (`wrangler.jsonc`)
+- Version ID: `f7c3da86-c67e-47fa-a3ac-26ea1e0492b7`
+- Production URLs:
+  - Primary Custom Domain: `https://groupbuying.store`
+  - Workers.dev Domain: `https://poolbuy-india.iamvimalsingh.workers.dev`
+- Smoke Verification:
+  - Base URL `/`: HTTP 200 OK (length 154,522 bytes, GroupBuying brand confirmed)
+  - `/api/cities`: HTTP 200 OK (28 operational cities, includes bhopal, indore, delhi, etc.)
+  - `/city/bhopal`: HTTP 200 OK
+  - Obsolete token deposit / ₹499/₹999 fee references: 0 found (clean)
