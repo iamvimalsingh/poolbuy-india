@@ -15,7 +15,7 @@
 - Git Tag: `checkpoint-gate-1-reconciliation` (`0844e76`)  
 **Production Live URL:** `https://groupbuying.store`  
 **Production Worker Target:** `poolbuy-india`  
-**Production Deployment Version ID:** `8819072d-6b9d-46f0-b551-99542d4fd437`  
+**Production Deployment Version ID:** `939b60f6-717e-4d87-8780-ebe783a93db1`  
 **Production D1 Database:** `groupbuying-prod` (`a9cd4321-e07b-4244-8a9d-a610e38a9957`)  
 **Staging Live URL:** `https://poolbuy-india-hotfix-test.iamvimalsingh.workers.dev`  
 **Staging Worker Target:** `poolbuy-india-hotfix-test`  
@@ -121,7 +121,7 @@ The MVP Production Readiness Audit & Targeted Fix Master Task has resolved all 3
 | **Staging Live Smoke Tests** | **PASS** | Deal page verified: `3kW` spec, non-binding notice, 0 localhost |
 | **Production Migration Preflight** | **Up-to-Date** | 0001–0009 applied (`groupbuying-prod`), 0 pending |
 | **Production Remote D1 State** | **Verified** | Exactly 28 operational cities confirmed via remote query |
-| **Production Worker Deploy** | **PASS** | Version ID: `8819072d-6b9d-46f0-b551-99542d4fd437` |
+| **Production Worker Deploy** | **PASS** | Version ID: `939b60f6-717e-4d87-8780-ebe783a93db1` |
 | **Production Live Smoke Tests** | **PASS** | 11/11 endpoints verified on `https://groupbuying.store` |
 
 ---
