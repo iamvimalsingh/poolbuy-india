@@ -411,8 +411,18 @@ export function PoolCatalog({
         </span>
       </div>
 
-      {/* Pools Grid or Honest Empty State */}
-      {filteredPools.length === 0 ? (
+      {/* Pools Grid or Skeleton Loading State or Honest Empty State */}
+      {isLoading ? (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          aria-busy="true"
+          aria-label="Loading active pools"
+        >
+          <PoolCardSkeleton />
+          <PoolCardSkeleton />
+          <PoolCardSkeleton />
+        </div>
+      ) : filteredPools.length === 0 ? (
         <div className="text-center py-12 px-4 rounded-3xl border-2 border-dashed border-gray-200 bg-gray-50/50 max-w-lg mx-auto">
           <div className="w-12 h-12 rounded-full bg-white shadow-xs border border-gray-100 flex items-center justify-center text-gray-400 mx-auto mb-4">
             <Layers className="w-6 h-6 text-gray-400" aria-hidden="true" />
@@ -466,6 +476,13 @@ export function PoolCatalog({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleJoinSuccess}
+      />
+
+      {/* Premium Success Notification Toast */}
+      <Toast
+        message={toastMessage || ''}
+        isOpen={Boolean(toastMessage)}
+        onClose={() => setToastMessage(null)}
       />
     </div>
   );
