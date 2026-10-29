@@ -36,14 +36,92 @@ describe('Validation Tests', () => {
         fullName: 'Vikram Sharma',
         whatsappNumber: '9876543210',
         city: 'Bhopal',
+        pincode: '462001',
         buyingTimeline: 'WITHIN_7_DAYS',
         hasExistingQuote: true,
         existingQuoteAmount: 145000,
+        existing_quote: '₹1,45,000 from local dealer',
         extraMessage: 'Looking for Matte Black variant',
       };
 
       const result = joinPoolSchema.safeParse(validPayload);
       assert.equal(result.success, true);
+    });
+
+    test('accepts pincode beginning with zero and preserves leading zero string', () => {
+      const payload = {
+        fullName: 'Sunil Verma',
+        whatsappNumber: '9876543210',
+        city: 'Delhi',
+        pincode: '011001',
+      };
+      const result = joinPoolSchema.safeParse(payload);
+      assert.equal(result.success, true);
+      if (result.success) {
+        assert.equal(result.data.pincode, '011001');
+      }
+    });
+
+    test('rejects missing pincode', () => {
+      const payload = {
+        fullName: 'Vikram Sharma',
+        whatsappNumber: '9876543210',
+        city: 'Bhopal',
+      };
+      const result = joinPoolSchema.safeParse(payload);
+      assert.equal(result.success, false);
+    });
+
+    test('rejects five-digit, seven-digit, nonnumeric, and whitespace-containing pincodes', () => {
+      const base = {
+        fullName: 'Vikram Sharma',
+        whatsappNumber: '9876543210',
+        city: 'Bhopal',
+      };
+      assert.equal(joinPoolSchema.safeParse({ ...base, pincode: '46200' }).success, false, '5 digits');
+      assert.equal(joinPoolSchema.safeParse({ ...base, pincode: '4620011' }).success, false, '7 digits');
+      assert.equal(joinPoolSchema.safeParse({ ...base, pincode: '46200A' }).success, false, 'nonnumeric');
+      assert.equal(joinPoolSchema.safeParse({ ...base, pincode: '462 001' }).success, false, 'internal space');
+      assert.equal(joinPoolSchema.safeParse({ ...base, pincode: ' 462001 ' }).success, false, 'leading/trailing space');
+    });
+
+    test('accepts omitted existing_quote', () => {
+      const payload = {
+        fullName: 'Vikram Sharma',
+        whatsappNumber: '9876543210',
+        city: 'Bhopal',
+        pincode: '462001',
+      };
+      const result = joinPoolSchema.safeParse(payload);
+      assert.equal(result.success, true);
+    });
+
+    test('accepts valid existing_quote and trims whitespace', () => {
+      const payload = {
+        fullName: 'Vikram Sharma',
+        whatsappNumber: '9876543210',
+        city: 'Bhopal',
+        pincode: '462001',
+        existing_quote: '   ₹4,25,000 on-road price quote   ',
+      };
+      const result = joinPoolSchema.safeParse(payload);
+      assert.equal(result.success, true);
+      if (result.success) {
+        assert.equal(result.data.existing_quote, '₹4,25,000 on-road price quote');
+      }
+    });
+
+    test('rejects quote input exceeding maximum length of 500 characters', () => {
+      const longQuote = 'A'.repeat(501);
+      const payload = {
+        fullName: 'Vikram Sharma',
+        whatsappNumber: '9876543210',
+        city: 'Bhopal',
+        pincode: '462001',
+        existing_quote: longQuote,
+      };
+      const result = joinPoolSchema.safeParse(payload);
+      assert.equal(result.success, false);
     });
 
     test('rejects short name (< 2 characters)', () => {

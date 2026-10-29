@@ -6,6 +6,7 @@ import {
   JoinPoolResult,
   City,
   Category,
+  Campaign,
   LocationRequest,
   PoolRequest,
   PoolKitOffer,
@@ -50,6 +51,7 @@ export const INITIAL_MOCK_CITIES: City[] = ALL_DIRECTORY_CITIES.filter((city) =>
 const INITIAL_MOCK_POOLS: PublicPool[] = [
   {
     id: '11111111-1111-4111-8111-111111111111',
+    campaignId: 'camp-tvs-iqube',
     slug: 'tvs-iqube-electric-scooter-bulk-deal',
     name: 'TVS iQube Electric Scooter',
     shortDescription: 'Explore a possible city-level bulk-buy price for an electric scooter.',
@@ -74,6 +76,7 @@ const INITIAL_MOCK_POOLS: PublicPool[] = [
   },
   {
     id: '11111111-1111-4111-8111-indore000001',
+    campaignId: 'camp-tvs-iqube',
     slug: 'tvs-iqube-electric-scooter-bulk-deal',
     name: 'TVS iQube Electric Scooter',
     shortDescription: 'Explore a possible city-level bulk-buy price for an electric scooter in Indore.',
@@ -122,6 +125,7 @@ const INITIAL_MOCK_POOLS: PublicPool[] = [
   },
   {
     id: '33333333-3333-4333-8333-333333333333',
+    campaignId: 'camp-solar-3kw',
     slug: '3kw-rooftop-solar-bulk-installation',
     name: '3 kW Rooftop Solar Complete Kit',
     shortDescription: 'Standardized 3 kW residential rooftop solar complete installation package in Bhopal.',
@@ -226,6 +230,7 @@ const INITIAL_MOCK_POOLS: PublicPool[] = [
   },
   {
     id: '33333333-3333-4333-8333-indore000003',
+    campaignId: 'camp-solar-3kw',
     slug: '3kw-rooftop-solar-bulk-installation',
     name: '3 kW Rooftop Solar Complete Kit',
     shortDescription: 'Standardized 3 kW residential rooftop solar complete installation package in Indore.',
@@ -759,6 +764,7 @@ interface GlobalMockStore {
   __poolbuy_categories?: Category[];
   __poolbuy_requests?: PoolRequest[];
   __poolbuy_location_requests?: LocationRequest[];
+  __poolbuy_campaigns?: Campaign[];
   __poolbuy_blog_posts?: BlogPost[];
   __poolbuy_waitlist?: WaitlistEntry[];
   __poolbuy_quotations?: PoolQuotation[];
@@ -1031,6 +1037,8 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     buyingTimeline: input.buyingTimeline || 'THIS_MONTH',
     hasExistingQuote: Boolean(input.hasExistingQuote),
     existingQuoteAmount: input.existingQuoteAmount ?? null,
+    existingQuote: input.existing_quote || (input.hasExistingQuote && input.existingQuoteAmount ? String(input.existingQuoteAmount) : null),
+    existing_quote: input.existing_quote || null,
     extraMessage: input.extraMessage || '',
     selectedKitOfferId: input.selectedKitOfferId || null,
     selectedKitName,
@@ -1041,7 +1049,8 @@ export function recordDemoLead(poolId: string, input: JoinPoolInput): JoinPoolRe
     connectionOptIn: Boolean(input.connectionOptIn),
     vendorShareConsent: Boolean(input.vendorShareConsent),
     locality: input.locality || null,
-    pinCode: input.pinCode || null,
+    pinCode: input.pincode || input.pinCode || null,
+    pincode: input.pincode || input.pinCode || null,
     adminNotes: '',
     doNotContact: false,
     contactPreference: 'WHATSAPP',
@@ -1323,6 +1332,8 @@ export function addDemoWaitlistEntry(
     city: string;
     locality?: string | null;
     pinCode?: string | null;
+    pincode?: string | null;
+    existing_quote?: string | null;
     buyingTimeline?: BuyingTimeline | null;
     notes?: string | null;
   }
@@ -1344,6 +1355,8 @@ export function addDemoWaitlistEntry(
     city: input.city,
     locality: input.locality || null,
     pinCode: input.pinCode || null,
+    pincode: input.pincode || input.pinCode || null,
+    existing_quote: input.existing_quote || null,
     buyingTimeline: input.buyingTimeline || 'THIS_MONTH',
     status: 'WAITING',
     notes: input.notes || null,
@@ -2086,5 +2099,146 @@ export function deleteDemoBlogPost(id: string): boolean {
   if (index === -1) return false;
   g.__poolbuy_blog_posts.splice(index, 1);
   return true;
+}
+
+
+export const INITIAL_MOCK_CAMPAIGNS: Campaign[] = [
+  {
+    id: 'camp-tvs-iqube',
+    slug: 'tvs-iqube-electric-scooter-bulk-deal',
+    title: 'TVS iQube Electric Scooter',
+    categorySlug: 'ev-scooters',
+    categoryName: 'Electric Vehicles',
+    brand: 'TVS',
+    model: 'iQube',
+    variantName: 'Standard & S Variants',
+    shortDescription: 'Explore a possible city-level bulk-buy price for an electric scooter.',
+    longDescription:
+      'Illustrative demo estimate only. Final on-road price, variant, insurance, registration, subsidy eligibility, dealer stock and any discount must be confirmed in writing by an authorized dealer.',
+    imageUrl: null,
+    defaultMarketPrice: 145000,
+    defaultGroupPrice: 130000,
+    defaultTargetBuyers: 10,
+    defaultMaxWaitlistSize: 50,
+    status: 'ACTIVE',
+    isPublished: true,
+    isArchived: false,
+    createdAt: createdDate,
+    updatedAt: createdDate,
+  },
+  {
+    id: 'camp-solar-3kw',
+    slug: '3kw-rooftop-solar-bulk-installation',
+    title: '3 kW Rooftop Solar Complete Kit',
+    categorySlug: 'rooftop-solar',
+    categoryName: 'Rooftop Solar',
+    brand: 'Tier-1 Mono PERC',
+    model: '3 kW Grid-Tied System',
+    variantName: 'Mono PERC & TopCon Bifacial',
+    shortDescription: 'Standardized 3 kW residential rooftop solar complete installation package.',
+    longDescription:
+      'Standardized product specification. Total pre-subsidy price shown separately from PM Surya Ghar Muft Bijli Yojana subsidy estimate (up to ₹78,000 for 3 kW). Inclusions: Tier-1 panels, 3 kW grid-tied inverter, dual earthing & lightning protection, and DISCOM net-metering liaison.',
+    imageUrl: null,
+    defaultMarketPrice: 210000,
+    defaultGroupPrice: 185000,
+    defaultTargetBuyers: 10,
+    defaultMaxWaitlistSize: 50,
+    status: 'ACTIVE',
+    isPublished: true,
+    isArchived: false,
+    createdAt: createdDate,
+    updatedAt: createdDate,
+  },
+];
+
+export function getDemoCampaigns(): Campaign[] {
+  if (!g.__poolbuy_campaigns) {
+    g.__poolbuy_campaigns = [...INITIAL_MOCK_CAMPAIGNS];
+  }
+  return [...g.__poolbuy_campaigns];
+}
+
+export function getDemoCampaignById(id: string): Campaign | null {
+  const all = getDemoCampaigns();
+  return all.find((c) => c.id === id || c.slug === id) || null;
+}
+
+export function getDemoCampaignBySlug(slug: string): Campaign | null {
+  const all = getDemoCampaigns();
+  return all.find((c) => c.slug === slug) || null;
+}
+
+export function addDemoCampaign(campaign: Campaign): Campaign {
+  if (!g.__poolbuy_campaigns) {
+    g.__poolbuy_campaigns = [...INITIAL_MOCK_CAMPAIGNS];
+  }
+  g.__poolbuy_campaigns.unshift(campaign);
+  return campaign;
+}
+
+export function updateDemoCampaign(id: string, updates: Partial<Campaign>): Campaign | null {
+  if (!g.__poolbuy_campaigns) {
+    g.__poolbuy_campaigns = [...INITIAL_MOCK_CAMPAIGNS];
+  }
+  const idx = g.__poolbuy_campaigns.findIndex((c) => c.id === id || c.slug === id);
+  if (idx === -1) return null;
+  const current = g.__poolbuy_campaigns[idx];
+  const updated: Campaign = {
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  g.__poolbuy_campaigns[idx] = updated;
+  return updated;
+}
+
+export function deleteDemoCampaign(
+  id: string,
+  options?: { hardDelete?: boolean }
+): { action: 'soft_deleted' | 'hard_deleted'; campaign?: Campaign } {
+  if (!g.__poolbuy_campaigns) {
+    g.__poolbuy_campaigns = [...INITIAL_MOCK_CAMPAIGNS];
+  }
+  const idx = g.__poolbuy_campaigns.findIndex((c) => c.id === id || c.slug === id);
+  if (idx === -1) {
+    throw new Error('CAMPAIGN_NOT_FOUND');
+  }
+  const campaign = g.__poolbuy_campaigns[idx];
+
+  const childPools = MOCK_ADMIN_POOLS.filter((p) => p.campaignId === campaign.id || p.slug === campaign.slug);
+  const poolIds = childPools.map((p) => p.id);
+  const leads = DEMO_LEADS.filter((l) => poolIds.includes(l.poolId));
+  const requests = (g.__poolbuy_requests || []).filter((r) => r.resultingPoolId && poolIds.includes(r.resultingPoolId));
+
+  if (options?.hardDelete) {
+    if (leads.length > 0 || requests.length > 0) {
+      throw new Error(
+        `CANNOT_HARD_DELETE_CAMPAIGN_WITH_DEPENDENCIES: Campaign has dependent active leads (${leads.length}) or requests (${requests.length}). Archive the campaign instead.`
+      );
+    }
+    g.__poolbuy_campaigns.splice(idx, 1);
+    for (const poolId of poolIds) {
+      deleteDemoPool(poolId, { hardDelete: true });
+    }
+    return { action: 'hard_deleted' };
+  }
+
+  const now = new Date().toISOString();
+  const updated: Campaign = {
+    ...campaign,
+    status: 'ARCHIVED',
+    isArchived: true,
+    isPublished: false,
+    updatedAt: now,
+  };
+  g.__poolbuy_campaigns[idx] = updated;
+
+  for (const poolId of poolIds) {
+    try {
+      deleteDemoPool(poolId, { hardDelete: false });
+    } catch {}
+  }
+
+  return { action: 'soft_deleted', campaign: updated };
 }
 

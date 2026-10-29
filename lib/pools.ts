@@ -594,18 +594,18 @@ export async function executeJoinPool(
         `INSERT INTO pool_leads (
           id, pool_id, buyer_number, full_name, whatsapp_number, city,
           buying_timeline, has_existing_quote, existing_quote_amount,
-          extra_message, consent_at, privacy_notice_version,
+          existing_quote, extra_message, consent_at, privacy_notice_version,
           selected_kit_offer_id, selected_kit_name, selected_variant_id, selected_variant_name,
           connection_opt_in, connection_preference, group_privacy_acknowledged,
-          vendor_share_consent, locality, pin_code, status, fee_status,
+          vendor_share_consent, locality, pin_code, pincode, status, fee_status,
           member_connection_status, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?,
           ?, ?, ?,
-          ?, ?, '2026-10-V4',
+          ?, ?, ?, '2026-10-V4',
           ?, ?, ?, ?,
           ?, ?, ?,
-          ?, ?, ?, 'NEW', 'NOT_REQUESTED',
+          ?, ?, ?, ?, 'NEW', 'NOT_REQUESTED',
           'NOT_READY', ?, ?
         )`
       )
@@ -619,6 +619,7 @@ export async function executeJoinPool(
         input.buyingTimeline || 'THIS_MONTH',
         input.hasExistingQuote ? 1 : 0,
         input.existingQuoteAmount || null,
+        input.existing_quote?.trim() || null,
         input.extraMessage?.trim() || '',
         now,
         input.selectedKitOfferId || null,
@@ -630,7 +631,8 @@ export async function executeJoinPool(
         input.groupPrivacyAcknowledged ? 1 : 0,
         input.vendorShareConsent ? 1 : 0,
         input.locality?.trim() || null,
-        input.pinCode?.trim() || null,
+        input.pincode?.trim() || input.pinCode?.trim() || null,
+        input.pincode?.trim() || input.pinCode?.trim() || null,
         now,
         now
       )

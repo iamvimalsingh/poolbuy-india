@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Layers,
+  ShoppingBag,
   MapPin,
   LayoutDashboard,
   LogOut,
   ArrowLeft,
   Shield,
-  Clock,
   MessageSquare,
   Users,
   Activity,
@@ -18,7 +18,7 @@ import {
 import { AdminOverviewTab } from './admin-overview-tab';
 import { AdminCategoriesTab } from './admin-categories-tab';
 import { AdminLocationsTab } from './admin-locations-tab';
-import { AdminCampaignsPlaceholder } from './admin-campaigns-placeholder';
+import { AdminCampaignsTab } from './admin-campaigns-tab';
 
 export type AdminTab = 'overview' | 'categories' | 'locations' | 'campaigns';
 
@@ -123,20 +123,18 @@ export function AdminDashboard() {
           <span>Locations</span>
         </button>
 
-        {/* 4. Campaigns & Pools (Step 2 Placeholder) */}
+        {/* 4. Campaigns & Pools */}
         <button
           type="button"
           onClick={() => setActiveTab('campaigns')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${activeTab === 'campaigns'
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'campaigns'
               ? 'border-emerald-600 text-emerald-700'
               : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
-            }`}
+          }`}
         >
-          <Clock className="w-4 h-4 text-amber-500" />
+          <ShoppingBag className="w-4 h-4 text-emerald-600" />
           <span>Campaigns & Pools</span>
-          <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
-            Step 2
-          </span>
         </button>
 
         {/* 5. Members & Requests (Reserved Step 3) */}
@@ -188,12 +186,7 @@ export function AdminDashboard() {
       )}
       {activeTab === 'categories' && <AdminCategoriesTab />}
       {activeTab === 'locations' && <AdminLocationsTab />}
-      {activeTab === 'campaigns' && (
-        <AdminCampaignsPlaceholder
-          onNavigateToCategories={() => setActiveTab('categories')}
-          onNavigateToLocations={() => setActiveTab('locations')}
-        />
-      )}
+      {activeTab === 'campaigns' && <AdminCampaignsTab />}
     </div>
   );
 }

@@ -14,6 +14,7 @@ interface PoolImageProps {
   priority?: boolean;
   className?: string;
   sizes?: string;
+  objectFit?: 'cover' | 'contain';
 }
 
 export function PoolImage({
@@ -25,6 +26,7 @@ export function PoolImage({
   priority = false,
   className = '',
   sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw',
+  objectFit = 'cover',
 }: PoolImageProps) {
   const fallbackSrc = getPoolFallbackImage(category, categorySlug, slugOrName);
   const [failedSrcs, setFailedSrcs] = useState<Record<string, boolean>>({});
@@ -65,7 +67,7 @@ export function PoolImage({
       sizes={sizes}
       priority={priority}
       onError={handleError}
-      className={`object-cover ${className}`}
+      className={`${objectFit === 'contain' ? 'object-contain' : 'object-cover'} ${className}`}
     />
   );
 }

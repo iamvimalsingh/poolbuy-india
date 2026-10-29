@@ -223,44 +223,70 @@ export const recordWhatsAppSentSchema = z.object({
  * Validation schema for public buyer interest join submissions
  */
 export const joinPoolSchema = z
-  .object({
-    fullName: z
-      .string()
-      .trim()
-      .min(2, { message: 'Full name must be at least 2 characters.' })
-      .max(100, { message: 'Full name must not exceed 100 characters.' }),
-    whatsappNumber: z
-      .string()
-      .transform((val) => normalizePhone(val))
-      .refine((val) => isValidIndianMobile(val), {
-        message: 'Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.',
-      }),
-    city: z
-      .string()
-      .trim()
-      .min(2, { message: 'City must be at least 2 characters.' })
-      .max(80, { message: 'City must not exceed 80 characters.' })
-      .optional(),
-    buyingTimeline: buyingTimelineEnum.optional().default('THIS_MONTH'),
-    hasExistingQuote: z.boolean().default(false),
-    existingQuoteAmount: z
-      .number()
-      .min(0, { message: 'Quote amount must be non-negative.' })
-      .nullable()
-      .optional(),
-    extraMessage: z
-      .string()
-      .trim()
-      .max(1000, { message: 'Note must not exceed 1,000 characters.' })
-      .default(''),
-    selectedKitOfferId: z.string().trim().max(100).optional(),
-    connectionOptIn: z.boolean().default(false),
-    vendorShareConsent: z.boolean().default(false),
-    locality: z.string().trim().max(100).optional(),
-    pinCode: z.string().trim().max(10).optional(),
-    connectionPreference: z.enum(['WHATSAPP_GROUP', 'INDIVIDUAL_INTRO']).default('INDIVIDUAL_INTRO'),
-    groupPrivacyAcknowledged: z.boolean().default(false),
-  })
+  .preprocess(
+    (raw: unknown) => {
+      if (raw && typeof raw === 'object') {
+        const obj = { ...(raw as Record<string, unknown>) };
+        if (obj.pincode === undefined && typeof obj.pinCode === 'string') {
+          obj.pincode = obj.pinCode;
+        }
+        if (obj.existing_quote === undefined && typeof obj.existingQuote === 'string') {
+          obj.existing_quote = obj.existingQuote;
+        }
+        return obj;
+      }
+      return raw;
+    },
+    z.object({
+      fullName: z
+        .string()
+        .trim()
+        .min(2, { message: 'Full name must be at least 2 characters.' })
+        .max(100, { message: 'Full name must not exceed 100 characters.' }),
+      whatsappNumber: z
+        .string()
+        .transform((val) => normalizePhone(val))
+        .refine((val) => isValidIndianMobile(val), {
+          message: 'Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.',
+        }),
+      city: z
+        .string()
+        .trim()
+        .min(2, { message: 'City must be at least 2 characters.' })
+        .max(80, { message: 'City must not exceed 80 characters.' })
+        .optional(),
+      buyingTimeline: buyingTimelineEnum.optional().default('THIS_MONTH'),
+      hasExistingQuote: z.boolean().default(false),
+      existingQuoteAmount: z
+        .number()
+        .min(0, { message: 'Quote amount must be non-negative.' })
+        .nullable()
+        .optional(),
+      extraMessage: z
+        .string()
+        .trim()
+        .max(1000, { message: 'Note must not exceed 1,000 characters.' })
+        .default(''),
+      selectedKitOfferId: z.string().trim().max(100).optional(),
+      connectionOptIn: z.boolean().default(false),
+      vendorShareConsent: z.boolean().default(false),
+      locality: z.string().trim().max(100).optional(),
+      pincode: z.string()
+        .regex(/^[0-9]{6}$/, {
+          message: 'Pincode must match exactly 6 digits without spaces or symbols.',
+        }),
+      pinCode: z.string().optional(),
+      existing_quote: z
+        .string()
+        .max(500, { message: 'Existing quote must not exceed 500 characters.' })
+        .transform((v) => v.trim())
+        .optional()
+        .nullable(),
+      existingQuote: z.string().max(500).optional().nullable(),
+      connectionPreference: z.enum(['WHATSAPP_GROUP', 'INDIVIDUAL_INTRO']).default('INDIVIDUAL_INTRO'),
+      groupPrivacyAcknowledged: z.boolean().default(false),
+    })
+  )
   .superRefine((data, ctx) => {
     if (data.connectionPreference === 'WHATSAPP_GROUP' && !data.groupPrivacyAcknowledged) {
       ctx.addIssue({

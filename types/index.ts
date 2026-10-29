@@ -20,7 +20,7 @@ export type KnownPoolCategory =
  */
 export type PoolCategory = KnownPoolCategory | (string & {});
 
-export type PoolStatus = 'ACTIVE' | 'UNLOCKED' | 'LEAD_FALLBACK' | 'CLOSED';
+export type PoolStatus = 'ACTIVE' | 'UNLOCKED' | 'LEAD_FALLBACK' | 'CLOSED' | 'DRAFT';
 
 export type V3BuyingTimeline =
   | 'THIS_MONTH'
@@ -125,6 +125,8 @@ export interface WaitlistEntry {
   buyingTimeline?: BuyingTimeline;
   locality?: string | null;
   pinCode?: string | null;
+  pincode?: string | null;
+  existing_quote?: string | null;
   status: WaitlistStatus;
   invitedAt?: string | null;
   invitationExpiresAt?: string | null;
@@ -333,9 +335,38 @@ export interface StandardProduct {
   defaultKits?: Partial<PoolKitOffer>[];
 }
 
+export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'CLOSED' | 'ARCHIVED';
+
+export interface Campaign {
+  id: string;
+  slug: string;
+  title: string;
+  categorySlug: string;
+  categoryName: string;
+  brand: string;
+  model: string;
+  variantName: string;
+  shortDescription: string;
+  longDescription: string;
+  imageUrl?: string | null;
+  defaultMarketPrice?: number | null;
+  defaultGroupPrice?: number | null;
+  defaultTargetBuyers: number;
+  defaultMaxWaitlistSize: number;
+  status: CampaignStatus;
+  isPublished: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  cityPools?: AdminPool[];
+  citiesCount?: number;
+  totalBuyers?: number;
+}
+
 /** Fields allowed in public home/category/city/deal views. Never add payment URLs or dealer private fields here. */
 export interface PublicPool {
   id: string;
+  campaignId?: string | null;
   slug: string;
   name: string;
   productTitle?: string;
@@ -396,6 +427,7 @@ export interface AdminPool extends PublicPool {
   quoteScope?: string | null;
   quotePrivateNotes?: string | null;
   connectionNotes?: string | null;
+  pendingRequestsCount?: number;
   paymentConfigState?: PaymentConfigState;
   targetReachedAcknowledgedAt?: string | null;
 }
@@ -414,6 +446,8 @@ export interface JoinPoolInput {
   vendorShareConsent?: boolean;
   locality?: string;
   pinCode?: string;
+  pincode?: string;
+  existing_quote?: string | null;
   connectionPreference?: 'WHATSAPP_GROUP' | 'INDIVIDUAL_INTRO';
   groupPrivacyAcknowledged?: boolean;
 }
@@ -447,6 +481,8 @@ export interface PoolLead {
   buyingTimeline: BuyingTimeline;
   hasExistingQuote: boolean;
   existingQuoteAmount: number | null;
+  existingQuote?: string | null;
+  existing_quote?: string | null;
   extraMessage: string;
   selectedKitOfferId?: string | null;
   selectedKitName?: string | null;
@@ -460,6 +496,7 @@ export interface PoolLead {
   vendorShareConsent?: boolean;
   locality?: string | null;
   pinCode?: string | null;
+  pincode?: string | null;
   adminNotes?: string | null;
   doNotContact?: boolean;
   contactPreference?: string;

@@ -1,4 +1,3 @@
-import 'server-only';
 import { PoolLead, AdminLeadFilters, LeadStatus } from '@/types';
 import { isDemoMode } from './data-mode';
 import { getDemoLeads, DEMO_LEADS } from './mock-data';
@@ -31,6 +30,8 @@ interface D1RawLeadRow {
   vendor_share_consent?: number;
   locality?: string | null;
   pin_code?: string | null;
+  pincode?: string | null;
+  existing_quote?: string | null;
   admin_notes?: string | null;
   do_not_contact?: number;
   contact_preference?: string | null;
@@ -85,7 +86,10 @@ function mapRawRowToLead(row: D1RawLeadRow): PoolLead {
     connectionOptIn: Boolean(row.connection_opt_in),
     vendorShareConsent: Boolean(row.vendor_share_consent),
     locality: row.locality || null,
-    pinCode: row.pin_code || null,
+    pinCode: row.pincode || row.pin_code || null,
+    pincode: row.pincode || row.pin_code || null,
+    existingQuote: row.existing_quote || null,
+    existing_quote: row.existing_quote || null,
     adminNotes: row.admin_notes || null,
     doNotContact: Boolean(row.do_not_contact),
     contactPreference: row.contact_preference || 'WHATSAPP',
@@ -146,7 +150,10 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
         (l) =>
           l.fullName.toLowerCase().includes(s) ||
           l.whatsappNumber.includes(s) ||
-          l.extraMessage.toLowerCase().includes(s)
+          l.extraMessage.toLowerCase().includes(s) ||
+          (l.pincode && l.pincode.includes(s)) ||
+          (l.pinCode && l.pinCode.includes(s)) ||
+          (l.existingQuote && l.existingQuote.toLowerCase().includes(s))
       );
     }
 
@@ -190,8 +197,8 @@ export async function getAdminLeads(filters: AdminLeadFilters): Promise<LeadsQue
   }
   if (filters.search?.trim()) {
     const s = `%${filters.search.trim()}%`;
-    whereClauses.push('(l.full_name LIKE ? OR l.whatsapp_number LIKE ? OR l.extra_message LIKE ?)');
-    params.push(s, s, s);
+    whereClauses.push('(l.full_name LIKE ? OR l.whatsapp_number LIKE ? OR l.extra_message LIKE ? OR l.pincode LIKE ? OR l.pin_code LIKE ? OR l.existing_quote LIKE ?)');
+    params.push(s, s, s, s, s, s);
   }
 
   const whereSql = whereClauses.join(' AND ');

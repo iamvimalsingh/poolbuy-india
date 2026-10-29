@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Download,
   Search,
+  Eye,
+  ShieldCheck,
   MessageCircle,
   AlertCircle,
   ExternalLink,
@@ -38,6 +40,7 @@ export function AdminLeadsTab() {
   const [generatedWhatsApp, setGeneratedWhatsApp] = useState<{ url: string; text: string } | null>(null);
   const [isGeneratingWhatsApp, setIsGeneratingWhatsApp] = useState(false);
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
+  const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<PoolLead | null>(null);
 
   const loadLeads = async (targetPage = page) => {
     setIsLoading(true);
@@ -276,6 +279,7 @@ export function AdminLeadsTab() {
                   <th className="py-3.5 px-4">Buyer Details</th>
                   <th className="py-3.5 px-4">Pool / City</th>
                   <th className="py-3.5 px-4">Timeline</th>
+                  <th className="py-3.5 px-4">Pincode</th>
                   <th className="py-3.5 px-4">Existing Quote</th>
                   <th className="py-3.5 px-4">Notes</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -325,12 +329,35 @@ export function AdminLeadsTab() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      {lead.hasExistingQuote ? (
-                        <span className="font-semibold text-emerald-700">
-                          Yes {lead.existingQuoteAmount ? `(${formatINR(lead.existingQuoteAmount)})` : ''}
+                      {lead.pincode || lead.pinCode ? (
+                        <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {lead.pincode || lead.pinCode}
                         </span>
                       ) : (
-                        <span className="text-gray-400">None</span>
+                        <span className="text-[11px] text-gray-400 italic">Legacy (No Pincode)</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {lead.existingQuote ? (
+                        <div className="max-w-[200px]">
+                          <div className="font-semibold text-slate-800 text-xs truncate" title={lead.existingQuote}>
+                            {lead.existingQuote}
+                          </div>
+                          <span className="text-[9px] text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60 font-medium inline-block mt-0.5">
+                            Customer Reported
+                          </span>
+                        </div>
+                      ) : lead.hasExistingQuote && lead.existingQuoteAmount ? (
+                        <div>
+                          <div className="font-semibold text-slate-800 text-xs">
+                            {formatINR(lead.existingQuoteAmount)}
+                          </div>
+                          <span className="text-[9px] text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60 font-medium inline-block mt-0.5">
+                            Customer Reported
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">None</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 max-w-xs truncate" title={lead.extraMessage}>
@@ -356,6 +383,15 @@ export function AdminLeadsTab() {
                       </select>
                     </td>
                     <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLeadForDetails(lead)}
+                          className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                          title="View Lead Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                       {lead.status === 'DO_NOT_CONTACT' || lead.doNotContact ? (
                         <span className="inline-flex text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
                           Opted Out
@@ -370,6 +406,7 @@ export function AdminLeadsTab() {
                           <span>Follow Up</span>
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -403,6 +440,104 @@ export function AdminLeadsTab() {
           </div>
         </div>
       </div>
+
+      {/* Lead Details Modal */}
+      {selectedLeadForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-scale-in">
+            <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full mb-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Buyer #{selectedLeadForDetails.buyerNumber} • Verified Lead</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{selectedLeadForDetails.fullName}</h3>
+                <p className="text-xs text-gray-500 font-mono">+91 {selectedLeadForDetails.whatsappNumber}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLeadForDetails(null)}
+                className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Pool & City</span>
+                <div className="font-bold text-slate-900">{selectedLeadForDetails.poolName}</div>
+                <div className="text-gray-500">{selectedLeadForDetails.city}</div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Postal Pincode</span>
+                <div className="font-mono font-bold text-slate-900">
+                  {selectedLeadForDetails.pincode || selectedLeadForDetails.pinCode || (
+                    <span className="text-gray-400 font-normal italic">Not provided (Legacy record)</span>
+                  )}
+                </div>
+                {selectedLeadForDetails.locality && (
+                  <div className="text-[11px] text-gray-500 truncate">{selectedLeadForDetails.locality}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wide">
+                  Customer Reported Existing Quote
+                </span>
+                <span className="text-[10px] text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full font-semibold">
+                  Unverified
+                </span>
+              </div>
+              <p className="text-xs text-slate-800 font-medium">
+                {selectedLeadForDetails.existingQuote ||
+                  (selectedLeadForDetails.hasExistingQuote && selectedLeadForDetails.existingQuoteAmount
+                    ? formatINR(selectedLeadForDetails.existingQuoteAmount)
+                    : 'No existing quotation submitted by customer.')}
+              </p>
+              <p className="text-[10px] text-amber-700 italic">
+                * Note: This is user-reported pricing for reference only and is not a verified supplier quotation.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span className="text-gray-500">Buying Timeline:</span>
+                <span className="font-semibold text-slate-900">{TIMELINE_LABELS[selectedLeadForDetails.buyingTimeline]}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span className="text-gray-500">Consent Timestamp:</span>
+                <span className="font-semibold text-slate-900">{formatDateTime(selectedLeadForDetails.consentAt || selectedLeadForDetails.createdAt)}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span className="text-gray-500">Current Lead Status:</span>
+                <span className="font-bold text-emerald-700">{selectedLeadForDetails.status}</span>
+              </div>
+              {selectedLeadForDetails.extraMessage && (
+                <div className="pt-1">
+                  <span className="text-gray-500 block mb-0.5">Customer Requirement Note:</span>
+                  <p className="p-2.5 bg-slate-50 rounded-xl text-slate-800 text-[11px] leading-relaxed">
+                    {selectedLeadForDetails.extraMessage}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedLeadForDetails(null)}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp Message Preview Modal */}
       {activeWhatsAppLead && (

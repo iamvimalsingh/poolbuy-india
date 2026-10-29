@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Filter, Layers, MapPin, Sparkles, ArrowRight, Globe, X } from 'lucide-react';
 import { PublicPool, JoinPoolResult, City, Category } from '@/types';
 import { CITIES as FALLBACK_CITIES, CATEGORIES as STATIC_CATEGORIES, CATEGORY_SLUG_MAP } from '@/lib/constants';
 import { getCountdownParts } from '@/lib/format';
 import { useSelectedCity } from '@/lib/location-store';
 import { PoolCard } from './pool-card';
+import { PoolCardSkeleton } from './pool-card-skeleton';
 import { JoinPoolModal } from './join-pool-modal';
+import { Toast, DEFAULT_JOIN_SUCCESS_MESSAGE } from './toast';
 
 interface PoolCatalogProps {
   initialPools: PublicPool[];
@@ -30,6 +32,17 @@ export function PoolCatalog({
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, []);
 
   // Operational cities for quick-switch pills
   const availableCities = useMemo(() => {
@@ -67,7 +80,31 @@ export function PoolCatalog({
   }, [initialCategories]);
 
   const handleCitySelect = (newCitySlug: string | null) => {
+    if (newCitySlug === selectedCity) return;
+    setIsLoading(true);
     setStoreCity(newCitySlug);
+
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+    }
+    // Brief smooth skeleton display (280ms) to clearly communicate cohort switch without layout jump
+    transitionTimerRef.current = setTimeout(() => {
+      setIsLoading(false);
+    }, 280);
+  };
+
+  const handleCategorySelect = (newCategorySlug: string) => {
+    if (newCategorySlug === selectedCategory) return;
+    setIsLoading(true);
+    setSelectedCategory(newCategorySlug);
+
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+    }
+    // Brief smooth skeleton display (200ms) for category transition
+    transitionTimerRef.current = setTimeout(() => {
+      setIsLoading(false);
+    }, 200);
   };
 
   // Modal coordination

@@ -35,7 +35,6 @@ import {
   rejectLocationRequest,
 } from '../location-requests';
 import { executePoolRequest } from '../requests';
-import crypto from 'node:crypto';
 
 const SESSION_DURATION_SECONDS = 8 * 60 * 60;
 

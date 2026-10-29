@@ -56,45 +56,62 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
   // Quote / pricing status evaluation
   const isVerifiedQuote = Boolean(pool.priceIsVerified || pool.groupPriceType === 'VENDOR_VERIFIED');
   const hasGroupPrice = typeof pool.groupPrice === 'number' && pool.groupPrice > 0;
+  const hasMarketPrice = typeof pool.marketPrice === 'number' && pool.marketPrice > 0;
+  const showMarketDiscount = hasGroupPrice && hasMarketPrice && (pool.marketPrice as number) > (pool.groupPrice as number);
+  const discountPercent = showMarketDiscount
+    ? Math.round((((pool.marketPrice as number) - (pool.groupPrice as number)) / (pool.marketPrice as number)) * 100)
+    : 0;
+
+  // Dynamic progress bar calculation
+  const percentFull = Math.min(100, Math.round((activeCount / targetBuyers) * 100));
+  const progressBarColor =
+    percentFull >= 80
+      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+      : percentFull >= 50
+      ? 'bg-emerald-600'
+      : 'bg-emerald-500';
 
   return (
-    <article className="group bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-md hover:border-emerald-200 transition-all duration-200 flex flex-col overflow-hidden">
-      {/* Visual Header / Image with Fallback */}
-      <div className="relative aspect-[16/9] w-full bg-gray-100 overflow-hidden">
-        <PoolImage
-          src={pool.imageUrl}
-          alt={`${pool.productTitle || pool.name} in ${city}`}
-          category={pool.category}
-          categorySlug={pool.categorySlug}
-          slugOrName={pool.slug || pool.name}
-          priority={priorityImage}
-          className="group-hover:scale-102 transition-transform duration-300"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        />
+    <article className="group bg-white rounded-2xl border border-gray-200/60 shadow-sm hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col overflow-hidden">
+      {/* 2. Image Header Section (Premium Display with Dedicated Background) */}
+      <div className="relative h-48 w-full bg-slate-50/80 bg-gradient-to-b from-slate-50/90 to-slate-100/50 overflow-hidden flex items-center justify-center p-4">
+        <Link href={dealUrl} className="relative w-full h-full block focus:outline-hidden" tabIndex={-1} aria-hidden="true">
+          <PoolImage
+            src={pool.imageUrl}
+            alt={`${pool.productTitle || pool.name} in ${city}`}
+            category={pool.category}
+            categorySlug={pool.categorySlug}
+            slugOrName={pool.slug || pool.name}
+            priority={priorityImage}
+            objectFit="contain"
+            className="group-hover:scale-105 transition-transform duration-300 ease-out"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        </Link>
 
-        {/* Status overlay */}
+        {/* Status overlay with Glassmorphism Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-white/95 backdrop-blur-xs text-gray-800 px-2.5 py-1 rounded-full shadow-xs border border-gray-200/50">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold backdrop-blur-md bg-white/80 text-gray-800 px-2.5 py-1 rounded-full shadow-xs border border-gray-200/50">
             <MapPin className="w-3 h-3 text-emerald-600" aria-hidden="true" />
             <span className="truncate max-w-[130px]">{city}</span>
           </span>
 
           <span
-            className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-xs backdrop-blur-xs ${
+            className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border shadow-xs backdrop-blur-md ${
               isClosed
-                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                ? 'bg-rose-50/80 text-rose-700 border-rose-200/80'
                 : isPastDeadline
-                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            } bg-white/95`}
+                ? 'bg-amber-50/80 text-amber-700 border-amber-200/80'
+                : 'bg-white/80 text-emerald-700 border-emerald-200/80'
+            }`}
           >
             {isClosed ? 'Closed' : isPastDeadline ? 'Concluded' : 'Active Pool'}
           </span>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="p-5 flex-1 flex flex-col justify-between">
+      {/* Body Content */}
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div>
           {/* Brand & Variant Badges */}
           <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
@@ -118,56 +135,66 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
           </h3>
 
           {/* Description */}
-          <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed">
+          <p className="text-xs text-gray-500 line-clamp-2 mb-3.5 leading-relaxed">
             {pool.shortDescription || 'Independent city-wise pool aggregating local demand for collective supplier pricing.'}
           </p>
 
-          {/* Pricing & Quote Status Badge */}
-          <div className="mb-4 pt-2 border-t border-gray-100 flex items-center justify-between">
+          {/* 4. Typography & Pricing: Prominent Target Price + Crossed-out Market Price */}
+          <div className="mb-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
                 {isVerifiedQuote
                   ? 'Verified Supplier Quote'
                   : hasGroupPrice
                   ? 'Indicative Target Price'
                   : 'Supplier Quote Status'}
               </div>
-              <div className="text-sm font-extrabold text-gray-950 font-mono">
-                {hasGroupPrice ? formatINR(pool.groupPrice) : 'Negotiation in Progress'}
+              <div className="flex items-baseline flex-wrap gap-2">
+                <span className="text-2xl font-extrabold text-gray-950 font-mono tracking-tight">
+                  {hasGroupPrice ? formatINR(pool.groupPrice) : 'Negotiation in Progress'}
+                </span>
+                {showMarketDiscount && (
+                  <span className="text-sm font-semibold text-gray-400 line-through decoration-gray-400/80 font-mono">
+                    {formatINR(pool.marketPrice)}
+                  </span>
+                )}
+                {showMarketDiscount && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded">
+                    {discountPercent}% OFF
+                  </span>
+                )}
               </div>
             </div>
 
             {isVerifiedQuote ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 Verified
               </span>
             ) : (
-              <span className="inline-flex items-center text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
                 Aggregating Demand
               </span>
             )}
           </div>
 
-          {/* Member Counts & Capacity Box */}
-          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-200/70 mb-4 space-y-2">
+          {/* 3. Progress Bar (Visual Urgency - Thicker h-3 & Dynamic Color Gradient) */}
+          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-200/70 space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="flex items-center gap-1.5 text-gray-700">
                 <Users className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Confirmed Members</span>
               </span>
               <span className="font-mono text-gray-950 font-bold">
-                {activeCount} / {targetBuyers}
+                {activeCount} / {targetBuyers} ({percentFull}%)
               </span>
             </div>
 
-            {/* Active progress bar */}
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            {/* Thicker h-3 progress bar with dynamic gradient */}
+            <div className="w-full h-3 bg-gray-200/80 rounded-full overflow-hidden p-0.5">
               <div
-                className={`h-full transition-all duration-300 ${
-                  activeCount >= targetBuyers ? 'bg-emerald-600' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, (activeCount / targetBuyers) * 100)}%` }}
+                className={`h-full rounded-full transition-all duration-500 ease-out ${progressBarColor}`}
+                style={{ width: `${percentFull}%` }}
               />
             </div>
 
@@ -185,51 +212,45 @@ export function PoolCard({ pool, onJoinClick, priorityImage = false }: PoolCardP
           </div>
         </div>
 
-        {/* Action Button */}
+        {/* 5. CTA Button (Full Width with Hover Translate Icon) */}
         <div>
-          <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+          <div className="pt-2 border-t border-gray-100">
             {onJoinClick ? (
               <button
                 type="button"
                 disabled={!isActionEnabled}
                 onClick={() => onJoinClick(pool)}
-                className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer ${
                   isCompletelyFull
                     ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                     : !isActionEnabled
                     ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                     : isCapacityFull
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white active:scale-98'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-98'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20 active:scale-[0.98]'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-4 h-4 shrink-0" />
                 <span>{actionLabel}</span>
+                <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
               </button>
             ) : (
               <Link
                 href={dealUrl}
-                className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 ${
+                className={`group/btn w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 ${
                   isActionEnabled
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md hover:shadow-emerald-600/25 active:scale-[0.98]'
                     : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-4 h-4 shrink-0" />
                 <span>{actionLabel}</span>
+                <ArrowRight className="w-4 h-4 shrink-0 group-hover/btn:translate-x-1 transition-transform duration-200" />
               </Link>
             )}
-
-            <Link
-              href={dealUrl}
-              className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-              title="View Details"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </Link>
           </div>
 
-          <p className="text-[10px] text-gray-400 text-center mt-2">
+          <p className="text-[10px] text-gray-400 text-center mt-2.5">
             {isCompletelyFull ? (
               <>
                 Pool &amp; Waitlist full.{' '}

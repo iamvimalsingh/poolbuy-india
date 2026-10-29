@@ -90,7 +90,9 @@ export async function POST(
       connectionOptIn: validatedInput.connectionOptIn,
       vendorShareConsent: validatedInput.vendorShareConsent,
       locality: validatedInput.locality,
-      pinCode: validatedInput.pinCode,
+      pinCode: validatedInput.pincode || validatedInput.pinCode,
+      pincode: validatedInput.pincode,
+      existing_quote: validatedInput.existing_quote ?? null,
       connectionPreference: validatedInput.connectionPreference,
       groupPrivacyAcknowledged: validatedInput.groupPrivacyAcknowledged,
     };
@@ -265,8 +267,8 @@ export async function POST(
           .prepare(
             `INSERT INTO pool_waitlist (
               id, pool_id, sequence_number, full_name, whatsapp_number, city,
-              buying_timeline, locality, pin_code, status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)`
+              buying_timeline, locality, pin_code, pincode, existing_quote, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)`
           )
           .bind(
             waitlistId,
@@ -277,7 +279,9 @@ export async function POST(
             pool.city,
             joinInput.buyingTimeline || 'THIS_MONTH',
             joinInput.locality || null,
-            joinInput.pinCode || null,
+            joinInput.pincode || joinInput.pinCode || null,
+            joinInput.pincode || joinInput.pinCode || null,
+            joinInput.existing_quote || null,
             now,
             now
           )

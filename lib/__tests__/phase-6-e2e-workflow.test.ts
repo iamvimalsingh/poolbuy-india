@@ -288,6 +288,7 @@ describe('Phase 6: End-to-End Operational Lifecycle & Multi-Step Journey Verific
       extraMessage: 'Fleet expansion',
       connectionOptIn: true,
       vendorShareConsent: true,
+      pincode: '452001',
     };
     assert.ok(joinPoolSchema.safeParse(sampleJoinPayload).success);
 

@@ -9,7 +9,6 @@ import {
   ArrowRight,
   ShieldCheck,
   Building,
-  Sparkles,
 } from 'lucide-react';
 import { AdminOverviewMetrics } from '@/types';
 
@@ -160,9 +159,9 @@ export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-bold text-sm tracking-tight">Step 1 Foundation Active</h3>
+              <h3 className="font-bold text-sm tracking-tight">Campaign & Pool Infrastructure Active</h3>
               <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                Step 1 of 4 Complete
+                Step 2 of 4 Complete
               </span>
             </div>
             <p className="text-xs text-slate-300 max-w-xl">
@@ -195,7 +194,7 @@ export function AdminOverviewTab({ onNavigateTab }: AdminOverviewTabProps) {
               onClick={() => onNavigateTab('campaigns')}
               className="text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
             >
-              View Step 2 Scope &rarr;
+              Manage Campaigns & City Pools &rarr;
             </button>
           )}
         </div>

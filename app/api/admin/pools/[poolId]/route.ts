@@ -741,3 +741,5 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = PATCH;

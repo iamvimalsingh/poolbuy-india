@@ -144,6 +144,11 @@ export const STATUS_LABELS: Record<PoolStatus, { label: string; badgeClass: stri
     badgeClass: 'bg-gray-100 text-gray-600 border-gray-200',
     description: 'This pool has concluded.',
   },
+  DRAFT: {
+    label: 'Draft',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    description: 'Draft pool pending activation.',
+  },
 };
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {

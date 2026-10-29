@@ -96,8 +96,10 @@ export function PoolRequestForm({
     if (storeCity && citiesList.length > 0 && !selectedCityOption) {
       const match = citiesList.find((c) => c.slug.toLowerCase() === storeCity.toLowerCase());
       if (match) {
-        setSelectedState(match.state);
-        setSelectedCityOption(match.name);
+        queueMicrotask(() => {
+          setSelectedState(match.state);
+          setSelectedCityOption(match.name);
+        });
       }
     }
   }, [storeCity, citiesList, selectedCityOption]);

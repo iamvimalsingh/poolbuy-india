@@ -15,7 +15,6 @@ import {
   MapPin,
   Loader2,
   Search,
-  Filter,
   Check,
   Ban,
   Clock,
