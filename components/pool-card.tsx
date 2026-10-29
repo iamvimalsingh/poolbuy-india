@@ -7,6 +7,8 @@ import { PublicPool } from '@/types';
 import { getCountdownParts, formatINR } from '@/lib/format';
 import { PoolImage } from './pool-image';
 
+export { PoolCardSkeleton, PoolCardSkeletonGrid } from './pool-card-skeleton';
+
 interface PoolCardProps {
   pool: PublicPool;
   onJoinClick?: (pool: PublicPool) => void;
